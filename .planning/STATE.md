@@ -10,30 +10,30 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 2 of 4 (Core Backend) - In Progress
-Plan: 3 of 5 (Pool API Client)
+Plan: 4 of 5 (Rotation Logic)
 Status: In progress
-Last activity: 2026-02-06 — Completed 02-01-PLAN.md (retroactive documentation)
+Last activity: 2026-02-06 — Completed 02-04-PLAN.md
 
-Progress: [██████░░░░] 60% (6/10 plans complete)
+Progress: [███████░░░] 70% (7/10 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 3 min
-- Total execution time: 0.49 hours
+- Total execution time: 0.52 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 - Foundation | 3 | 9 min | 3 min |
-| 2 - Core Backend | 3 | 20 min | 7 min |
+| 2 - Core Backend | 4 | 22 min | 6 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-01 (16 min), 02-03 (2 min), 02-02 (2 min), 01-03 (3 min), 01-02 (3 min)
+- Last 5 plans: 02-04 (2 min), 02-01 (16 min), 02-03 (2 min), 02-02 (2 min), 01-03 (3 min)
 - Trend: Consistent velocity
 
 *Updated after each plan completion*
@@ -86,6 +86,12 @@ Recent decisions affecting current work:
 - Graceful error handling pattern: Return False on errors, log but never raise
 - Async context manager pattern: Ensures proper client cleanup
 
+**From Plan 02-04:**
+- Weighted wait time formula: time_since / priority_multiplier ensures fair queue distribution
+- Never-served users get highest priority to bootstrap fair rotation
+- Adaptive interval formula: 60s / active_user_count (minimum 1s)
+- Rotation requires both time elapsed AND 1+ share found (prevents instant rotation)
+
 ### Pending Todos
 
 None yet.
@@ -96,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-06T09:51:17Z
-Stopped at: Completed 02-01-PLAN.md (Quota Calculation) - retroactive documentation
+Last session: 2026-02-06T09:41:24Z
+Stopped at: Completed 02-04-PLAN.md (Rotation Logic)
 Resume file: None
