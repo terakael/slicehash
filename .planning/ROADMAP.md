@@ -14,7 +14,7 @@ This roadmap delivers a POC mining pool backend in 4 phases: Foundation establis
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Database schema and configuration layer
-- [ ] **Phase 2: Core Backend** - Webhook processing, quota, rotation, and priority system
+- [x] **Phase 2: Core Backend** - Webhook processing, quota, rotation, and priority system
 - [ ] **Phase 3: User API** - REST endpoints for user data and share history
 - [ ] **Phase 4: Frontend** - Dark-mode dashboard and settings interface
 
@@ -50,11 +50,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Quota calculation (shares remaining, active users, billable classification)
-- [ ] 02-02-PLAN.md — Priority system (traffic levels, consumption multipliers)
-- [ ] 02-03-PLAN.md — Pool API client (HTTP client for coinbase updates)
-- [ ] 02-04-PLAN.md — Rotation logic (fairness algorithm, adaptive timing)
-- [ ] 02-05-PLAN.md — Webhook integration (Quart app, background processor, full integration)
+- [x] 02-01-PLAN.md — Quota calculation (shares remaining, active users, billable classification)
+- [x] 02-02-PLAN.md — Priority system (traffic levels, consumption multipliers)
+- [x] 02-03-PLAN.md — Pool API client (HTTP client for coinbase updates)
+- [x] 02-04-PLAN.md — Rotation logic (fairness algorithm, adaptive timing)
+- [x] 02-05-PLAN.md — Webhook integration (Quart app, background processor, full integration)
 
 ### Phase 3: User API
 **Goal**: REST API exposes user data, share history, and traffic status
@@ -94,6 +94,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-02-06 |
-| 2. Core Backend | 0/TBD | Not started | - |
+| 2. Core Backend | 5/5 | Complete | 2026-02-06 |
 | 3. User API | 0/TBD | Not started | - |
 | 4. Frontend | 0/TBD | Not started | - |
