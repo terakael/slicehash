@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     address TEXT NOT NULL UNIQUE,
     tag TEXT,
     priority_multiplier INTEGER DEFAULT 1 CHECK(priority_multiplier >= 1 AND priority_multiplier <= 5),
+    last_served_at TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 )
 """
