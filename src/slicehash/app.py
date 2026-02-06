@@ -381,6 +381,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             logger.error(f"Failed to fetch traffic status: {e}")
             return jsonify({"error": "Internal error"}), 500
 
+    @app.get("/")
+    async def dashboard():
+        """Render dashboard page showing share activity and stats.
+
+        Returns:
+            HTML template for main dashboard
+        """
+        return await render_template("dashboard.html")
+
     @app.get("/settings")
     async def settings_page():
         """Render settings page for user configuration.

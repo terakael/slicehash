@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SliceHash{% endblock %}
+
+{% block stats %}
+<div class="stat-badge" id="shares-remaining-badge">
+    <span class="stat-label">Shares Remaining</span>
+    <span class="stat-value" id="shares-remaining">--</span>
+</div>
+<div class="stat-badge" id="network-diff-badge">
+    <span class="stat-label">Network Difficulty</span>
+    <span class="stat-value" id="network-difficulty">Calculating...</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="share-list-container">
+        <table class="share-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Difficulty (log10)</th>
+                    <th>Billable</th>
+                    <th>Consumed</th>
+                </tr>
+            </thead>
+            <tbody id="share-list">
+                <!-- Shares will be populated by JavaScript -->
+            </tbody>
+        </table>
+        
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <p>No shares yet</p>
+        </div>
+        
+        <div id="loading-indicator" class="loading-indicator" style="display: none;">
+            <p>Loading more shares...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+{% endblock %}
