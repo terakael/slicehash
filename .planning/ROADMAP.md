@@ -29,10 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Database supports async operations via aiosqlite
   3. Configuration file defines billable threshold, pool URL, and database path
   4. Manual transaction insertion works for testing quota calculations
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] (Plans defined during plan-phase)
+- [ ] 01-01-PLAN.md — Project setup with uv, configuration module with Pydantic validation
+- [ ] 01-02-PLAN.md — Database schema (users, transactions, share_events) and async manager
+- [ ] 01-03-PLAN.md — CLI tools for manual transaction insertion and database inspection
 
 ### Phase 2: Core Backend
 **Goal**: Backend receives shares, tracks quotas, and rotates addresses fairly
@@ -87,7 +89,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/3 | Ready to execute | - |
 | 2. Core Backend | 0/TBD | Not started | - |
 | 3. User API | 0/TBD | Not started | - |
 | 4. Frontend | 0/TBD | Not started | - |
