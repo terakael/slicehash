@@ -12,28 +12,28 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 Phase: 1 of 4 (Foundation)
 Plan: 2 of 3 complete
 Status: In progress
-Last activity: 2026-02-06 — Completed 01-02-PLAN.md (Database Schema and Async Connection)
+Last activity: 2026-02-06 — Completed 01-01-PLAN.md (Project Foundation)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [██████░░░░] 67% (2/3 plans complete in phase 1)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 1
+- Total plans completed: 2
 - Average duration: 3 min
-- Total execution time: 0.05 hours
+- Total execution time: 0.09 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 - Foundation | 1 | 3 min | 3 min |
+| 1 - Foundation | 2 | 6 min | 3 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-02 (3 min)
-- Trend: Just started
+- Last 5 plans: 01-02 (3 min), 01-01 (3 min)
+- Trend: Consistent velocity
 
 *Updated after each plan completion*
 
@@ -52,6 +52,12 @@ Recent decisions affecting current work:
 - Minimal frontend: Speed and functionality over polish
 - Config-based threshold: Billable difficulty threshold in config file
 
+**From Plan 01-01:**
+- uv package manager: Use uv instead of pip (user preference)
+- Pydantic v2: Modern type validation with Field() validators
+- YAML configuration: Config file approach instead of environment variables
+- Config.yaml gitignored: Template committed, actual config deployment-specific
+
 **From Plan 01-02:**
 - Schema constants pattern: Store SQL statements as module constants for easy reference
 - Foreign key enforcement: Enable by default in DatabaseManager
@@ -69,5 +75,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-06T08:49:05Z
-Stopped at: Completed 01-02-PLAN.md (Database Schema and Async Connection)
+Stopped at: Completed 01-01-PLAN.md (Project Foundation) and 01-02-PLAN.md (Database Schema)
 Resume file: None
