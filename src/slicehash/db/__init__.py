@@ -1,5 +1,8 @@
 """Database layer for SliceHash mining backend."""
 
-# Exports will be added as modules are implemented
+from .manager import DatabaseManager, init_database
 
-__all__ = []
+__all__ = [
+    "DatabaseManager",
+    "init_database",
+]
