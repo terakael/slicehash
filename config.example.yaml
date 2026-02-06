@@ -1,0 +1,20 @@
+# SliceHash Mining Backend Configuration
+# Copy this file to config.yaml and customize for your deployment
+
+# Difficulty threshold for classifying shares as billable
+# Shares with difficulty >= this value count toward quota
+# Default: 1000000.0 (1M difficulty)
+# Adjust based on your mining pool's difficulty requirements
+billable_difficulty_threshold: 1000000.0
+
+# URL of the SV2 pool for coinbase address updates
+# This endpoint receives rotation updates when the active miner changes
+# Example: "http://localhost:8080" for local testing
+# Example: "https://pool.example.com" for production
+pool_url: "http://localhost:8080"
+
+# Path to SQLite database file
+# Stores user quotas, shares, and rotation state
+# Will be created automatically if it doesn't exist
+# Default: "slicehash.db" (in working directory)
+database_path: "slicehash.db"
