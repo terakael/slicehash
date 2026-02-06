@@ -1,0 +1,19 @@
+[project]
+name = "slicehash"
+version = "0.1.0"
+description = "SliceHash Mining Backend - Fair rotation and quota management for Stratum V2"
+readme = "README.md"
+authors = [
+    { name = "Knezevic, Daniel | Dan | ECFD", email = "daniel.knezevic@rakuten.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "quart>=0.19.0",
+    "aiosqlite>=0.19.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
