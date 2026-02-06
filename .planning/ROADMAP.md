@@ -47,10 +47,14 @@ Plans:
   4. Traffic level (green/orange/red) determines share consumption multiplier
   5. Current user rotates to least recently served user when turn completes
   6. Pool receives updated coinbase address after each rotation
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] (Plans defined during plan-phase)
+- [ ] 02-01-PLAN.md — Quota calculation (shares remaining, active users, billable classification)
+- [ ] 02-02-PLAN.md — Priority system (traffic levels, consumption multipliers)
+- [ ] 02-03-PLAN.md — Pool API client (HTTP client for coinbase updates)
+- [ ] 02-04-PLAN.md — Rotation logic (fairness algorithm, adaptive timing)
+- [ ] 02-05-PLAN.md — Webhook integration (Quart app, background processor, full integration)
 
 ### Phase 3: User API
 **Goal**: REST API exposes user data, share history, and traffic status
