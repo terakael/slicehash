@@ -9,32 +9,32 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 2 of 4 (Core Backend) - In Progress
-Plan: 4 of 5 (Rotation Logic)
-Status: In progress
-Last activity: 2026-02-06 — Completed 02-04-PLAN.md
+Phase: 2 of 4 (Core Backend) - Phase Complete
+Plan: 5 of 5 (Webhook & Processing Engine)
+Status: Phase complete
+Last activity: 2026-02-06 — Completed 02-05-PLAN.md
 
-Progress: [███████░░░] 70% (7/10 plans complete)
+Progress: [████████░░] 80% (8/10 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 3 min
-- Total execution time: 0.52 hours
+- Total execution time: 0.58 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 - Foundation | 3 | 9 min | 3 min |
-| 2 - Core Backend | 4 | 22 min | 6 min |
+| 2 - Core Backend | 5 | 27 min | 5 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-04 (2 min), 02-01 (16 min), 02-03 (2 min), 02-02 (2 min), 01-03 (3 min)
-- Trend: Consistent velocity
+- Last 5 plans: 02-05 (5 min), 02-04 (2 min), 02-01 (16 min), 02-03 (2 min), 02-02 (2 min)
+- Trend: Consistent velocity with Phase 2 complete
 
 *Updated after each plan completion*
 
@@ -92,6 +92,12 @@ Recent decisions affecting current work:
 - Adaptive interval formula: 60s / active_user_count (minimum 1s)
 - Rotation requires both time elapsed AND 1+ share found (prevents instant rotation)
 
+**From Plan 02-05:**
+- In-memory unbounded Queue: Simple POC approach, prevents webhook blocking (production would use Redis/RabbitMQ)
+- Non-blocking put_nowait: Faster than await, acceptable for POC (could lose shares on crash)
+- shares_consumed=1 for non-billable: Satisfies schema constraint, business logic only checks billable=1 flag
+- Global queue reference: Fast webhook access without dependency injection complexity
+
 ### Pending Todos
 
 None yet.
@@ -102,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-06T09:41:24Z
-Stopped at: Completed 02-04-PLAN.md (Rotation Logic)
+Last session: 2026-02-06T09:48:36Z
+Stopped at: Completed 02-05-PLAN.md (Webhook & Processing Engine) - Phase 2 Complete
 Resume file: None
