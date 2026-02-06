@@ -161,6 +161,220 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             "queue_size": share_queue.qsize() if share_queue else 0
         })
 
+    @app.get("/api/users/me")
+    async def get_current_user():
+        """Return current user's data including quota and traffic level.
+
+        POC: Defaults to user_id=1 (no auth system yet).
+
+        Returns:
+            200: User data JSON
+            404: User not found
+            500: Internal error
+        """
+        try:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                # Fetch user record
+                cursor = await db.execute(
+                    "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = ?",
+                    (1,)
+                )
+                row = await cursor.fetchone()
+
+                if not row:
+                    return jsonify({"error": "User not found"}), 404
+
+                user_id, address, tag, priority = row
+
+                # Calculate derived fields using existing business logic
+                shares_remaining = await calculate_shares_remaining(db, user_id)
+                active_users = await get_active_users(db)
+                traffic_level = calculate_traffic_level(len(active_users))
+
+                return jsonify({
+                    "user_id": user_id,
+                    "address": address,
+                    "tag": tag,
+                    "priority_multiplier": priority,
+                    "shares_remaining": shares_remaining,
+                    "traffic_level": traffic_level.value
+                }), 200
+
+        except Exception as e:
+            logger.error(f"Failed to fetch user: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.patch("/api/users/me")
+    async def update_user():
+        """Update current user's address and/or tag.
+
+        POC: Updates user_id=1 (no auth system yet).
+
+        Request body:
+            {
+                "address": "bc1...",  # optional, validated
+                "tag": "my-label"     # optional, max 50 chars
+            }
+
+        Returns:
+            200: Updated user data
+            400: Validation error or no fields to update
+            500: Internal error
+        """
+        try:
+            data = await request.get_json()
+
+            # Validate request with Pydantic
+            update_req = UserUpdateRequest(**data)
+
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                # Build dynamic UPDATE query (only include non-None fields)
+                updates = []
+                params = []
+
+                if update_req.address is not None:
+                    updates.append("address = ?")
+                    params.append(update_req.address)
+
+                if update_req.tag is not None:
+                    updates.append("tag = ?")
+                    params.append(update_req.tag)
+
+                if not updates:
+                    return jsonify({"error": "No fields to update"}), 400
+
+                # Execute update
+                params.append(1)  # user_id
+                await db.execute(
+                    f"UPDATE users SET {', '.join(updates)} WHERE user_id = ?",
+                    tuple(params)
+                )
+                await db.commit()
+
+                # Return updated user data (reuse GET logic)
+                cursor = await db.execute(
+                    "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = ?",
+                    (1,)
+                )
+                row = await cursor.fetchone()
+                if not row:
+                    return jsonify({"error": "User not found"}), 404
+
+                user_id, address, tag, priority = row
+                shares_remaining = await calculate_shares_remaining(db, user_id)
+                active_users = await get_active_users(db)
+                traffic_level = calculate_traffic_level(len(active_users))
+
+                return jsonify({
+                    "user_id": user_id,
+                    "address": address,
+                    "tag": tag,
+                    "priority_multiplier": priority,
+                    "shares_remaining": shares_remaining,
+                    "traffic_level": traffic_level.value
+                }), 200
+
+        except ValidationError as e:
+            # Pydantic validation failed
+            return jsonify({
+                "error": "Validation failed",
+                "details": e.errors()
+            }), 400
+        except Exception as e:
+            logger.error(f"Failed to update user: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/users/me/shares")
+    async def get_share_history():
+        """Return paginated share history for current user.
+
+        POC: Returns history for user_id=1 (no auth system yet).
+
+        Query parameters:
+            limit: Results per page (default 50, max 100)
+            offset: Number of results to skip (default 0)
+
+        Returns:
+            200: Paginated share history
+            400: Invalid query parameters
+            500: Internal error
+        """
+        try:
+            # Parse and validate query params
+            limit = int(request.args.get('limit', 50))
+            offset = int(request.args.get('offset', 0))
+
+            # Clamp to reasonable values
+            limit = min(max(limit, 1), 100)
+            offset = max(offset, 0)
+
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                # Get total count
+                cursor = await db.execute(
+                    "SELECT COUNT(*) FROM share_events WHERE user_id = ?",
+                    (1,)
+                )
+                total = (await cursor.fetchone())[0]
+
+                # Get paginated results (newest first)
+                cursor = await db.execute(
+                    """
+                    SELECT submitted_at, share_difficulty, billable, shares_consumed
+                    FROM share_events
+                    WHERE user_id = ?
+                    ORDER BY submitted_at DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    (1, limit, offset)
+                )
+                rows = await cursor.fetchall()
+
+                shares = [
+                    {
+                        "submitted_at": row[0],
+                        "share_difficulty": row[1],
+                        "billable": bool(row[2]),
+                        "shares_consumed": row[3]
+                    }
+                    for row in rows
+                ]
+
+                return jsonify({
+                    "shares": shares,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": offset + limit < total
+                }), 200
+
+        except ValueError:
+            return jsonify({"error": "Invalid limit or offset parameter"}), 400
+        except Exception as e:
+            logger.error(f"Failed to fetch share history: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/traffic/status")
+    async def get_traffic_status():
+        """Return current traffic level and active user count.
+
+        Returns:
+            200: Traffic status data
+            500: Internal error
+        """
+        try:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                active_users = await get_active_users(db)
+                traffic_level = calculate_traffic_level(len(active_users))
+
+                return jsonify({
+                    "traffic_level": traffic_level.value,
+                    "active_user_count": len(active_users)
+                }), 200
+
+        except Exception as e:
+            logger.error(f"Failed to fetch traffic status: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
     return app
 
 
