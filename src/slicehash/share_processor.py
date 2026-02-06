@@ -106,7 +106,10 @@ class ShareProcessor:
             )
 
             # Step 2: Calculate shares consumed (if billable)
-            shares_consumed = 0
+            # Note: shares_consumed is always >= 1 due to schema constraint
+            # For non-billable shares, we set it to 1 but it doesn't affect quota
+            # (only billable=1 shares count toward consumption)
+            shares_consumed = 1  # Default for non-billable
             if billable:
                 # Get traffic level
                 active_users = await get_active_users(db)
