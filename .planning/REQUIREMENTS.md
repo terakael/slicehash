@@ -137,13 +137,58 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (Populated by roadmapper) | | |
+| DB-01 | Phase 1 | Pending |
+| DB-02 | Phase 1 | Pending |
+| DB-03 | Phase 1 | Pending |
+| DB-04 | Phase 1 | Pending |
+| DB-05 | Phase 1 | Pending |
+| CFG-01 | Phase 1 | Pending |
+| CFG-02 | Phase 1 | Pending |
+| CFG-03 | Phase 1 | Pending |
+| HOOK-01 | Phase 2 | Pending |
+| HOOK-02 | Phase 2 | Pending |
+| HOOK-03 | Phase 2 | Pending |
+| HOOK-04 | Phase 2 | Pending |
+| QUOTA-01 | Phase 2 | Pending |
+| QUOTA-02 | Phase 2 | Pending |
+| QUOTA-03 | Phase 2 | Pending |
+| QUOTA-04 | Phase 2 | Pending |
+| QUOTA-05 | Phase 2 | Pending |
+| PRIO-01 | Phase 2 | Pending |
+| PRIO-02 | Phase 2 | Pending |
+| PRIO-03 | Phase 2 | Pending |
+| PRIO-04 | Phase 2 | Pending |
+| ROT-01 | Phase 2 | Pending |
+| ROT-02 | Phase 2 | Pending |
+| ROT-03 | Phase 2 | Pending |
+| ROT-04 | Phase 2 | Pending |
+| ROT-05 | Phase 2 | Pending |
+| ROT-06 | Phase 2 | Pending |
+| POOL-01 | Phase 2 | Pending |
+| POOL-02 | Phase 2 | Pending |
+| POOL-03 | Phase 2 | Pending |
+| API-01 | Phase 3 | Pending |
+| API-02 | Phase 3 | Pending |
+| API-03 | Phase 3 | Pending |
+| API-04 | Phase 3 | Pending |
+| FE-01 | Phase 4 | Pending |
+| FE-02 | Phase 4 | Pending |
+| FE-03 | Phase 4 | Pending |
+| FE-04 | Phase 4 | Pending |
+| FE-05 | Phase 4 | Pending |
+| FE-06 | Phase 4 | Pending |
+| FE-07 | Phase 4 | Pending |
+| FE-08 | Phase 4 | Pending |
+| FE-09 | Phase 4 | Pending |
+| FE-10 | Phase 4 | Pending |
+| FE-11 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: (to be calculated)
-- Mapped to phases: (to be calculated)
-- Unmapped: (to be calculated)
+
+- v1 requirements: 45
+- Mapped to phases: 45
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after initial definition*
+*Last updated: 2026-02-06 after roadmap creation*
