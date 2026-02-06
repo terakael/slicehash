@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SliceHash{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <h1 class="app-title">SliceHash</h1>
+            <div class="stats-badges">
+                {% block header_stats %}{% endblock %}
+            </div>
+        </div>
+        <div class="header-right">
+            <a href="/settings" class="settings-icon" title="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 1v6m0 6v6m0-12l-4 2m8 0l-4-2m4 12l-4-2m-4 2l4-2"></path>
+                    <path d="M19.07 4.93l-3.54 3.54m0 7.06l3.54 3.54M4.93 4.93l3.54 3.54m0 7.06l-3.54 3.54"></path>
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>&copy; 2026 SliceHash. Fair mining rotation.</p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

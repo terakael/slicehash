@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - SliceHash{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <h2>Settings</h2>
+
+    <div id="success-message" class="message success-message" style="display: none;"></div>
+    <div id="error-message" class="message error-message" style="display: none;"></div>
+
+    <form id="settings-form">
+        <div class="form-group">
+            <label for="address">Bitcoin Address</label>
+            <input
+                type="text"
+                id="address"
+                name="address"
+                placeholder="bc1..."
+                autocomplete="off"
+            />
+            <small class="field-help">Bech32 (bc1...) or legacy (1... or 3...) format</small>
+        </div>
+
+        <div class="form-group">
+            <label for="tag">Custom Tag</label>
+            <input
+                type="text"
+                id="tag"
+                name="tag"
+                placeholder="my-miner"
+                maxlength="50"
+                autocomplete="off"
+            />
+            <small class="field-help">Optional label for your miner (max 50 characters)</small>
+        </div>
+
+        <button type="submit" id="save-button" class="btn-primary">
+            Save Changes
+        </button>
+    </form>
+
+    <div class="back-link-container">
+        <a href="/" class="back-link">← Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/settings.js"></script>
+{% endblock %}

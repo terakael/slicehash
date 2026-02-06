@@ -12,7 +12,7 @@ import re
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, ValidationError
-from quart import Quart, request, jsonify
+from quart import Quart, request, jsonify, render_template
 
 from .config import load_config, Config
 from .db.manager import DatabaseManager
@@ -380,6 +380,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         except Exception as e:
             logger.error(f"Failed to fetch traffic status: {e}")
             return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/settings")
+    async def settings_page():
+        """Render settings page for user configuration.
+
+        Returns:
+            HTML template for settings page
+        """
+        return await render_template("settings.html")
 
     return app
 
