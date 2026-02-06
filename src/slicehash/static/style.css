@@ -1,0 +1,202 @@
+/* SliceHash - Dark Mode Styling */
+
+/* Base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #0d1117;
+    color: #c9d1d9;
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    background-color: #161b22;
+    border-bottom: 1px solid #30363d;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.app-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #58a6ff;
+    text-decoration: none;
+}
+
+.stats-badges {
+    display: flex;
+    gap: 16px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.settings-icon {
+    display: flex;
+    align-items: center;
+    color: #8b949e;
+    cursor: pointer;
+    transition: color 0.2s;
+    text-decoration: none;
+}
+
+.settings-icon:hover {
+    color: #c9d1d9;
+}
+
+/* Main content */
+main {
+    flex: 1;
+    padding: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Footer */
+footer {
+    padding: 20px 40px;
+    text-align: center;
+    color: #8b949e;
+    font-size: 14px;
+    border-top: 1px solid #30363d;
+}
+
+/* Settings page */
+.settings-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.settings-container h2 {
+    font-size: 28px;
+    margin-bottom: 24px;
+    color: #c9d1d9;
+}
+
+#settings-form {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 24px;
+}
+
+/* Form elements */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    color: #8b949e;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.form-group input {
+    width: 100%;
+    background-color: #0d1117;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    padding: 12px;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #58a6ff;
+}
+
+.form-group input.error {
+    border-color: #f85149;
+}
+
+.field-help {
+    display: block;
+    margin-top: 6px;
+    color: #8b949e;
+    font-size: 12px;
+}
+
+/* Buttons */
+.btn-primary {
+    width: 100%;
+    background-color: #238636;
+    color: #ffffff;
+    border: none;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #2ea043;
+}
+
+.btn-primary:disabled {
+    background-color: #21262d;
+    color: #484f58;
+    cursor: not-allowed;
+}
+
+/* Messages */
+.message {
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+.success-message {
+    background-color: #0d1117;
+    border: 1px solid #238636;
+    color: #238636;
+}
+
+.error-message {
+    background-color: #0d1117;
+    border: 1px solid #f85149;
+    color: #f85149;
+}
+
+/* Back link */
+.back-link-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.back-link {
+    color: #58a6ff;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: #79c0ff;
+}
