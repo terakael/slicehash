@@ -65,10 +65,10 @@ Plans:
   2. PATCH /api/users/me updates address and tag with validation
   3. GET /api/users/me/shares returns paginated share history
   4. GET /api/traffic/status returns current traffic level and active user count
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] (Plans defined during plan-phase)
+- [ ] 03-01-PLAN.md — REST API endpoints with Pydantic validation and pagination
 
 ### Phase 4: Frontend
 **Goal**: Users can view mining activity and configure payout settings
@@ -95,5 +95,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-02-06 |
 | 2. Core Backend | 5/5 | Complete | 2026-02-06 |
-| 3. User API | 0/TBD | Not started | - |
+| 3. User API | 0/1 | Not started | - |
 | 4. Frontend | 0/TBD | Not started | - |
