@@ -13,7 +13,7 @@ This roadmap delivers a POC mining pool backend in 4 phases: Foundation establis
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Database schema and configuration layer
+- [x] **Phase 1: Foundation** - Database schema and configuration layer
 - [ ] **Phase 2: Core Backend** - Webhook processing, quota, rotation, and priority system
 - [ ] **Phase 3: User API** - REST endpoints for user data and share history
 - [ ] **Phase 4: Frontend** - Dark-mode dashboard and settings interface
@@ -32,9 +32,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Project setup with uv, configuration module with Pydantic validation
-- [ ] 01-02-PLAN.md — Database schema (users, transactions, share_events) and async manager
-- [ ] 01-03-PLAN.md — CLI tools for manual transaction insertion and database inspection
+- [x] 01-01-PLAN.md — Project setup with uv, configuration module with Pydantic validation
+- [x] 01-02-PLAN.md — Database schema (users, transactions, share_events) and async manager
+- [x] 01-03-PLAN.md — CLI tools for manual transaction insertion and database inspection
 
 ### Phase 2: Core Backend
 **Goal**: Backend receives shares, tracks quotas, and rotates addresses fairly
@@ -89,7 +89,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Ready to execute | - |
+| 1. Foundation | 3/3 | Complete | 2026-02-06 |
 | 2. Core Backend | 0/TBD | Not started | - |
 | 3. User API | 0/TBD | Not started | - |
 | 4. Frontend | 0/TBD | Not started | - |

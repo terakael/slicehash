@@ -137,14 +137,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DB-01 | Phase 1 | Pending |
-| DB-02 | Phase 1 | Pending |
-| DB-03 | Phase 1 | Pending |
-| DB-04 | Phase 1 | Pending |
-| DB-05 | Phase 1 | Pending |
-| CFG-01 | Phase 1 | Pending |
-| CFG-02 | Phase 1 | Pending |
-| CFG-03 | Phase 1 | Pending |
+| DB-01 | Phase 1 | Complete |
+| DB-02 | Phase 1 | Complete |
+| DB-03 | Phase 1 | Complete |
+| DB-04 | Phase 1 | Complete |
+| DB-05 | Phase 1 | Complete |
+| CFG-01 | Phase 1 | Complete |
+| CFG-02 | Phase 1 | Complete |
+| CFG-03 | Phase 1 | Complete |
 | HOOK-01 | Phase 2 | Pending |
 | HOOK-02 | Phase 2 | Pending |
 | HOOK-03 | Phase 2 | Pending |
