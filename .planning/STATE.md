@@ -12,29 +12,29 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 Phase: 2 of 4 (Core Backend) - In Progress
 Plan: 3 of 5 (Pool API Client)
 Status: In progress
-Last activity: 2026-02-06 — Completed 02-03-PLAN.md
+Last activity: 2026-02-06 — Completed 02-01-PLAN.md (retroactive documentation)
 
-Progress: [█████░░░░░] 50% (5/10 plans complete)
+Progress: [██████░░░░] 60% (6/10 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 5
-- Average duration: 2 min
-- Total execution time: 0.22 hours
+- Total plans completed: 6
+- Average duration: 3 min
+- Total execution time: 0.49 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 - Foundation | 3 | 9 min | 3 min |
-| 2 - Core Backend | 2 | 4 min | 2 min |
+| 2 - Core Backend | 3 | 20 min | 7 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-03 (2 min), 02-02 (2 min), 01-03 (3 min), 01-02 (3 min), 01-01 (3 min)
-- Trend: Excellent velocity
+- Last 5 plans: 02-01 (16 min), 02-03 (2 min), 02-02 (2 min), 01-03 (3 min), 01-02 (3 min)
+- Trend: Consistent velocity
 
 *Updated after each plan completion*
 
@@ -71,6 +71,11 @@ Recent decisions affecting current work:
 - Separate inspect tool: Single responsibility principle for add vs view operations
 - Human-readable output: Format timestamps and tables for developer experience
 
+**From Plan 02-01:**
+- SQL aggregation with COALESCE: Handle users with no transactions/shares gracefully
+- Active user filtering: Calculate balance for all users, filter positive (POC approach)
+- Billable-only consumption: Only shares with billable=1 count toward quota
+
 **From Plan 02-02:**
 - Traffic thresholds: <10 (green), 10-25 (orange), >25 (red) active users
 - Fairness mechanism: No multiplier during low traffic, priority multiplier during congestion
@@ -91,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-06T09:36:44Z
-Stopped at: Completed 02-03-PLAN.md (Pool API Client)
+Last session: 2026-02-06T09:51:17Z
+Stopped at: Completed 02-01-PLAN.md (Quota Calculation) - retroactive documentation
 Resume file: None
