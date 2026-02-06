@@ -81,10 +81,11 @@ Plans:
   4. Settings page allows updating Bitcoin address with format validation
   5. Settings page allows updating custom tag (max 50 chars)
   6. Dark mode styling loads fast with minimal CSS
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] (Plans defined during plan-phase)
+- [ ] 04-01-PLAN.md — Dashboard page with share list, infinite scroll, and header stats
+- [ ] 04-02-PLAN.md — Settings page with Bitcoin address and tag inputs
 
 ## Progress
 
@@ -96,4 +97,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation | 3/3 | Complete | 2026-02-06 |
 | 2. Core Backend | 5/5 | Complete | 2026-02-06 |
 | 3. User API | 1/1 | Complete | 2026-02-06 |
-| 4. Frontend | 0/TBD | Not started | - |
+| 4. Frontend | 0/2 | Planned | - |
