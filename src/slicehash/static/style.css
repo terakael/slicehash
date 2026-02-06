@@ -50,7 +50,7 @@ header {
     align-items: center;
 }
 
-.settings-icon {
+.settings-link {
     display: flex;
     align-items: center;
     color: #8b949e;
@@ -59,8 +59,12 @@ header {
     text-decoration: none;
 }
 
-.settings-icon:hover {
+.settings-link:hover {
     color: #c9d1d9;
+}
+
+.settings-icon {
+    display: block;
 }
 
 /* Main content */
