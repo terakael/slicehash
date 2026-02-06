@@ -54,10 +54,10 @@ Requirements for POC release. Each maps to roadmap phases.
 
 ### User API Endpoints
 
-- [ ] **API-01**: GET /api/users/me returns user data (address, tag, priority, shares_remaining, traffic_level)
-- [ ] **API-02**: PATCH /api/users/me updates address and/or tag with validation
-- [ ] **API-03**: GET /api/users/me/shares returns paginated share history
-- [ ] **API-04**: GET /api/traffic/status returns current traffic level and active user count
+- [x] **API-01**: GET /api/users/me returns user data (address, tag, priority, shares_remaining, traffic_level)
+- [x] **API-02**: PATCH /api/users/me updates address and/or tag with validation
+- [x] **API-03**: GET /api/users/me/shares returns paginated share history
+- [x] **API-04**: GET /api/traffic/status returns current traffic level and active user count
 
 ### Frontend - Dashboard
 
@@ -167,10 +167,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POOL-01 | Phase 2 | Complete |
 | POOL-02 | Phase 2 | Complete |
 | POOL-03 | Phase 2 | Complete |
-| API-01 | Phase 3 | Pending |
-| API-02 | Phase 3 | Pending |
-| API-03 | Phase 3 | Pending |
-| API-04 | Phase 3 | Pending |
+| API-01 | Phase 3 | Complete |
+| API-02 | Phase 3 | Complete |
+| API-03 | Phase 3 | Complete |
+| API-04 | Phase 3 | Complete |
 | FE-01 | Phase 4 | Pending |
 | FE-02 | Phase 4 | Pending |
 | FE-03 | Phase 4 | Pending |
