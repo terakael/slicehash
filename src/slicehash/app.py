@@ -278,7 +278,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Pydantic validation failed
             return jsonify({
                 "error": "Validation failed",
-                "details": e.errors()
+                "details": [{"field": err["loc"][0] if err["loc"] else "unknown", "message": err["msg"]} for err in e.errors()]
+            }), 400
+        except ValueError as e:
+            # Field validator raised ValueError
+            return jsonify({
+                "error": "Validation failed",
+                "details": str(e)
             }), 400
         except Exception as e:
             logger.error(f"Failed to update user: {e}")
