@@ -171,17 +171,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-02 | Phase 3 | Complete |
 | API-03 | Phase 3 | Complete |
 | API-04 | Phase 3 | Complete |
-| FE-01 | Phase 4 | Pending |
-| FE-02 | Phase 4 | Pending |
-| FE-03 | Phase 4 | Pending |
-| FE-04 | Phase 4 | Pending |
-| FE-05 | Phase 4 | Pending |
-| FE-06 | Phase 4 | Pending |
-| FE-07 | Phase 4 | Pending |
-| FE-08 | Phase 4 | Pending |
-| FE-09 | Phase 4 | Pending |
-| FE-10 | Phase 4 | Pending |
-| FE-11 | Phase 4 | Pending |
+| FE-01 | Phase 4 | Complete |
+| FE-02 | Phase 4 | Complete |
+| FE-03 | Phase 4 | Complete |
+| FE-04 | Phase 4 | Complete |
+| FE-05 | Phase 4 | Complete |
+| FE-06 | Phase 4 | Complete |
+| FE-07 | Phase 4 | Complete |
+| FE-08 | Phase 4 | Complete |
+| FE-09 | Phase 4 | Complete |
+| FE-10 | Phase 4 | Complete |
+| FE-11 | Phase 4 | Complete |
 
 **Coverage:**
 

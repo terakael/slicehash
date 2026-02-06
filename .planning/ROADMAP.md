@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - Database schema and configuration layer
 - [x] **Phase 2: Core Backend** - Webhook processing, quota, rotation, and priority system
 - [x] **Phase 3: User API** - REST endpoints for user data and share history
-- [ ] **Phase 4: Frontend** - Dark-mode dashboard and settings interface
+- [x] **Phase 4: Frontend** - Dark-mode dashboard and settings interface
 
 ## Phase Details
 
@@ -84,8 +84,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Dashboard page with share list, infinite scroll, and header stats
-- [ ] 04-02-PLAN.md — Settings page with Bitcoin address and tag inputs
+- [x] 04-01-PLAN.md — Dashboard page with share list, infinite scroll, and header stats
+- [x] 04-02-PLAN.md — Settings page with Bitcoin address and tag inputs
 
 ## Progress
 
@@ -97,4 +97,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation | 3/3 | Complete | 2026-02-06 |
 | 2. Core Backend | 5/5 | Complete | 2026-02-06 |
 | 3. User API | 1/1 | Complete | 2026-02-06 |
-| 4. Frontend | 0/2 | Planned | - |
+| 4. Frontend | 2/2 | Complete | 2026-02-06 |
