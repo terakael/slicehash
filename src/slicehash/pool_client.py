@@ -36,7 +36,7 @@ class PoolClient:
             pool_url: Base URL of the pool (e.g., "http://pool.example.com")
             timeout: Request timeout in seconds (default: 10.0)
         """
-        self.pool_url = pool_url.rstrip('/')
+        self.pool_url = pool_url.rstrip("/")
         self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
 
@@ -51,12 +51,7 @@ class PoolClient:
             await self._client.aclose()
             self._client = None
 
-    async def update_coinbase(
-        self,
-        address: str,
-        user_id: int,
-        tag: str
-    ) -> bool:
+    async def update_coinbase(self, address: str, user_id: int, tag: str) -> bool:
         """Update coinbase address on the pool.
 
         Sends POST request to pool's /api/assign_user endpoint with the new
@@ -78,11 +73,11 @@ class PoolClient:
             logger.error("PoolClient not initialized. Use async context manager.")
             return False
 
-        endpoint = f"{self.pool_url}/api/assign_user"
+        endpoint = f"{self.pool_url}/api/assign-user"
         payload = {
             "user_id": user_id,
             "coinbase_address": address,
-            "coinbase_prefix_tag": tag
+            "coinbase_prefix_tag": tag,
         }
 
         try:
@@ -95,8 +90,7 @@ class PoolClient:
             response.raise_for_status()
 
             logger.info(
-                f"Successfully updated coinbase address: "
-                f"status={response.status_code}"
+                f"Successfully updated coinbase address: status={response.status_code}"
             )
             return True
 
@@ -115,14 +109,11 @@ class PoolClient:
             return False
 
         except httpx.RequestError as e:
-            logger.error(
-                f"Network error connecting to pool API at {endpoint}: {e}"
-            )
+            logger.error(f"Network error connecting to pool API at {endpoint}: {e}")
             return False
 
         except Exception as e:
             logger.error(
-                f"Unexpected error updating coinbase address: {e}",
-                exc_info=True
+                f"Unexpected error updating coinbase address: {e}", exc_info=True
             )
             return False
