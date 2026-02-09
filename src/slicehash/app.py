@@ -114,6 +114,12 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     Returns:
         Configured Quart app instance
     """
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
     app = Quart(__name__)
 
     # Load configuration
