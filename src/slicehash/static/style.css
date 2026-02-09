@@ -370,6 +370,7 @@ footer {
     flex-direction: column;
     gap: 16px;
     margin-bottom: 20px;
+    transition: all 0.3s ease;
 }
 
 /* Share Card */
@@ -378,7 +379,7 @@ footer {
     border: 1px solid #30363d;
     border-radius: 12px;
     padding: 20px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s, margin-top 0.3s ease, opacity 0.3s ease;
 }
 
 .share-card:active {
@@ -641,13 +642,28 @@ footer {
 }
 
 /* SSE Animation */
-@keyframes fadeIn {
+@keyframes slideInFromTop {
     from {
         opacity: 0;
-        transform: translateY(-10px);
+        max-height: 0;
+        margin-top: -100px;
+        padding-top: 0;
+        padding-bottom: 0;
+        margin-bottom: -16px;
+        border-width: 0;
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        max-height: 500px;
+        margin-top: 0;
+        padding-top: 20px;
+        padding-bottom: 20px;
+        margin-bottom: 0;
+        border-width: 1px;
     }
+}
+
+.share-card-new {
+    animation: slideInFromTop 0.4s ease forwards;
+    overflow: hidden;
 }

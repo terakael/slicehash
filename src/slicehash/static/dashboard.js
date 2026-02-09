@@ -366,9 +366,14 @@ function handleNewShare(share) {
         ${badges ? `<div class="share-card-footer">${badges}</div>` : ''}
     `;
 
-    // Prepend to the beginning
-    card.style.animation = 'fadeIn 0.3s ease-in';
+    // Prepend to the beginning with animation
+    card.classList.add('share-card-new');
     container.insertBefore(card, container.firstChild);
+
+    // Remove animation class after animation completes
+    setTimeout(() => {
+        card.classList.remove('share-card-new');
+    }, 400);
 
     currentOffset++;
     loadUserData(); // Update shares remaining counter
