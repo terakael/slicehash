@@ -102,6 +102,7 @@ function renderShareCards(shares, append) {
     shares.forEach(share => {
         const card = document.createElement('div');
         card.className = `share-card${share.is_block ? ' block' : ''}`;
+        card.dataset.shareId = share.share_id;
 
         // Format timestamp
         const timestamp = formatTimestamp(share.submitted_at);
@@ -317,14 +318,11 @@ async function recoverMissedShares(sinceId) {
 function handleNewShare(share) {
     const container = document.getElementById('share-cards-container');
 
-    // Simple duplicate detection (compare timestamp + level)
+    // Duplicate detection using share_id
     const existingCards = container.querySelectorAll('.share-card');
     for (const card of existingCards) {
-        const cardTime = card.querySelector('.share-timestamp')?.textContent;
-        const cardLevel = card.querySelector('.share-level-badge')?.textContent?.trim();
-        const shareTime = formatTimestamp(share.submitted_at);
-
-        if (cardTime === shareTime && cardLevel === String(share.level)) {
+        const cardShareId = card.dataset.shareId;
+        if (cardShareId === String(share.share_id)) {
             return; // Duplicate, skip
         }
     }
@@ -334,6 +332,7 @@ function handleNewShare(share) {
     // Create new card element
     const card = document.createElement('div');
     card.className = `share-card${share.is_block ? ' block' : ''}`;
+    card.dataset.shareId = share.share_id;
 
     // Format timestamp
     const timestamp = formatTimestamp(share.submitted_at);
