@@ -72,6 +72,12 @@ CREATE INDEX IF NOT EXISTS idx_share_events_billable
 ON share_events(billable)
 """
 
+# Index for highscore queries (level-based ranking)
+HIGHSCORE_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_share_events_level_time
+ON share_events(level DESC, submitted_at DESC)
+"""
+
 # All table creation statements in order
 ALL_TABLES = [
     USERS_TABLE_SQL,
@@ -84,4 +90,5 @@ ALL_TABLES = [
 ALL_INDEXES = [
     USER_SHARE_HISTORY_INDEX_SQL,
     BILLABLE_SHARES_INDEX_SQL,
+    HIGHSCORE_INDEX_SQL,
 ]

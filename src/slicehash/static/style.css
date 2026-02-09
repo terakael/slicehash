@@ -89,15 +89,8 @@ footer {
     max-width: 600px;
     margin: 0 auto;
     padding: 20px;
+    padding-top: 60px;
     padding-bottom: 100px;
-}
-
-.settings-title {
-    font-size: 32px;
-    margin-bottom: 32px;
-    margin-top: 20px;
-    color: #c9d1d9;
-    font-weight: 700;
 }
 
 #settings-form {
@@ -528,21 +521,9 @@ footer {
     font-size: 16px;
 }
 
-/* Page Header */
-.page-header {
-    margin-top: 60px;
-    margin-bottom: 32px;
-}
-
-.page-title {
-    font-size: 36px;
-    font-weight: 900;
-    color: #c9d1d9;
-    text-align: center;
-}
-
 /* Purchase Action Button */
 .purchase-action {
+    margin-top: 60px;
     margin-bottom: 32px;
 }
 
@@ -612,4 +593,49 @@ footer {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-top: 4px;
+}
+
+/* Highscore Page Styles */
+
+/* Toggle/tab bar */
+.highscore-toggle {
+    display: flex;
+    gap: 12px;
+    margin-top: 60px;
+    margin-bottom: 32px;
+    background: #0d1117;
+    border-radius: 12px;
+    padding: 4px;
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: #8b949e;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+    color: #c9d1d9;
+}
+
+.toggle-btn.active {
+    background: #161b22;
+    color: #58a6ff;
+}
+
+/* Hide billable/priority badges on highscore cards */
+.highscore-card .share-badge {
+    display: none;
+}
+
+/* Adjust card footer since badges are hidden */
+.highscore-card .share-card-footer {
+    display: none;
 }

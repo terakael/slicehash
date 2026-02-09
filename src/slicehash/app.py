@@ -502,6 +502,99 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             logger.error(f"Failed to fetch purchase history: {e}")
             return jsonify({"error": "Internal error"}), 500
 
+    @app.get("/api/highscores/24h")
+    async def get_highscores_24h():
+        """Return top 5 shares from last 24 hours by level.
+
+        Returns:
+            200: List of top 5 shares with user info
+            500: Internal error
+        """
+        try:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                cursor = await db.execute(
+                    """
+                    SELECT
+                        se.submitted_at, se.level, se.is_block, se.share_hash,
+                        se.billable, se.shares_consumed, se.user_id,
+                        COALESCE(u.tag, u.address) as username
+                    FROM share_events se
+                    LEFT JOIN users u ON CAST(se.user_id AS INTEGER) = u.user_id
+                    WHERE datetime(se.submitted_at) >= datetime('now', '-24 hours')
+                    ORDER BY se.level DESC, se.submitted_at DESC
+                    LIMIT 5
+                    """
+                )
+                rows = await cursor.fetchall()
+
+                shares = [
+                    {
+                        "submitted_at": row[0],
+                        "level": row[1],
+                        "is_block": bool(row[2]),
+                        "share_hash": row[3],
+                        "billable": bool(row[4]),
+                        "shares_consumed": row[5],
+                        "user_id": row[6],
+                        "username": row[7]
+                    }
+                    for row in rows
+                ]
+
+                return jsonify({
+                    "shares": shares
+                }), 200
+
+        except Exception as e:
+            logger.error(f"Failed to fetch 24h highscores: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/highscores/all-time")
+    async def get_highscores_all_time():
+        """Return top 5 shares of all time by level.
+
+        Returns:
+            200: List of top 5 shares with user info
+            500: Internal error
+        """
+        try:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                cursor = await db.execute(
+                    """
+                    SELECT
+                        se.submitted_at, se.level, se.is_block, se.share_hash,
+                        se.billable, se.shares_consumed, se.user_id,
+                        COALESCE(u.tag, u.address) as username
+                    FROM share_events se
+                    LEFT JOIN users u ON CAST(se.user_id AS INTEGER) = u.user_id
+                    ORDER BY se.level DESC, se.submitted_at DESC
+                    LIMIT 5
+                    """
+                )
+                rows = await cursor.fetchall()
+
+                shares = [
+                    {
+                        "submitted_at": row[0],
+                        "level": row[1],
+                        "is_block": bool(row[2]),
+                        "share_hash": row[3],
+                        "billable": bool(row[4]),
+                        "shares_consumed": row[5],
+                        "user_id": row[6],
+                        "username": row[7]
+                    }
+                    for row in rows
+                ]
+
+                return jsonify({
+                    "shares": shares
+                }), 200
+
+        except Exception as e:
+            logger.error(f"Failed to fetch all-time highscores: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
     @app.get("/")
     async def dashboard():
         """Render dashboard page showing share activity and stats.
@@ -528,6 +621,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             HTML template for purchases page
         """
         return await render_template("purchases.html")
+
+    @app.get("/highscores")
+    async def highscores_page():
+        """Render highscores page showing top shares.
+
+        Returns:
+            HTML template for highscores page
+        """
+        return await render_template("highscores.html")
 
     return app
 

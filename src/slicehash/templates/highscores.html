@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Highscores - SliceHash{% endblock %}
+
+{% block content %}
+<div class="mobile-dashboard">
+    <!-- Network difficulty dot in top corner -->
+    <div class="network-difficulty-dot" id="network-difficulty-dot" title="Network active">
+        <span id="network-difficulty-value">0</span>
+    </div>
+
+    <!-- Toggle/tab bar for periods -->
+    <div class="highscore-toggle">
+        <button class="toggle-btn active" data-period="24h">Last 24h</button>
+        <button class="toggle-btn" data-period="all-time">All Time</button>
+    </div>
+
+    <!-- Share cards container -->
+    <div class="share-cards-container" id="highscore-cards-container">
+        <!-- Share cards will be populated by JavaScript -->
+    </div>
+
+    <div id="empty-state" class="empty-state" style="display: none;">
+        <p>No shares in the last 24 hours</p>
+    </div>
+
+    <div id="loading-indicator" class="loading-indicator" style="display: none;">
+        <p>Loading highscores...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='highscores.js') }}"></script>
+{% endblock %}
