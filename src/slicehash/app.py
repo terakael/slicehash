@@ -7,24 +7,28 @@ This module provides the HTTP server with:
 """
 
 import asyncio
+import json
 import logging
 import re
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, ValidationError
-from quart import Quart, request, jsonify, render_template
+from quart import Quart, request, jsonify, render_template, Response
 
 from .config import load_config, Config
 from .db.manager import DatabaseManager
 from .quota import calculate_shares_remaining, get_active_users
 from .priority import calculate_traffic_level, TrafficLevel
 from .share_processor import ShareProcessor
+from .sse_manager import SSEManager, ShareNotification
 
 logger = logging.getLogger(__name__)
 
 # Global references (initialized in create_app)
 share_queue: Optional[asyncio.Queue] = None
 share_processor: Optional[ShareProcessor] = None
+sse_manager: Optional[SSEManager] = None
 current_block_target: Optional[str] = None
 
 
@@ -117,11 +121,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     app.config["SLICEHASH_CONFIG"] = config
 
     # Initialize share queue (in-memory, unbounded)
-    global share_queue, share_processor
+    global share_queue, share_processor, sse_manager
     share_queue = asyncio.Queue()
 
+    # Initialize SSE manager
+    sse_manager = SSEManager()
+
     # Initialize share processor (will start background task)
-    share_processor = ShareProcessor(config, share_queue)
+    share_processor = ShareProcessor(config, share_queue, sse_manager)
 
     @app.before_serving
     async def startup():
@@ -202,7 +209,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         return jsonify({
             "status": "healthy",
-            "queue_size": share_queue.qsize() if share_queue else 0
+            "queue_size": share_queue.qsize() if share_queue else 0,
+            "sse_connections": sse_manager.get_subscriber_count() if sse_manager else 0
         })
 
     @app.get("/api/users/me")
@@ -403,6 +411,116 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             return jsonify({"error": "Invalid limit or offset parameter"}), 400
         except Exception as e:
             logger.error(f"Failed to fetch share history: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/users/me/shares/stream")
+    async def stream_shares():
+        """SSE endpoint for real-time share notifications.
+
+        POC: Streams shares for user_id=1 (no auth system yet).
+
+        Returns:
+            Server-Sent Events stream with:
+            - connected: Initial connection event
+            - share: New share notification
+            - heartbeat: Keep-alive every 30s
+        """
+        user_id = 1  # POC: hardcoded
+
+        async def event_stream():
+            queue = None
+            try:
+                queue = await sse_manager.subscribe(user_id)
+                yield f"event: connected\ndata: {json.dumps({'user_id': user_id})}\n\n"
+
+                while True:
+                    try:
+                        notification = await asyncio.wait_for(queue.get(), timeout=30.0)
+                        event_data = {
+                            "share_id": notification.share_id,
+                            "submitted_at": notification.submitted_at,
+                            "level": notification.level,
+                            "is_block": notification.is_block,
+                            "share_hash": notification.share_hash,
+                            "billable": notification.billable,
+                            "shares_consumed": notification.shares_consumed
+                        }
+                        yield f"id: {notification.share_id}\nevent: share\ndata: {json.dumps(event_data)}\n\n"
+                    except asyncio.TimeoutError:
+                        # Heartbeat every 30s
+                        yield f"event: heartbeat\ndata: {json.dumps({'timestamp': datetime.now().isoformat()})}\n\n"
+            finally:
+                if queue:
+                    await sse_manager.unsubscribe(user_id, queue)
+
+        return Response(event_stream(), mimetype="text/event-stream", headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive"
+        })
+
+    @app.get("/api/users/me/shares/recovery")
+    async def recover_missed_shares():
+        """Fetch shares missed during disconnect.
+
+        POC: Recovers shares for user_id=1 (no auth system yet).
+
+        Query parameters:
+            since_id: Last share ID received (preferred for reliability)
+            since_time: Last timestamp received (fallback)
+            limit: Maximum shares to return (default 50, max 200)
+
+        Returns:
+            200: List of missed shares with pagination info
+            400: Missing required parameters
+            500: Internal error
+        """
+        since_id = request.args.get('since_id', type=int)
+        since_time = request.args.get('since_time', type=str)
+        limit = min(int(request.args.get('limit', 50)), 200)
+
+        if not since_id and not since_time:
+            return jsonify({"error": "Must provide since_id or since_time"}), 400
+
+        try:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                if since_id:
+                    query = """
+                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed
+                        FROM share_events
+                        WHERE user_id = ? AND id > ?
+                        ORDER BY id ASC
+                        LIMIT ?
+                    """
+                    cursor = await db.execute(query, (1, since_id, limit))
+                else:
+                    query = """
+                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed
+                        FROM share_events
+                        WHERE user_id = ? AND submitted_at > ?
+                        ORDER BY id ASC
+                        LIMIT ?
+                    """
+                    cursor = await db.execute(query, (1, since_time, limit))
+
+                rows = await cursor.fetchall()
+                shares = [
+                    {
+                        "share_id": row[0],
+                        "submitted_at": row[1],
+                        "level": row[2],
+                        "is_block": bool(row[3]),
+                        "share_hash": row[4],
+                        "billable": bool(row[5]),
+                        "shares_consumed": row[6]
+                    }
+                    for row in rows
+                ]
+
+                return jsonify({"shares": shares, "count": len(shares), "has_more": len(shares) == limit})
+
+        except Exception as e:
+            logger.error(f"Failed to recover missed shares: {e}")
             return jsonify({"error": "Internal error"}), 500
 
     @app.get("/api/traffic/status")

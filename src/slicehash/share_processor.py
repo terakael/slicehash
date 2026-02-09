@@ -22,6 +22,7 @@ from .quota import classify_share_billable, calculate_shares_remaining, get_acti
 from .priority import calculate_traffic_level, calculate_shares_consumed
 from .pool_client import PoolClient
 from .rotation import RotationState, select_next_user, should_rotate, calculate_rotation_interval
+from .sse_manager import SSEManager, ShareNotification
 
 logger = logging.getLogger(__name__)
 
@@ -54,15 +55,17 @@ class ShareProcessor:
     Integrates quota calculation, priority system, and rotation logic.
     """
 
-    def __init__(self, config: Config, share_queue: asyncio.Queue):
+    def __init__(self, config: Config, share_queue: asyncio.Queue, sse_manager: Optional[SSEManager] = None):
         """Initialize share processor.
 
         Args:
             config: Application configuration
             share_queue: Queue of incoming share events from webhook
+            sse_manager: Optional SSE manager for real-time notifications
         """
         self.config = config
         self.share_queue = share_queue
+        self.sse_manager = sse_manager
         self.rotation_state = RotationState()
         self.current_block_target: Optional[str] = None
         self._task: Optional[asyncio.Task] = None
@@ -207,10 +210,28 @@ class ShareProcessor:
             )
             await db.commit()
 
+            # Get inserted share ID
+            cursor = await db.execute("SELECT last_insert_rowid()")
+            share_id = (await cursor.fetchone())[0]
+
             logger.info(
                 f"Stored share: user={user_id}, level={level}, "
                 f"is_block={is_block}, billable={billable}, consumed={shares_consumed}"
             )
+
+            # Notify SSE subscribers
+            if self.sse_manager:
+                notification = ShareNotification(
+                    share_id=share_id,
+                    user_id=int(user_id),
+                    submitted_at=submitted_at,
+                    level=level,
+                    is_block=is_block,
+                    share_hash=share_hash,
+                    billable=billable,
+                    shares_consumed=shares_consumed
+                )
+                await self.sse_manager.notify_share(notification)
 
             # Step 6: Update rotation state
             if self.rotation_state.current_user_id == user_id:
