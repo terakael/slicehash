@@ -84,12 +84,40 @@ CREATE INDEX IF NOT EXISTS idx_share_events_user_id
 ON share_events(user_id, id)
 """
 
+# Auth challenges table - stores LNURL k1 challenges
+AUTH_CHALLENGES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS auth_challenges (
+    k1 TEXT PRIMARY KEY,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used INTEGER DEFAULT 0 CHECK(used IN (0, 1))
+)
+"""
+
+AUTH_CHALLENGES_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires
+ON auth_challenges(expires_at)
+"""
+
+# Auth tokens table - temporary storage for LNURL callback flow
+AUTH_TOKENS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS auth_tokens (
+    k1 TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+)
+"""
+
 # All table creation statements in order
 ALL_TABLES = [
     USERS_TABLE_SQL,
     TRANSACTIONS_TABLE_SQL,
     SHARE_EVENTS_TABLE_SQL,
     GLOBAL_STATE_TABLE_SQL,
+    AUTH_CHALLENGES_TABLE_SQL,
+    AUTH_TOKENS_TABLE_SQL,
 ]
 
 # All index creation statements
@@ -98,4 +126,5 @@ ALL_INDEXES = [
     BILLABLE_SHARES_INDEX_SQL,
     HIGHSCORE_INDEX_SQL,
     RECOVERY_INDEX_SQL,
+    AUTH_CHALLENGES_INDEX_SQL,
 ]

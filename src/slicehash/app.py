@@ -10,11 +10,14 @@ import asyncio
 import json
 import logging
 import re
+import time
+import io
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator, ValidationError
-from quart import Quart, request, jsonify, render_template, Response
+from pydantic import BaseModel, Field, validator, ValidationError
+from quart import Quart, request, jsonify, render_template, Response, send_file, redirect
+import qrcode
 
 from .config import load_config, Config
 from .db.manager import DatabaseManager
@@ -22,6 +25,17 @@ from .quota import calculate_shares_remaining, get_active_users
 from .priority import calculate_traffic_level, TrafficLevel
 from .share_processor import ShareProcessor
 from .sse_manager import SSEManager, ShareNotification
+from .auth import (
+    generate_k1_challenge,
+    verify_lnurl_signature,
+    create_jwt_token,
+    decode_jwt_token,
+    require_auth,
+    get_or_create_user_by_pubkey,
+    cleanup_expired_challenges,
+    mark_challenge_used,
+    lnurl_encode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +84,7 @@ class UserUpdateRequest(BaseModel):
     address: str | None = None
     tag: str | None = Field(None, max_length=50)
 
-    @field_validator('address')
+    @validator('address')
     @classmethod
     def validate_bitcoin_address(cls, v: str | None) -> str | None:
         """Validate Bitcoin address format.
@@ -79,11 +93,17 @@ class UserUpdateRequest(BaseModel):
         - Bech32: bc1 + 39-87 alphanumeric characters
         - Legacy P2PKH: 1 + 25-34 base58 characters
         - Legacy P2SH: 3 + 25-34 base58 characters
+        - Placeholder addresses (bc1_update_in_settings_...)
 
         POC-level validation: format check only (no checksum verification).
         """
         if v is None:
             return v
+
+        # Allow placeholder addresses for users created via LNURL-auth
+        if v.startswith('bc1_update_in_settings_'):
+            return v
+
         pattern = r'^(bc1[a-z0-9]{39,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$'
         if not re.match(pattern, v):
             raise ValueError('Invalid Bitcoin address format')
@@ -219,11 +239,176 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             "sse_connections": sse_manager.get_subscriber_count() if sse_manager else 0
         })
 
+    @app.get("/")
+    async def landing_page():
+        """Landing page with LNURL-auth QR code."""
+        # Check if already authenticated
+        token = request.cookies.get('auth_token')
+        if token:
+            config_obj = app.config["SLICEHASH_CONFIG"]
+            payload = decode_jwt_token(token, config_obj)
+            if payload:
+                return redirect('/dashboard')
+
+        return await render_template("landing.html")
+
+    @app.get("/api/auth/lnurl/generate")
+    async def generate_lnurl():
+        """Generate new LNURL-auth challenge."""
+        try:
+            config_obj = app.config["SLICEHASH_CONFIG"]
+            async with DatabaseManager(config_obj.database_path) as db:
+                await cleanup_expired_challenges(db)
+                k1, lnurl_string = await generate_k1_challenge(db, config_obj)
+
+                logger.info(f"Generated LNURL - k1: {k1[:16]}..., lnurl: {lnurl_string[:50]}...")
+
+                return jsonify({
+                    "lnurl": lnurl_string,
+                    "k1": k1
+                }), 200
+        except Exception as e:
+            logger.error(f"Failed to generate LNURL: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/auth/qr/<k1>")
+    async def get_qr_code(k1: str):
+        """Generate QR code image for LNURL-auth."""
+        try:
+            config_obj = app.config["SLICEHASH_CONFIG"]
+
+            async with DatabaseManager(config_obj.database_path) as db:
+                cursor = await db.execute(
+                    "SELECT expires_at FROM auth_challenges WHERE k1 = ?",
+                    (k1,)
+                )
+                row = await cursor.fetchone()
+
+                if not row or int(time.time()) > row[0]:
+                    return jsonify({"error": "Invalid or expired challenge"}), 404
+
+            callback_url = f"{config_obj.lnurl_callback_url}?tag=login&k1={k1}&action=login"
+            lnurl_string = lnurl_encode(callback_url)
+
+            qr = qrcode.QRCode(
+                version=None,  # Auto-select version based on data
+                error_correction=qrcode.constants.ERROR_CORRECT_M,  # Medium error correction
+                box_size=8,
+                border=2,
+            )
+            qr.add_data(lnurl_string)
+            qr.make(fit=True)
+
+            img = qr.make_image(fill_color="black", back_color="white")
+            img_io = io.BytesIO()
+            img.save(img_io, 'PNG')
+            img_io.seek(0)
+
+            return await send_file(img_io, mimetype='image/png')
+        except Exception as e:
+            logger.error(f"QR code generation error: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/auth/lnurl/callback")
+    async def lnurl_callback():
+        """LNURL-auth callback endpoint (called by Lightning wallets)."""
+        try:
+            tag = request.args.get('tag')
+            k1 = request.args.get('k1')
+            sig = request.args.get('sig')
+            key = request.args.get('key')
+
+            if tag != 'login' or not all([k1, sig, key]):
+                return jsonify({"status": "ERROR", "reason": "Invalid parameters"}), 400
+
+            config_obj = app.config["SLICEHASH_CONFIG"]
+
+            async with DatabaseManager(config_obj.database_path) as db:
+                # Verify challenge exists and is valid
+                cursor = await db.execute(
+                    "SELECT used, expires_at FROM auth_challenges WHERE k1 = ?",
+                    (k1,)
+                )
+                row = await cursor.fetchone()
+
+                if not row:
+                    return jsonify({"status": "ERROR", "reason": "Invalid challenge"}), 400
+
+                used, expires_at = row
+
+                if used:
+                    return jsonify({"status": "ERROR", "reason": "Challenge already used"}), 400
+
+                if int(time.time()) > expires_at:
+                    return jsonify({"status": "ERROR", "reason": "Challenge expired"}), 400
+
+                # Verify signature
+                if not await verify_lnurl_signature(k1, sig, key):
+                    return jsonify({"status": "ERROR", "reason": "Invalid signature"}), 400
+
+                # Mark challenge as used
+                await mark_challenge_used(db, k1)
+
+                # Get or create user
+                user_id = await get_or_create_user_by_pubkey(db, key)
+
+                # Generate JWT token
+                token = create_jwt_token(user_id, key, config_obj)
+
+                # Store token temporarily for polling
+                await db.execute(
+                    "INSERT INTO auth_tokens (k1, user_id, token, created_at) VALUES (?, ?, ?, ?)",
+                    (k1, user_id, token, int(time.time()))
+                )
+                await db.commit()
+
+                return jsonify({"status": "OK"}), 200
+        except Exception as e:
+            logger.error(f"LNURL callback error: {e}")
+            return jsonify({"status": "ERROR", "reason": "Internal error"}), 500
+
+    @app.get("/api/auth/poll")
+    async def poll_auth_status():
+        """Poll for authentication status (called by browser)."""
+        try:
+            k1 = request.args.get('k1')
+            if not k1:
+                return jsonify({"error": "Missing k1 parameter"}), 400
+
+            config_obj = app.config["SLICEHASH_CONFIG"]
+
+            async with DatabaseManager(config_obj.database_path) as db:
+                cursor = await db.execute(
+                    "SELECT token FROM auth_tokens WHERE k1 = ?",
+                    (k1,)
+                )
+                row = await cursor.fetchone()
+
+                if row:
+                    token = row[0]
+
+                    # Clean up token from database
+                    await db.execute("DELETE FROM auth_tokens WHERE k1 = ?", (k1,))
+                    await db.commit()
+
+                    return jsonify({"authenticated": True, "token": token}), 200
+                else:
+                    return jsonify({"authenticated": False}), 200
+        except Exception as e:
+            logger.error(f"Poll auth error: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/auth/logout")
+    async def logout():
+        """Log out current user."""
+        response = redirect('/')
+        response.delete_cookie('auth_token')
+        return response
+
     @app.get("/api/users/me")
+    @require_auth
     async def get_current_user():
         """Return current user's data including quota and traffic level.
-
-        POC: Defaults to user_id=1 (no auth system yet).
 
         Returns:
             200: User data JSON
@@ -231,11 +416,12 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
+            user_id = request.user_id
             async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
                 # Fetch user record
                 cursor = await db.execute(
                     "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = ?",
-                    (1,)
+                    (user_id,)
                 )
                 row = await cursor.fetchone()
 
@@ -263,10 +449,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             return jsonify({"error": "Internal error"}), 500
 
     @app.patch("/api/users/me")
+    @require_auth
     async def update_user():
         """Update current user's address and/or tag.
-
-        POC: Updates user_id=1 (no auth system yet).
 
         Request body:
             {
@@ -280,6 +465,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
+            user_id = request.user_id
             data = await request.get_json()
 
             # Validate request with Pydantic
@@ -302,7 +488,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     return jsonify({"error": "No fields to update"}), 400
 
                 # Execute update
-                params.append(1)  # user_id
+                params.append(user_id)
                 await db.execute(
                     f"UPDATE users SET {', '.join(updates)} WHERE user_id = ?",
                     tuple(params)
@@ -312,7 +498,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Return updated user data (reuse GET logic)
                 cursor = await db.execute(
                     "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = ?",
-                    (1,)
+                    (user_id,)
                 )
                 row = await cursor.fetchone()
                 if not row:
@@ -349,10 +535,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             return jsonify({"error": "Internal error"}), 500
 
     @app.get("/api/users/me/shares")
+    @require_auth
     async def get_share_history():
         """Return paginated share history for current user.
-
-        POC: Returns history for user_id=1 (no auth system yet).
 
         Query parameters:
             limit: Results per page (default 50, max 100)
@@ -364,6 +549,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
+            user_id = request.user_id
             # Parse and validate query params
             limit = int(request.args.get('limit', 50))
             offset = int(request.args.get('offset', 0))
@@ -376,7 +562,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get total count
                 cursor = await db.execute(
                     "SELECT COUNT(*) FROM share_events WHERE user_id = ?",
-                    (1,)
+                    (user_id,)
                 )
                 total = (await cursor.fetchone())[0]
 
@@ -389,7 +575,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     ORDER BY submitted_at DESC
                     LIMIT ? OFFSET ?
                     """,
-                    (1, limit, offset)
+                    (user_id, limit, offset)
                 )
                 rows = await cursor.fetchall()
 
@@ -420,10 +606,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             return jsonify({"error": "Internal error"}), 500
 
     @app.get("/api/users/me/shares/stream")
+    @require_auth
     async def stream_shares():
         """SSE endpoint for real-time share notifications.
-
-        POC: Streams shares for user_id=1 (no auth system yet).
 
         Returns:
             Server-Sent Events stream with:
@@ -431,7 +616,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             - share: New share notification
             - heartbeat: Keep-alive every 30s
         """
-        user_id = 1  # POC: hardcoded
+        user_id = request.user_id
 
         async def event_stream():
             queue = None
@@ -466,10 +651,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         })
 
     @app.get("/api/users/me/shares/recovery")
+    @require_auth
     async def recover_missed_shares():
         """Fetch shares missed during disconnect.
-
-        POC: Recovers shares for user_id=1 (no auth system yet).
 
         Query parameters:
             since_id: Last share ID received (preferred for reliability)
@@ -481,6 +665,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             400: Missing required parameters
             500: Internal error
         """
+        user_id = request.user_id
         since_id = request.args.get('since_id', type=int)
         since_time = request.args.get('since_time', type=str)
         limit = min(int(request.args.get('limit', 50)), 200)
@@ -498,7 +683,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         ORDER BY id ASC
                         LIMIT ?
                     """
-                    cursor = await db.execute(query, (1, since_id, limit))
+                    cursor = await db.execute(query, (user_id, since_id, limit))
                 else:
                     query = """
                         SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed
@@ -507,7 +692,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         ORDER BY id ASC
                         LIMIT ?
                     """
-                    cursor = await db.execute(query, (1, since_time, limit))
+                    cursor = await db.execute(query, (user_id, since_time, limit))
 
                 rows = await cursor.fetchall()
                 shares = [
@@ -585,16 +770,16 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             return jsonify({"error": "Internal error"}), 500
 
     @app.get("/api/users/me/purchases")
+    @require_auth
     async def get_purchase_history():
         """Return purchase history (transactions) for current user.
-
-        POC: Returns history for user_id=1 (no auth system yet).
 
         Returns:
             200: List of transactions
             500: Internal error
         """
         try:
+            user_id = request.user_id
             async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
                 # Get all transactions for user (newest first)
                 cursor = await db.execute(
@@ -604,7 +789,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     WHERE user_id = ?
                     ORDER BY created_at DESC
                     """,
-                    (1,)
+                    (user_id,)
                 )
                 rows = await cursor.fetchall()
 
@@ -719,7 +904,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             logger.error(f"Failed to fetch all-time highscores: {e}")
             return jsonify({"error": "Internal error"}), 500
 
-    @app.get("/")
+    @app.get("/dashboard")
+    @require_auth
     async def dashboard():
         """Render dashboard page showing share activity and stats.
 
@@ -729,6 +915,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         return await render_template("dashboard.html")
 
     @app.get("/settings")
+    @require_auth
     async def settings_page():
         """Render settings page for user configuration.
 
@@ -738,6 +925,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         return await render_template("settings.html")
 
     @app.get("/purchases")
+    @require_auth
     async def purchases_page():
         """Render purchases page for viewing purchase history.
 
@@ -747,6 +935,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         return await render_template("purchases.html")
 
     @app.get("/highscores")
+    @require_auth
     async def highscores_page():
         """Render highscores page showing top shares.
 

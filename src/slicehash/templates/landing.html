@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MineShare - Lightning Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="landing-page">
+    <div class="landing-container">
+        <div class="landing-header">
+            <h1 class="landing-title">MineShare</h1>
+            <p class="landing-subtitle">Fair mining rotation powered by Lightning</p>
+        </div>
+
+        <div class="qr-container">
+            <div id="qr-code-placeholder" class="qr-placeholder">
+                <div class="loading-spinner"></div>
+                <p>Generating QR code...</p>
+            </div>
+        </div>
+
+        <div class="auth-instructions">
+            <p>Scan with your Lightning wallet to login</p>
+            <p class="auth-help">New users are created automatically</p>
+        </div>
+
+        <div id="auth-status" class="auth-status" style="display: none;">
+            <div class="status-icon">✓</div>
+            <p>Authentication successful! Redirecting...</p>
+        </div>
+
+        <div id="auth-error" class="auth-error" style="display: none;">
+            <p class="error-message"></p>
+            <button onclick="location.reload()" class="btn-retry">Try Again</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='landing.js') }}"></script>
+</body>
+</html>

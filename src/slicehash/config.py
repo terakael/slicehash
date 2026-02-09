@@ -19,6 +19,10 @@ class Config(BaseModel):
             Shares with difficulty >= this value are considered billable.
         pool_url: HTTP URL of the SV2 pool for coinbase address updates.
         database_path: Path to the SQLite database file for storing mining state.
+        jwt_secret: Secret key for JWT token signing.
+        jwt_expiration_seconds: JWT token expiration in seconds.
+        lnurl_callback_url: Public callback URL for LNURL-auth.
+        auth_challenge_expiration_seconds: k1 challenge expiration in seconds.
     """
 
     billable_difficulty_threshold: float = Field(
@@ -30,6 +34,22 @@ class Config(BaseModel):
     )
     database_path: str = Field(
         description="Path to SQLite database file"
+    )
+    jwt_secret: str = Field(
+        description="Secret key for JWT token signing (generate with: openssl rand -hex 32)"
+    )
+    jwt_expiration_seconds: int = Field(
+        default=2592000,
+        gt=0,
+        description="JWT token expiration in seconds"
+    )
+    lnurl_callback_url: str = Field(
+        description="Public callback URL for LNURL-auth (must be HTTPS in production)"
+    )
+    auth_challenge_expiration_seconds: int = Field(
+        default=300,
+        gt=0,
+        description="k1 challenge expiration in seconds"
     )
 
 
