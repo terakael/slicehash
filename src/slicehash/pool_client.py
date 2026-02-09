@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class PoolClient:
     """Async HTTP client for pool API integration.
 
-    Handles coinbase address updates via POST to pool's /api/coinbase endpoint.
+    Handles coinbase address updates via POST to pool's /api/assign_user endpoint.
     Implements graceful error handling - logs failures but doesn't raise exceptions.
 
     Usage:
@@ -59,7 +59,7 @@ class PoolClient:
     ) -> bool:
         """Update coinbase address on the pool.
 
-        Sends POST request to pool's /api/coinbase endpoint with the new
+        Sends POST request to pool's /api/assign_user endpoint with the new
         address to use for the next mining block.
 
         Args:
@@ -78,11 +78,11 @@ class PoolClient:
             logger.error("PoolClient not initialized. Use async context manager.")
             return False
 
-        endpoint = f"{self.pool_url}/api/coinbase"
+        endpoint = f"{self.pool_url}/api/assign_user"
         payload = {
-            "address": address,
             "user_id": user_id,
-            "tag": tag
+            "coinbase_address": address,
+            "coinbase_prefix_tag": tag
         }
 
         try:
