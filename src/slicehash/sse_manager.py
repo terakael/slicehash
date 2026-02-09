@@ -90,11 +90,13 @@ class SSEManager:
         """
         async with self._lock:
             if notification.user_id not in self._subscribers:
+                logger.debug(f"No subscribers for user {notification.user_id}")
                 return
 
             # Copy set to avoid modification during iteration
             queues = self._subscribers[notification.user_id].copy()
 
+        logger.info(f"Notifying {len(queues)} SSE connections for user {notification.user_id}, share_id={notification.share_id}")
         for queue in queues:
             try:
                 queue.put_nowait(notification)
