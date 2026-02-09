@@ -75,7 +75,7 @@ class PoolClient:
 
         endpoint = f"{self.pool_url}/api/assign-user"
         payload = {
-            "user_id": user_id,
+            "user_id": str(user_id),
             "coinbase_address": address,
             "coinbase_prefix_tag": tag,
         }
