@@ -112,9 +112,6 @@ function renderShareCards(shares, append) {
 
         // Build badges
         let badges = '';
-        if (share.is_block) {
-            badges += '<span class="share-badge block-badge">Block</span>';
-        }
         if (share.billable) {
             badges += '<span class="share-badge billable-badge">Billable</span>';
         }
@@ -342,9 +339,6 @@ function handleNewShare(share) {
 
     // Build badges
     let badges = '';
-    if (share.is_block) {
-        badges += '<span class="share-badge block-badge">Block</span>';
-    }
     if (share.billable) {
         badges += '<span class="share-badge billable-badge">Billable</span>';
     }

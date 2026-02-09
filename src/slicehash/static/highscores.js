@@ -101,9 +101,6 @@ function renderShareCards(shares) {
 
         // Build badges (hidden via CSS but kept in DOM)
         let badges = '';
-        if (share.is_block) {
-            badges += '<span class="share-badge block-badge">Block</span>';
-        }
         if (share.billable) {
             badges += '<span class="share-badge billable-badge">Billable</span>';
         }
