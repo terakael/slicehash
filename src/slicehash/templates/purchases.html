@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Purchases - SliceHash{% endblock %}
+
+{% block content %}
+<div class="mobile-dashboard">
+    <!-- Network difficulty dot in top corner -->
+    <div class="network-difficulty-dot" id="network-difficulty-dot" title="Network active">
+        <span id="network-difficulty-value">0</span>
+    </div>
+
+    <!-- Page title -->
+    <div class="page-header">
+        <h1 class="page-title">Purchases</h1>
+    </div>
+
+    <!-- Purchase button -->
+    <div class="purchase-action">
+        <button class="btn-purchase" id="purchase-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Purchase Shares
+        </button>
+    </div>
+
+    <!-- Purchase history cards -->
+    <div class="purchase-cards-container" id="purchase-cards-container">
+        <!-- Purchase cards will be populated by JavaScript -->
+    </div>
+
+    <div id="empty-state" class="empty-state" style="display: none;">
+        <p>No purchases yet</p>
+    </div>
+
+    <div id="loading-indicator" class="loading-indicator" style="display: none;">
+        <p>Loading purchases...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='purchases.js') }}"></script>
+{% endblock %}

@@ -25,6 +25,29 @@ logger = logging.getLogger(__name__)
 # Global references (initialized in create_app)
 share_queue: Optional[asyncio.Queue] = None
 share_processor: Optional[ShareProcessor] = None
+current_block_target: Optional[str] = None
+
+
+def calculate_level(hash_str: str) -> int:
+    """Calculate the level of a hash (number of leading zeros minus 5).
+
+    Args:
+        hash_str: Hexadecimal hash string
+
+    Returns:
+        Level value (leading zeros - 5), minimum 0
+    """
+    if not hash_str:
+        return 0
+
+    leading_zeros = 0
+    for char in hash_str:
+        if char == '0':
+            leading_zeros += 1
+        else:
+            break
+
+    return max(0, leading_zeros - 5)
 
 
 # Pydantic models for API request/response validation
@@ -102,7 +125,19 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
     @app.before_serving
     async def startup():
-        """Start background share processor."""
+        """Start background share processor and load block target."""
+        global current_block_target
+
+        # Load current block target from database
+        async with DatabaseManager(config.database_path) as db:
+            cursor = await db.execute(
+                "SELECT value FROM global_state WHERE key = 'current_block_target'"
+            )
+            row = await cursor.fetchone()
+            if row:
+                current_block_target = row[0]
+                logger.info(f"Loaded block target: {current_block_target}")
+
         await share_processor.start()
         logger.info("SliceHash application started")
 
@@ -120,12 +155,20 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
         Expected JSON payload:
         {
-            "user_id": int,
-            "share_difficulty": float,
-            "channel_id": str,
-            "sequence_number": int,
-            "submitted_at": str  # ISO timestamp
+            "user_id": str,
+            "nonce": int,
+            "ntime": int,
+            "version": int,
+            "coinbase_address": str,
+            "coinbase_prefix_tag": str,
+            "share_hash": str (optional),
+            "is_block": bool,
+            "block_target": str (optional),
+            "job_id": int (optional),
+            "timestamp_secs": int (optional)
         }
+
+        Required fields: all except job_id and timestamp_secs
 
         Returns:
             JSON response with status and 200 OK, or error with 400/500
@@ -134,7 +177,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             data = await request.get_json()
 
             # Minimal validation (just check required fields exist)
-            required = ["user_id", "share_difficulty", "channel_id", "sequence_number"]
+            required = ["user_id", "nonce", "ntime", "version", "coinbase_address",
+                       "coinbase_prefix_tag", "is_block"]
             if not all(k in data for k in required):
                 return jsonify({"error": "Missing required fields"}), 400
 
@@ -325,7 +369,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get paginated results (newest first)
                 cursor = await db.execute(
                     """
-                    SELECT submitted_at, share_difficulty, billable, shares_consumed
+                    SELECT submitted_at, level, is_block, share_hash, billable, shares_consumed
                     FROM share_events
                     WHERE user_id = ?
                     ORDER BY submitted_at DESC
@@ -338,9 +382,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "submitted_at": row[0],
-                        "share_difficulty": row[1],
-                        "billable": bool(row[2]),
-                        "shares_consumed": row[3]
+                        "level": row[1],
+                        "is_block": bool(row[2]),
+                        "share_hash": row[3],
+                        "billable": bool(row[4]),
+                        "shares_consumed": row[5]
                     }
                     for row in rows
                 ]
@@ -381,6 +427,81 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             logger.error(f"Failed to fetch traffic status: {e}")
             return jsonify({"error": "Internal error"}), 500
 
+    @app.get("/api/block-target")
+    async def get_block_target():
+        """Return current block target and its level.
+
+        Returns:
+            200: Block target data with target hash and level
+            500: Internal error
+        """
+        try:
+            global current_block_target
+
+            # If not in memory, try loading from database
+            if current_block_target is None:
+                async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                    cursor = await db.execute(
+                        "SELECT value FROM global_state WHERE key = 'current_block_target'"
+                    )
+                    row = await cursor.fetchone()
+                    if row:
+                        current_block_target = row[0]
+
+            # Calculate level for the target
+            level = calculate_level(current_block_target) if current_block_target else 0
+
+            return jsonify({
+                "block_target": current_block_target,
+                "level": level
+            }), 200
+
+        except Exception as e:
+            logger.error(f"Failed to fetch block target: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/users/me/purchases")
+    async def get_purchase_history():
+        """Return purchase history (transactions) for current user.
+
+        POC: Returns history for user_id=1 (no auth system yet).
+
+        Returns:
+            200: List of transactions
+            500: Internal error
+        """
+        try:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                # Get all transactions for user (newest first)
+                cursor = await db.execute(
+                    """
+                    SELECT transaction_id, amount, created_at
+                    FROM transactions
+                    WHERE user_id = ?
+                    ORDER BY created_at DESC
+                    """,
+                    (1,)
+                )
+                rows = await cursor.fetchall()
+
+                purchases = [
+                    {
+                        "transaction_id": row[0],
+                        "amount": row[1],
+                        "created_at": row[2]
+                    }
+                    for row in rows
+                ]
+
+                return jsonify({
+                    "purchases": purchases,
+                    "total": len(purchases)
+                }), 200
+
+        except Exception as e:
+            logger.error(f"Failed to fetch purchase history: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
     @app.get("/")
     async def dashboard():
         """Render dashboard page showing share activity and stats.
@@ -398,6 +519,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             HTML template for settings page
         """
         return await render_template("settings.html")
+
+    @app.get("/purchases")
+    async def purchases_page():
+        """Render purchases page for viewing purchase history.
+
+        Returns:
+            HTML template for purchases page
+        """
+        return await render_template("purchases.html")
 
     return app
 

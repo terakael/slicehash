@@ -37,13 +37,26 @@ SHARE_EVENTS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS share_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     submitted_at TEXT NOT NULL,
-    user_id INTEGER NOT NULL,
-    channel_id TEXT,
-    sequence_number INTEGER,
-    share_difficulty REAL NOT NULL,
+    user_id TEXT NOT NULL,
+    nonce INTEGER NOT NULL,
+    ntime INTEGER NOT NULL,
+    version INTEGER NOT NULL,
+    coinbase_address TEXT NOT NULL,
+    coinbase_prefix_tag TEXT NOT NULL,
+    share_hash TEXT,
+    is_block INTEGER NOT NULL CHECK(is_block IN (0, 1)),
+    level INTEGER NOT NULL,
     billable INTEGER NOT NULL CHECK(billable IN (0, 1)),
-    shares_consumed INTEGER NOT NULL CHECK(shares_consumed >= 1 AND shares_consumed <= 5),
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    shares_consumed INTEGER NOT NULL CHECK(shares_consumed >= 1 AND shares_consumed <= 5)
+)
+"""
+
+# Global state table - stores system-wide configuration
+GLOBAL_STATE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS global_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 )
 """
 
@@ -64,6 +77,7 @@ ALL_TABLES = [
     USERS_TABLE_SQL,
     TRANSACTIONS_TABLE_SQL,
     SHARE_EVENTS_TABLE_SQL,
+    GLOBAL_STATE_TABLE_SQL,
 ]
 
 # All index creation statements
