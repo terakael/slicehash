@@ -330,12 +330,46 @@ function handleNewShare(share) {
     }
 
     showEmptyState(false);
-    renderShareCards([share], false);
 
-    const newCard = container.firstChild;
-    if (newCard) {
-        newCard.style.animation = 'fadeIn 0.3s ease-in';
+    // Create new card element
+    const card = document.createElement('div');
+    card.className = `share-card${share.is_block ? ' block' : ''}`;
+
+    // Format timestamp
+    const timestamp = formatTimestamp(share.submitted_at);
+
+    // Get level styling
+    const { color, shape, borderStyle } = getLevelStyle(share.level);
+
+    // Build badges
+    let badges = '';
+    if (share.is_block) {
+        badges += '<span class="share-badge block-badge">Block</span>';
     }
+    if (share.billable) {
+        badges += '<span class="share-badge billable-badge">Billable</span>';
+    }
+
+    // Add priority badge if shares consumed > 1
+    if (share.shares_consumed > 1) {
+        badges += `<span class="share-badge priority-badge">Priority ${share.shares_consumed}x</span>`;
+    }
+
+    const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
+
+    card.innerHTML = `
+        <div class="share-card-header">
+            <span class="share-timestamp">${timestamp}</span>
+            <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
+                ${share.level}
+            </div>
+        </div>
+        ${badges ? `<div class="share-card-footer">${badges}</div>` : ''}
+    `;
+
+    // Prepend to the beginning
+    card.style.animation = 'fadeIn 0.3s ease-in';
+    container.insertBefore(card, container.firstChild);
 
     currentOffset++;
     loadUserData(); // Update shares remaining counter
