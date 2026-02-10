@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
     tag TEXT,
     priority_multiplier INTEGER DEFAULT 1 CHECK(priority_multiplier >= 1 AND priority_multiplier <= 5),
     last_served_at TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    lightning_pubkey TEXT
 )
 """
 
@@ -106,6 +107,12 @@ CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires
 ON auth_challenges(expires_at)
 """
 
+# Unique index on lightning_pubkey for LNURL-auth lookups
+USERS_LIGHTNING_PUBKEY_INDEX_SQL = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_lightning_pubkey
+ON users(lightning_pubkey)
+"""
+
 # Auth tokens table - temporary storage for LNURL callback flow
 AUTH_TOKENS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS auth_tokens (
@@ -135,4 +142,5 @@ ALL_INDEXES = [
     RECOVERY_INDEX_SQL,
     TRANSACTIONS_USER_INDEX_SQL,
     AUTH_CHALLENGES_INDEX_SQL,
+    USERS_LIGHTNING_PUBKEY_INDEX_SQL,
 ]
