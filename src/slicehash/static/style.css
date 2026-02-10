@@ -503,10 +503,27 @@ footer {
     margin-bottom: 12px;
 }
 
+.highscore-card .share-card-header {
+    align-items: flex-start;
+}
+
+.share-timestamp-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 .share-timestamp {
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
     color: #cccccc;
+}
+
+.share-username {
+    font-size: 8px;
+    font-family: 'Press Start 2P', monospace;
+    color: #f7931a;
+    text-shadow: none;
 }
 
 .share-level-badge {
@@ -562,9 +579,10 @@ footer {
 .share-hash {
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
-    color: #888;
+    color: #999;
     word-break: break-all;
     line-height: 1.6;
+    text-shadow: none;
 }
 
 /* Bottom Navigation */

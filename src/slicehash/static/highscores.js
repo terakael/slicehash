@@ -79,7 +79,7 @@ function renderShareCards(shares) {
         card.className = `share-card highscore-card${share.is_block ? ' block' : ''}`;
 
         // Format timestamp with username
-        const timestamp = formatTimestamp(share.submitted_at, share.username);
+        const { timeStr, username } = formatTimestampWithUsername(share.submitted_at, share.username);
 
         // Get level styling
         const { color, shape, borderStyle } = getLevelStyle(share.level);
@@ -88,7 +88,10 @@ function renderShareCards(shares) {
 
         card.innerHTML = `
             <div class="share-card-header">
-                <span class="share-timestamp" data-timestamp="${share.submitted_at}" data-username="${share.username}">${timestamp}</span>
+                <div class="share-timestamp-wrapper" data-timestamp="${share.submitted_at}" data-username="${share.username}">
+                    <span class="share-timestamp">${timeStr}</span>
+                    <span class="share-username">${username}</span>
+                </div>
                 <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
                     ${share.level}
                 </div>

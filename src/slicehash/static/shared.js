@@ -1,16 +1,17 @@
 // Shared JavaScript utilities for SliceHash
 
-// Format timestamp as current time in user's timezone and format (with optional username)
-function formatTimestamp(timestamp, username = null) {
-    const now = new Date();
-    const timeStr = now.toLocaleString();
+// Format timestamp as time in user's timezone and format
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+}
 
-    if (username) {
-        const truncatedUsername = truncateUsername(username);
-        return `${timeStr} by ${truncatedUsername}`;
-    }
-
-    return timeStr;
+// Format timestamp with username on separate lines for highscores
+function formatTimestampWithUsername(timestamp, username) {
+    const date = new Date(timestamp);
+    const timeStr = date.toLocaleString();
+    const truncatedUsername = truncateUsername(username);
+    return { timeStr, username: truncatedUsername };
 }
 
 // Truncate username if longer than 20 characters
@@ -71,17 +72,37 @@ let timestampObserver = null;
 
 // Refresh all visible timestamps
 function refreshTimestamps() {
+    // Regular timestamps (dashboard)
     const timestampElements = document.querySelectorAll('.share-timestamp[data-timestamp]');
     timestampElements.forEach(element => {
         refreshTimestamp(element);
+    });
+
+    // Highscore timestamps with username (wrapper has data attributes)
+    const timestampWrappers = document.querySelectorAll('.share-timestamp-wrapper[data-timestamp]');
+    timestampWrappers.forEach(wrapper => {
+        refreshTimestampWithUser(wrapper);
     });
 }
 
 // Refresh a single timestamp element
 function refreshTimestamp(element) {
-    const username = element.dataset.username || null;
-    const newDisplay = formatTimestamp(null, username);
+    const originalTimestamp = element.dataset.timestamp;
+    const newDisplay = formatTimestamp(originalTimestamp);
     element.textContent = newDisplay;
+}
+
+// Refresh timestamp with username (for highscores)
+function refreshTimestampWithUser(wrapper) {
+    const originalTimestamp = wrapper.dataset.timestamp;
+    const username = wrapper.dataset.username;
+    const { timeStr, username: truncatedUsername } = formatTimestampWithUsername(originalTimestamp, username);
+
+    const timestampEl = wrapper.querySelector('.share-timestamp');
+    const usernameEl = wrapper.querySelector('.share-username');
+
+    if (timestampEl) timestampEl.textContent = timeStr;
+    if (usernameEl) usernameEl.textContent = truncatedUsername;
 }
 
 // Setup Intersection Observer to refresh timestamps when cards come into view
@@ -89,9 +110,16 @@ function setupTimestampObserver() {
     timestampObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
+                // Check for regular timestamp (dashboard)
                 const timestampElement = entry.target.querySelector('.share-timestamp[data-timestamp]');
                 if (timestampElement) {
                     refreshTimestamp(timestampElement);
+                }
+
+                // Check for highscore timestamp wrapper
+                const timestampWrapper = entry.target.querySelector('.share-timestamp-wrapper[data-timestamp]');
+                if (timestampWrapper) {
+                    refreshTimestampWithUser(timestampWrapper);
                 }
             }
         });
