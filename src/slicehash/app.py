@@ -13,6 +13,7 @@ import re
 import time
 import io
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field, validator, ValidationError
@@ -20,7 +21,7 @@ from quart import Quart, request, jsonify, render_template, Response, send_file,
 import qrcode
 
 from .config import load_config, Config
-from .db.manager import DatabaseManager
+from .db.manager import DatabaseManager, init_database
 from .quota import calculate_shares_remaining, get_active_users
 from .priority import calculate_traffic_level, TrafficLevel
 from .share_processor import ShareProcessor
@@ -165,6 +166,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     async def startup():
         """Start background share processor, Redis consumer, and load block target."""
         global current_block_target
+
+        # Initialize database if it doesn't exist
+        db_path = Path(config.database_path)
+        if not db_path.exists():
+            logger.info(f"Database not found at {config.database_path}. Initializing...")
+            await init_database(config.database_path)
+            logger.info("Database initialized successfully")
 
         # Load current block target from database
         async with DatabaseManager(config.database_path) as db:
