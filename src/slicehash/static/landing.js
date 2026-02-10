@@ -17,11 +17,20 @@ async function generateQRCode() {
         const placeholder = document.getElementById('qr-code-placeholder');
         placeholder.innerHTML = '';
 
-        // Check if on narrow screen (likely mobile)
-        const isNarrowScreen = window.innerWidth < 768;
+        // Detect if user is on mobile (check user agent, touch support, and screen size)
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                        (navigator.maxTouchPoints > 0 && window.innerWidth < 768);
 
-        if (isNarrowScreen && data.lnurl) {
-            // Show button first for mobile users
+        console.log('Mobile detection:', {
+            isMobile,
+            userAgent: navigator.userAgent,
+            maxTouchPoints: navigator.maxTouchPoints,
+            windowWidth: window.innerWidth,
+            hasLnurl: !!data.lnurl
+        });
+
+        if (isMobile && data.lnurl) {
+            // Create tappable link for mobile users
             const deepLink = `lightning:${data.lnurl.toUpperCase()}`;
             const linkBtn = document.createElement('a');
             linkBtn.href = deepLink;
@@ -30,27 +39,12 @@ async function generateQRCode() {
 
             const hint = document.createElement('p');
             hint.className = 'mobile-hint';
-            hint.textContent = 'Tap to authenticate with your Lightning wallet';
+            hint.textContent = 'Tap to authenticate';
 
             placeholder.appendChild(linkBtn);
             placeholder.appendChild(hint);
-
-            // Also show QR code below for alternative scanning
-            const orDivider = document.createElement('p');
-            orDivider.className = 'mobile-hint';
-            orDivider.style.marginTop = '24px';
-            orDivider.textContent = '— or scan with another device —';
-
-            const img = document.createElement('img');
-            img.src = `/api/auth/qr/${data.k1}`;
-            img.alt = 'Login QR Code';
-            img.className = 'qr-code-img';
-            img.style.marginTop = '16px';
-
-            placeholder.appendChild(orDivider);
-            placeholder.appendChild(img);
         } else {
-            // Display QR code for desktop users
+            // Display QR code image for desktop users
             const img = document.createElement('img');
             img.src = `/api/auth/qr/${data.k1}`;
             img.alt = 'Login QR Code';
