@@ -167,10 +167,11 @@ class ShareProcessor:
         Args:
             share_data: Share event from webhook
         """
-        user_id = share_data["user_id"]
-        nonce = share_data["nonce"]
-        ntime = share_data["ntime"]
-        version = share_data["version"]
+        # Convert string fields to integers for PostgreSQL strict typing
+        user_id = int(share_data["user_id"])
+        nonce = int(share_data["nonce"])
+        ntime = int(share_data["ntime"])
+        version = int(share_data["version"])
         coinbase_address = share_data["coinbase_address"]
         coinbase_prefix_tag = share_data["coinbase_prefix_tag"]
         share_hash = share_data.get("share_hash")
