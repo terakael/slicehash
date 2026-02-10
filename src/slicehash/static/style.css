@@ -15,15 +15,15 @@
 
 body {
     font-family: 'Press Start 2P', monospace;
-    background-color: #8b8b8b;
+    background-color: #2a2a2a;
     background-image:
-        repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px),
-        repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px);
+        repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(0,0,0,0.3) 4px, rgba(0,0,0,0.3) 8px),
+        repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.3) 4px, rgba(0,0,0,0.3) 8px);
     color: #ffffff;
     line-height: 1.8;
     min-height: 100vh;
     overflow-x: hidden;
-    text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
 }
 
 /* Header */
@@ -97,7 +97,7 @@ main {
 footer {
     padding: 20px 40px;
     text-align: center;
-    color: #aaa;
+    color: #cccccc;
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
     border-top: 4px solid #3d2612;
@@ -128,7 +128,7 @@ footer {
 
 .form-group label {
     display: block;
-    color: #ddd;
+    color: #ffffff;
     font-size: 10px;
     font-family: 'Press Start 2P', monospace;
     margin-bottom: 8px;
@@ -161,7 +161,7 @@ footer {
 .field-help {
     display: block;
     margin-top: 6px;
-    color: #aaa;
+    color: #cccccc;
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
     line-height: 1.6;
@@ -257,7 +257,7 @@ footer {
 }
 
 .stat-label {
-    color: #aaa;
+    color: #cccccc;
     font-size: 8px;
     text-transform: uppercase;
     font-family: 'Press Start 2P', monospace;
@@ -302,7 +302,7 @@ footer {
 }
 
 .share-table thead th {
-    color: #ddd;
+    color: #ffffff;
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
     text-transform: uppercase;
@@ -346,7 +346,7 @@ footer {
 
 .billable-badge.no {
     background-color: #555;
-    color: #aaa;
+    color: #ffffff;
     border-color: #333;
 }
 
@@ -354,7 +354,7 @@ footer {
 .empty-state {
     text-align: center;
     padding: 60px 20px;
-    color: #aaa;
+    color: #cccccc;
     font-size: 10px;
     font-family: 'Press Start 2P', monospace;
     line-height: 1.8;
@@ -431,7 +431,7 @@ footer {
     font-family: 'Press Start 2P', monospace;
     text-transform: uppercase;
     letter-spacing: 2px;
-    color: #ddd;
+    color: #ffffff;
     margin-bottom: 12px;
 }
 
@@ -506,7 +506,7 @@ footer {
 .share-timestamp {
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
-    color: #aaa;
+    color: #cccccc;
 }
 
 .share-level-badge {
@@ -609,7 +609,7 @@ footer {
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    color: #aaa;
+    color: #cccccc;
     text-decoration: none;
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
@@ -637,7 +637,7 @@ footer {
 .mobile-dashboard .empty-state {
     text-align: center;
     padding: 40px 20px;
-    color: #aaa;
+    color: #cccccc;
     font-size: 10px;
     font-family: 'Press Start 2P', monospace;
     line-height: 1.8;
@@ -706,7 +706,7 @@ footer {
 .purchase-date {
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
-    color: #aaa;
+    color: #cccccc;
 }
 
 .purchase-amount {
@@ -719,7 +719,7 @@ footer {
 .purchase-amount-label {
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
-    color: #aaa;
+    color: #cccccc;
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-top: 4px;
@@ -746,7 +746,7 @@ footer {
     border: 3px solid #3a3a3a;
     border-right-color: #2a2a2a;
     border-bottom-color: #2a2a2a;
-    color: #aaa;
+    color: #cccccc;
     font-size: 10px;
     font-family: 'Press Start 2P', monospace;
     cursor: pointer;
@@ -755,7 +755,7 @@ footer {
 }
 
 .toggle-btn:hover {
-    color: #ddd;
+    color: #ffffff;
 }
 
 .toggle-btn:active {
@@ -833,10 +833,10 @@ footer {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background: #8b8b8b;
+    background: #2a2a2a;
     background-image:
-        repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0,0,0,0.15) 8px, rgba(0,0,0,0.15) 16px),
-        repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(0,0,0,0.15) 8px, rgba(0,0,0,0.15) 16px);
+        repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0,0,0,0.3) 8px, rgba(0,0,0,0.3) 16px),
+        repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(0,0,0,0.3) 8px, rgba(0,0,0,0.3) 16px);
 }
 
 .landing-container {
@@ -963,7 +963,7 @@ footer {
 
 .landing-subtitle {
     font-size: 10px;
-    color: #ddd;
+    color: #ffffff;
     font-family: 'Press Start 2P', monospace;
     line-height: 1.8;
 }
@@ -987,7 +987,7 @@ footer {
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    color: #aaa;
+    color: #cccccc;
     font-size: 10px;
     font-family: 'Press Start 2P', monospace;
 }
@@ -1016,7 +1016,7 @@ footer {
 }
 
 .auth-instructions p {
-    color: #fff;
+    color: #ffffff;
     font-size: 10px;
     font-family: 'Press Start 2P', monospace;
     margin-bottom: 12px;
@@ -1024,7 +1024,7 @@ footer {
 }
 
 .auth-help {
-    color: #aaa !important;
+    color: #cccccc !important;
     font-size: 8px !important;
     line-height: 1.8;
 }
