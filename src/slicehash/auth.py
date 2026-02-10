@@ -169,11 +169,10 @@ async def get_or_create_user_by_pubkey(db, pubkey: str) -> int:
 
     # Create new user with placeholder address
     placeholder_address = f"bc1_update_in_settings_{pubkey[:8]}"
-    created_at = int(time.time())
 
     user_id = await db.fetchval(
-        "INSERT INTO users (address, lightning_pubkey, created_at) VALUES ($1, $2, $3) RETURNING user_id",
-        placeholder_address, pubkey, created_at
+        "INSERT INTO users (address, lightning_pubkey) VALUES ($1, $2) RETURNING user_id",
+        placeholder_address, pubkey
     )
 
     return user_id
