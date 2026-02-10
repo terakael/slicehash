@@ -14,15 +14,34 @@ async function generateQRCode() {
         const data = await response.json();
         currentK1 = data.k1;
 
-        // Display QR code image from server
         const placeholder = document.getElementById('qr-code-placeholder');
-        const img = document.createElement('img');
-        img.src = `/api/auth/qr/${data.k1}`;
-        img.alt = 'Login QR Code';
-        img.className = 'qr-code-img';
-
         placeholder.innerHTML = '';
-        placeholder.appendChild(img);
+
+        // Detect if user is on mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        if (isMobile && data.lnurl) {
+            // Create tappable link for mobile users
+            const deepLink = `lightning:${data.lnurl.toUpperCase()}`;
+            const linkBtn = document.createElement('a');
+            linkBtn.href = deepLink;
+            linkBtn.className = 'wallet-open-btn';
+            linkBtn.textContent = 'Open Lightning Wallet';
+
+            const hint = document.createElement('p');
+            hint.className = 'mobile-hint';
+            hint.textContent = 'Tap to authenticate';
+
+            placeholder.appendChild(linkBtn);
+            placeholder.appendChild(hint);
+        } else {
+            // Display QR code image for desktop users
+            const img = document.createElement('img');
+            img.src = `/api/auth/qr/${data.k1}`;
+            img.alt = 'Login QR Code';
+            img.className = 'qr-code-img';
+            placeholder.appendChild(img);
+        }
 
     } catch (error) {
         console.error('Error generating QR code:', error);

@@ -17,8 +17,9 @@ from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field, validator, ValidationError
-from quart import Quart, request, jsonify, render_template, Response, send_file, redirect
+from quart import Quart, request, jsonify, render_template, Response, send_file, redirect, current_app
 import qrcode
+from PIL import Image
 
 from .config import load_config, Config
 from .db.manager import DatabaseManager, init_database
@@ -266,7 +267,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             qr = qrcode.QRCode(
                 version=None,  # Auto-select version based on data
-                error_correction=qrcode.constants.ERROR_CORRECT_M,  # Medium error correction
+                error_correction=qrcode.constants.ERROR_CORRECT_H,  # High error correction for logo overlay
                 box_size=8,
                 border=2,
             )
@@ -274,6 +275,31 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             qr.make(fit=True)
 
             img = qr.make_image(fill_color="black", back_color="white")
+            img = img.convert('RGB')  # Convert to RGB for logo overlay
+
+            # Load and embed logo in center
+            logo_path = Path(current_app.static_folder) / "favicon-32x32.png"
+            if logo_path.exists():
+                logo = Image.open(logo_path)
+
+                # Calculate logo size (20% of QR code size)
+                qr_width, qr_height = img.size
+                logo_size = int(min(qr_width, qr_height) * 0.2)
+                logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
+
+                # Add white background to logo if it has transparency
+                if logo.mode in ('RGBA', 'LA'):
+                    background = Image.new('RGB', logo.size, (255, 255, 255))
+                    if logo.mode == 'RGBA':
+                        background.paste(logo, mask=logo.split()[3])
+                    else:
+                        background.paste(logo, mask=logo.split()[1])
+                    logo = background
+
+                # Calculate center position and paste logo
+                logo_pos = ((qr_width - logo_size) // 2, (qr_height - logo_size) // 2)
+                img.paste(logo, logo_pos)
+
             img_io = io.BytesIO()
             img.save(img_io, 'PNG')
             img_io.seek(0)
