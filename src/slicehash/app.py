@@ -25,6 +25,7 @@ from .quota import calculate_shares_remaining, get_active_users
 from .priority import calculate_traffic_level, TrafficLevel
 from .share_processor import ShareProcessor
 from .sse_manager import SSEManager, ShareNotification
+from .redis_consumer import RedisStreamConsumer
 from .auth import (
     generate_k1_challenge,
     verify_lnurl_signature,
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 # Global references (initialized in create_app)
 share_queue: Optional[asyncio.Queue] = None
 share_processor: Optional[ShareProcessor] = None
+redis_consumer: Optional[RedisStreamConsumer] = None
 sse_manager: Optional[SSEManager] = None
 current_block_target: Optional[str] = None
 
@@ -147,7 +149,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     app.config["SLICEHASH_CONFIG"] = config
 
     # Initialize share queue (in-memory, unbounded)
-    global share_queue, share_processor, sse_manager
+    global share_queue, share_processor, redis_consumer, sse_manager
     share_queue = asyncio.Queue()
 
     # Initialize SSE manager
@@ -156,9 +158,12 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     # Initialize share processor (will start background task)
     share_processor = ShareProcessor(config, share_queue, sse_manager)
 
+    # Initialize Redis stream consumer
+    redis_consumer = RedisStreamConsumer(config, share_queue)
+
     @app.before_serving
     async def startup():
-        """Start background share processor and load block target."""
+        """Start background share processor, Redis consumer, and load block target."""
         global current_block_target
 
         # Load current block target from database
@@ -172,71 +177,32 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 logger.info(f"Loaded block target: {current_block_target}")
 
         await share_processor.start()
+        await redis_consumer.start()
         logger.info("SliceHash application started")
 
     @app.after_serving
     async def shutdown():
-        """Stop background share processor."""
+        """Stop background share processor and Redis consumer."""
+        await redis_consumer.stop()
         await share_processor.stop()
         logger.info("SliceHash application stopped")
-
-    @app.post("/api/shares/webhook")
-    async def webhook_handler():
-        """Receive share events from pool.
-
-        Must respond <10ms - immediately queue and return 200.
-
-        Expected JSON payload:
-        {
-            "user_id": str,
-            "nonce": int,
-            "ntime": int,
-            "version": int,
-            "coinbase_address": str,
-            "coinbase_prefix_tag": str,
-            "share_hash": str (optional),
-            "is_block": bool,
-            "block_target": str (optional),
-            "job_id": int (optional),
-            "timestamp_secs": int (optional)
-        }
-
-        Required fields: all except job_id and timestamp_secs
-
-        Returns:
-            JSON response with status and 200 OK, or error with 400/500
-        """
-        try:
-            data = await request.get_json()
-
-            # Minimal validation (just check required fields exist)
-            required = ["user_id", "nonce", "ntime", "version", "coinbase_address",
-                       "coinbase_prefix_tag", "is_block"]
-            if not all(k in data for k in required):
-                return jsonify({"error": "Missing required fields"}), 400
-
-            # Queue for background processing (non-blocking)
-            share_queue.put_nowait(data)
-
-            # Immediate response (target <10ms)
-            return jsonify({"status": "queued"}), 200
-
-        except Exception as e:
-            # Log but don't block (fast failure)
-            logger.error(f"Webhook error: {e}")
-            return jsonify({"error": "Internal error"}), 500
 
     @app.get("/health")
     async def health_check():
         """Health check endpoint.
 
         Returns:
-            JSON with status and queue size
+            JSON with status, queue size, SSE connections, and Redis connection status
         """
+        redis_connected = False
+        if redis_consumer:
+            redis_connected = await redis_consumer.is_connected()
+
         return jsonify({
             "status": "healthy",
             "queue_size": share_queue.qsize() if share_queue else 0,
-            "sse_connections": sse_manager.get_subscriber_count() if sse_manager else 0
+            "sse_connections": sse_manager.get_subscriber_count() if sse_manager else 0,
+            "redis_connected": redis_connected
         })
 
     @app.get("/")

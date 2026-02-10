@@ -23,6 +23,12 @@ class Config(BaseModel):
         jwt_expiration_seconds: JWT token expiration in seconds.
         lnurl_callback_url: Public callback URL for LNURL-auth.
         auth_challenge_expiration_seconds: k1 challenge expiration in seconds.
+        redis_host: Redis server host.
+        redis_port: Redis server port.
+        redis_password: Redis authentication password (optional).
+        redis_stream_key: Redis stream key name for shares.
+        redis_consumer_group: Redis consumer group name.
+        redis_consumer_name: Redis consumer name.
     """
 
     billable_difficulty_threshold: float = Field(
@@ -50,6 +56,31 @@ class Config(BaseModel):
         default=300,
         gt=0,
         description="k1 challenge expiration in seconds"
+    )
+    redis_host: str = Field(
+        default="localhost",
+        description="Redis server host"
+    )
+    redis_port: int = Field(
+        default=6379,
+        gt=0,
+        description="Redis server port"
+    )
+    redis_password: str | None = Field(
+        default=None,
+        description="Redis authentication password (optional)"
+    )
+    redis_stream_key: str = Field(
+        default="slicehash:shares",
+        description="Redis stream key name for shares"
+    )
+    redis_consumer_group: str = Field(
+        default="slicehash-processors",
+        description="Redis consumer group name"
+    )
+    redis_consumer_name: str = Field(
+        default="processor-1",
+        description="Redis consumer name"
     )
 
 

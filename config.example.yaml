@@ -18,3 +18,35 @@ pool_url: "http://localhost:8080"
 # Will be created automatically if it doesn't exist
 # Default: "slicehash.db" (in working directory)
 database_path: "slicehash.db"
+
+# Redis Configuration
+# Redis is used to ingest share events from the mining pool
+
+# Redis server host
+# Default: "localhost" for local development
+# Example: "redis.example.com" for production
+redis_host: "localhost"
+
+# Redis server port
+# Default: 6379 (standard Redis port)
+redis_port: 6379
+
+# Redis authentication password (optional)
+# Leave commented out if Redis has no authentication
+# redis_password: "your-redis-password"
+
+# Redis stream key name
+# The stream where share events are published by the mining pool
+# Default: "slicehash:shares"
+redis_stream_key: "slicehash:shares"
+
+# Redis consumer group name
+# Used for distributed processing and at-least-once delivery
+# Default: "slicehash-processors"
+redis_consumer_group: "slicehash-processors"
+
+# Redis consumer name
+# Unique identifier for this SliceHash instance
+# Default: "processor-1"
+# For multiple instances, use "processor-2", "processor-3", etc.
+redis_consumer_name: "processor-1"
