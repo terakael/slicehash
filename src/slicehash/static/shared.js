@@ -1,15 +1,37 @@
 // Shared JavaScript utilities for SliceHash
 
-// Format timestamp as time in user's timezone and format
+// Format timestamp as relative time
 function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
-    return date.toLocaleString();
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    let timeStr;
+    if (diffMins < 1) {
+        timeStr = 'Just now';
+    } else if (diffMins < 60) {
+        timeStr = `${diffMins}m ago`;
+    } else {
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) {
+            timeStr = `${diffHours}h ago`;
+        } else {
+            const diffDays = Math.floor(diffHours / 24);
+            if (diffDays < 7) {
+                timeStr = `${diffDays}d ago`;
+            } else {
+                timeStr = date.toLocaleDateString();
+            }
+        }
+    }
+
+    return timeStr;
 }
 
 // Format timestamp with username on separate lines for highscores
 function formatTimestampWithUsername(timestamp, username) {
-    const date = new Date(timestamp);
-    const timeStr = date.toLocaleString();
+    const timeStr = formatTimestamp(timestamp);
     const truncatedUsername = truncateUsername(username);
     return { timeStr, username: truncatedUsername };
 }
