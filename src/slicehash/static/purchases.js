@@ -5,25 +5,9 @@ let isLoading = false;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadNetworkDifficulty();
     await loadPurchases();
     setupPurchaseButton();
 });
-
-// Fetch network difficulty (active user count)
-async function loadNetworkDifficulty() {
-    try {
-        const response = await fetch('/api/traffic/status');
-        if (!response.ok) throw new Error('Failed to fetch traffic status');
-
-        const data = await response.json();
-        document.getElementById('network-difficulty-value').textContent = data.active_user_count;
-
-    } catch (error) {
-        console.error('Error loading network difficulty:', error);
-        document.getElementById('network-difficulty-value').textContent = '?';
-    }
-}
 
 // Load purchase history
 async function loadPurchases() {
