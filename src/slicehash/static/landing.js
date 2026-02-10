@@ -17,8 +17,17 @@ async function generateQRCode() {
         const placeholder = document.getElementById('qr-code-placeholder');
         placeholder.innerHTML = '';
 
-        // Detect if user is on mobile
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        // Detect if user is on mobile (check user agent, touch support, and screen size)
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                        (navigator.maxTouchPoints > 0 && window.innerWidth < 768);
+
+        console.log('Mobile detection:', {
+            isMobile,
+            userAgent: navigator.userAgent,
+            maxTouchPoints: navigator.maxTouchPoints,
+            windowWidth: window.innerWidth,
+            hasLnurl: !!data.lnurl
+        });
 
         if (isMobile && data.lnurl) {
             // Create tappable link for mobile users
