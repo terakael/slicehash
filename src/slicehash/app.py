@@ -811,6 +811,57 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             logger.error(f"Failed to fetch purchase history: {e}")
             return jsonify({"error": "Internal error"}), 500
 
+    @app.post("/api/users/me/purchases")
+    @require_auth
+    async def create_purchase():
+        """Create a new purchase transaction for the current user.
+
+        Request body:
+            {
+                "amount": int  # Number of shares to purchase (must be positive)
+            }
+
+        Returns:
+            201: Purchase created successfully
+            400: Invalid request (missing/invalid amount)
+            500: Internal error
+        """
+        try:
+            user_id = request.user_id
+            data = await request.get_json()
+
+            if not data or "amount" not in data:
+                return jsonify({"error": "Missing 'amount' field"}), 400
+
+            amount = data["amount"]
+
+            # Validate amount
+            if not isinstance(amount, int) or amount <= 0:
+                return jsonify({"error": "Amount must be a positive integer"}), 400
+
+            # Create transaction
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+                cursor = await db.execute(
+                    """
+                    INSERT INTO transactions (user_id, amount, created_at)
+                    VALUES (?, ?, datetime('now'))
+                    RETURNING transaction_id, amount, created_at
+                    """,
+                    (user_id, amount)
+                )
+                await db.commit()
+                row = await cursor.fetchone()
+
+                return jsonify({
+                    "transaction_id": row[0],
+                    "amount": row[1],
+                    "created_at": row[2]
+                }), 201
+
+        except Exception as e:
+            logger.error(f"Failed to create purchase: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
     @app.get("/api/highscores/24h")
     async def get_highscores_24h():
         """Return top 5 shares from last 24 hours by level.

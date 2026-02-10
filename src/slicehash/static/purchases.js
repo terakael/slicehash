@@ -2,12 +2,31 @@
 
 // State management
 let isLoading = false;
+let isPurchasing = false;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadUserData();
     await loadPurchases();
-    setupPurchaseButton();
+    setupPurchaseForm();
 });
+
+// Fetch and display user data
+async function loadUserData() {
+    try {
+        const response = await fetch('/api/users/me');
+        if (!response.ok) throw new Error('Failed to fetch user data');
+
+        const data = await response.json();
+
+        // Update shares remaining display
+        document.getElementById('shares-remaining').textContent = data.shares_remaining;
+
+    } catch (error) {
+        console.error('Error loading user data:', error);
+        document.getElementById('shares-remaining').textContent = 'Error';
+    }
+}
 
 // Load purchase history
 async function loadPurchases() {
@@ -81,13 +100,72 @@ function formatDate(timestamp) {
     });
 }
 
-// Setup purchase button
-function setupPurchaseButton() {
-    const button = document.getElementById('purchase-btn');
+// Setup purchase form
+function setupPurchaseForm() {
+    const form = document.querySelector('.purchase-form');
+    const input = document.getElementById('purchase-amount');
+    const button = document.getElementById('purchase-submit-btn');
+
     button.addEventListener('click', async () => {
-        // TODO: Implement purchase flow
-        alert('Purchase flow coming soon!');
+        await handlePurchase();
     });
+
+    input.addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter') {
+            await handlePurchase();
+        }
+    });
+}
+
+// Handle purchase submission
+async function handlePurchase() {
+    if (isPurchasing) return;
+
+    const input = document.getElementById('purchase-amount');
+    const button = document.getElementById('purchase-submit-btn');
+    const amount = parseInt(input.value);
+
+    // Validate input
+    if (!amount || amount <= 0) {
+        showError('Please enter a valid amount');
+        return;
+    }
+
+    isPurchasing = true;
+    button.disabled = true;
+    button.textContent = 'Purchasing...';
+
+    try {
+        const response = await fetch('/api/users/me/purchases', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ amount })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create purchase');
+        }
+
+        // Clear input
+        input.value = '';
+
+        // Reload data
+        await loadUserData();
+        await loadPurchases();
+
+        console.log('Purchase successful');
+
+    } catch (error) {
+        console.error('Error creating purchase:', error);
+        showError(error.message || 'Failed to create purchase');
+    } finally {
+        isPurchasing = false;
+        button.disabled = false;
+        button.textContent = 'Purchase';
+    }
 }
 
 // Show/hide loading indicator
