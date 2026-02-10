@@ -556,37 +556,15 @@ footer {
 
 .share-card-footer {
     display: flex;
-    gap: 12px;
     margin-top: 12px;
 }
 
-.share-badge {
-    display: inline-block;
-    padding: 6px 10px;
+.share-hash {
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    border: 2px solid;
-    box-shadow: 2px 2px 0px rgba(0,0,0,0.8);
-}
-
-.share-badge.block-badge {
-    background-color: #f7931a;
-    color: #000;
-    border-color: #c46700;
-}
-
-.share-badge.billable-badge {
-    background-color: #32cd32;
-    color: #000;
-    border-color: #228b22;
-}
-
-.share-badge.priority-badge {
-    background-color: #ff6347;
-    color: #000;
-    border-color: #8b0000;
+    color: #888;
+    word-break: break-all;
+    line-height: 1.6;
 }
 
 /* Bottom Navigation */
@@ -770,15 +748,6 @@ footer {
     text-shadow: none;
 }
 
-/* Hide billable/priority badges on highscore cards */
-.highscore-card .share-badge {
-    display: none;
-}
-
-/* Adjust card footer since badges are hidden */
-.highscore-card .share-card-footer {
-    display: none;
-}
 
 /* SSE Animation - Pixelated drop-in */
 @keyframes slideInFromTop {

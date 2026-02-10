@@ -84,15 +84,6 @@ function renderShareCards(shares) {
         // Get level styling
         const { color, shape, borderStyle } = getLevelStyle(share.level);
 
-        // Build badges (hidden via CSS but kept in DOM)
-        let badges = '';
-        if (share.billable) {
-            badges += '<span class="share-badge billable-badge">Billable</span>';
-        }
-        if (share.shares_consumed > 1) {
-            badges += `<span class="share-badge priority-badge">Priority ${share.shares_consumed}x</span>`;
-        }
-
         const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
 
         card.innerHTML = `
@@ -102,7 +93,9 @@ function renderShareCards(shares) {
                     ${share.level}
                 </div>
             </div>
-            ${badges ? `<div class="share-card-footer">${badges}</div>` : ''}
+            <div class="share-card-footer">
+                <span class="share-hash">${share.share_hash}</span>
+            </div>
         `;
 
         container.appendChild(card);
