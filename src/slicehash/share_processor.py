@@ -194,7 +194,7 @@ class ShareProcessor:
                     value = EXCLUDED.value,
                     updated_at = EXCLUDED.updated_at
                 """,
-                block_target, datetime.now().isoformat()
+                block_target, datetime.now()
             )
 
         # Step 2: Calculate level from share hash
@@ -221,7 +221,7 @@ class ShareProcessor:
             shares_consumed = calculate_shares_consumed(priority, traffic_level)
 
         # Step 5: Store share event
-        submitted_at = datetime.fromtimestamp(ntime).isoformat()
+        submitted_at_dt = datetime.fromtimestamp(ntime)
         share_id = await db.fetchval(
             """
             INSERT INTO share_events
@@ -241,7 +241,7 @@ class ShareProcessor:
             level,
             1 if billable else 0,
             shares_consumed,
-            submitted_at
+            submitted_at_dt
         )
 
         logger.info(
@@ -254,7 +254,7 @@ class ShareProcessor:
             notification = ShareNotification(
                 share_id=share_id,
                 user_id=int(user_id),
-                submitted_at=submitted_at,
+                submitted_at=submitted_at_dt.isoformat(),
                 level=level,
                 is_block=is_block,
                 share_hash=share_hash,
@@ -312,7 +312,7 @@ class ShareProcessor:
             # Update user's last_served_at
             await db.execute(
                 "UPDATE users SET last_served_at = $1 WHERE user_id = $2",
-                datetime.now().isoformat(), next_user_id
+                datetime.now(), next_user_id
             )
 
             # Update rotation state
