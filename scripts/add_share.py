@@ -82,24 +82,21 @@ async def add_share_event(
         INSERT INTO share_events
         (user_id, nonce, ntime, version, coinbase_address, coinbase_prefix_tag,
          share_hash, is_block, level, billable, shares_consumed, submitted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         """,
-        (
-            user_id,
-            nonce,
-            ntime,
-            version,
-            coinbase_address,
-            coinbase_prefix_tag,
-            share_hash,
-            1 if is_block else 0,
-            level,
-            1 if billable else 0,
-            shares_consumed,
-            submitted_at
-        )
+        user_id,
+        nonce,
+        ntime,
+        version,
+        coinbase_address,
+        coinbase_prefix_tag,
+        share_hash,
+        is_block,
+        level,
+        billable,
+        shares_consumed,
+        submitted_at
     )
-    await db.commit()
 
 
 async def add_batch_shares(db, user_id: str, count: int, priority: int = 1):
@@ -213,16 +210,10 @@ Examples:
         # Load configuration
         config = load_config(args.config)
         print(f"Loaded config from: {args.config}")
-        print(f"Database: {config.database_path}")
+        print(f"Database: {config.database_url}")
         print()
 
-        # Check database exists
-        db_path = Path(config.database_path)
-        if not db_path.exists():
-            print("Error: Database not found. Please initialize it first.", file=sys.stderr)
-            return 1
-
-        async with DatabaseManager(config.database_path) as db:
+        async with DatabaseManager(config.database_url) as db:
             if args.batch:
                 # Generate batch of random shares
                 await add_batch_shares(db, args.user_id, args.batch, args.priority)

@@ -21,7 +21,7 @@ should_rotate triggers rotation when BOTH conditions met:
 This ensures every user gets a turn while preventing instant rotation on first share.
 """
 
-import aiosqlite
+import asyncpg
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -148,7 +148,7 @@ def should_rotate(
 
 
 async def select_next_user(
-    db: aiosqlite.Connection,
+    db: asyncpg.Connection,
     exclude_user_id: Optional[int] = None
 ) -> Optional[int]:
     """Select next user for mining based on fairness algorithm.
@@ -178,7 +178,7 @@ async def select_next_user(
         user_id of selected user, or None if no eligible users
 
     Raises:
-        aiosqlite.Error: If database queries fail
+        asyncpg.PostgresError: If database queries fail
 
     Example:
         >>> # Select initial user
@@ -199,17 +199,14 @@ async def select_next_user(
 
     # Build SQL to fetch user data for fairness calculation
     # Query: last_served_at and priority_multiplier for all active users
-    placeholders = ",".join("?" * len(active_users))
-    cursor = await db.execute(
-        f"""
+    user_data = await db.fetch(
+        """
         SELECT user_id, last_served_at, priority_multiplier
         FROM users
-        WHERE user_id IN ({placeholders})
+        WHERE user_id = ANY($1::int[])
         """,
         active_users
     )
-
-    user_data = await cursor.fetchall()
 
     # Apply fairness algorithm
     # Priority 1: Never-served users (last_served_at IS NULL)
@@ -218,7 +215,11 @@ async def select_next_user(
     never_served = []
     previously_served = []
 
-    for user_id, last_served_at, priority_multiplier in user_data:
+    for row in user_data:
+        user_id = row['user_id']
+        last_served_at = row['last_served_at']
+        priority_multiplier = row['priority_multiplier']
+
         if last_served_at is None:
             never_served.append(user_id)
         else:
@@ -234,19 +235,18 @@ async def select_next_user(
         return None
 
     # Get current timestamp from database for consistency
-    cursor = await db.execute("SELECT datetime('now')")
-    now_str = (await cursor.fetchone())[0]
+    now = await db.fetchval("SELECT NOW()")
 
     best_user_id = None
     max_weighted_wait = -1
 
     for user_id, last_served_at, priority_multiplier in previously_served:
         # Calculate seconds since last served
-        cursor = await db.execute(
-            "SELECT strftime('%s', ?) - strftime('%s', ?)",
-            (now_str, last_served_at)
+        time_since_seconds = await db.fetchval(
+            "SELECT EXTRACT(EPOCH FROM $1::timestamp - $2::timestamp)",
+            now, last_served_at
         )
-        time_since = int((await cursor.fetchone())[0])
+        time_since = int(time_since_seconds)
 
         # Weighted wait time = time_since / priority_multiplier
         # Higher priority users have shorter "effective" wait time

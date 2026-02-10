@@ -12,12 +12,12 @@ Tables:
 # Users table - stores user accounts and priority settings
 USERS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS users (
-    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id SERIAL PRIMARY KEY,
     address TEXT NOT NULL UNIQUE,
     tag TEXT,
     priority_multiplier INTEGER DEFAULT 1 CHECK(priority_multiplier >= 1 AND priority_multiplier <= 5),
-    last_served_at TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_served_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     lightning_pubkey TEXT
 )
 """
@@ -25,10 +25,10 @@ CREATE TABLE IF NOT EXISTS users (
 # Transactions table - tracks share purchases for quota calculation
 TRANSACTIONS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS transactions (
-    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaction_id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     amount INTEGER NOT NULL CHECK(amount > 0),
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 )
 """
@@ -36,10 +36,10 @@ CREATE TABLE IF NOT EXISTS transactions (
 # Share events table - records individual share submissions from pool
 SHARE_EVENTS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS share_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    submitted_at TEXT NOT NULL,
+    id SERIAL PRIMARY KEY,
+    submitted_at TIMESTAMP NOT NULL,
     user_id INTEGER NOT NULL,
-    nonce INTEGER NOT NULL,
+    nonce BIGINT NOT NULL,
     ntime INTEGER NOT NULL,
     version INTEGER NOT NULL,
     coinbase_address TEXT NOT NULL,
@@ -58,7 +58,7 @@ GLOBAL_STATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS global_state (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """
 
@@ -96,8 +96,8 @@ ON transactions(user_id)
 AUTH_CHALLENGES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS auth_challenges (
     k1 TEXT PRIMARY KEY,
-    created_at INTEGER NOT NULL,
-    expires_at INTEGER NOT NULL,
+    created_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
     used INTEGER DEFAULT 0 CHECK(used IN (0, 1))
 )
 """
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
     k1 TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
     token TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
+    created_at BIGINT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 )
 """

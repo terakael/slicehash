@@ -16,7 +16,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-import aiosqlite
+import asyncpg
 
 from .config import Config
 from .db.manager import DatabaseManager
@@ -73,7 +73,7 @@ class ShareProcessor:
         self._task: Optional[asyncio.Task] = None
         self._running = False
         self._db_conn = None
-        self._db_manager = DatabaseManager(self.config.database_path)
+        self._db_manager = DatabaseManager(self.config.database_url)
 
     async def start(self):
         """Start background processing task and load block target."""
@@ -83,12 +83,12 @@ class ShareProcessor:
             logger.info("Established persistent database connection")
 
             # Load current block target from database
-            cursor = await self._db_conn.execute(
-                "SELECT value FROM global_state WHERE key = 'current_block_target'"
+            row = await self._db_conn.fetchrow(
+                "SELECT value FROM global_state WHERE key = $1",
+                'current_block_target'
             )
-            row = await cursor.fetchone()
             if row:
-                self.current_block_target = row[0]
+                self.current_block_target = row['value']
                 logger.info(f"Loaded block target: {self.current_block_target}")
         except Exception as e:
             # Clean up connection on failure
@@ -136,7 +136,7 @@ class ShareProcessor:
             except asyncio.TimeoutError:
                 # No shares in queue, continue loop
                 continue
-            except (aiosqlite.Error, aiosqlite.DatabaseError, ConnectionError) as e:
+            except (asyncpg.PostgresError, ConnectionError) as e:
                 # Database or connection errors - attempt reconnection
                 logger.error(f"Database error processing share: {e}", exc_info=True)
                 logger.warning("Attempting to reconnect to database")
@@ -187,12 +187,14 @@ class ShareProcessor:
             # Update database
             await db.execute(
                 """
-                INSERT OR REPLACE INTO global_state (key, value, updated_at)
-                VALUES ('current_block_target', ?, ?)
+                INSERT INTO global_state (key, value, updated_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (key) DO UPDATE SET
+                    value = EXCLUDED.value,
+                    updated_at = EXCLUDED.updated_at
                 """,
-                (block_target, datetime.now().isoformat())
+                block_target, datetime.now().isoformat()
             )
-            await db.commit()
 
         # Step 2: Calculate level from share hash
         level = calculate_level(share_hash) if share_hash else 0
@@ -209,44 +211,37 @@ class ShareProcessor:
             traffic_level = calculate_traffic_level(len(active_users))
 
             # Get user's priority multiplier
-            cursor = await db.execute(
-                "SELECT priority_multiplier FROM users WHERE user_id = ?",
-                (user_id,)
+            row = await db.fetchrow(
+                "SELECT priority_multiplier FROM users WHERE user_id = $1",
+                user_id
             )
-            row = await cursor.fetchone()
-            priority = row[0] if row else 1
+            priority = row['priority_multiplier'] if row else 1
 
             shares_consumed = calculate_shares_consumed(priority, traffic_level)
 
         # Step 5: Store share event
         submitted_at = datetime.fromtimestamp(ntime).isoformat()
-        await db.execute(
+        share_id = await db.fetchval(
             """
             INSERT INTO share_events
             (user_id, nonce, ntime, version, coinbase_address, coinbase_prefix_tag,
              share_hash, is_block, level, billable, shares_consumed, submitted_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id
             """,
-            (
-                user_id,
-                nonce,
-                ntime,
-                version,
-                coinbase_address,
-                coinbase_prefix_tag,
-                share_hash,
-                1 if is_block else 0,
-                level,
-                1 if billable else 0,
-                shares_consumed,
-                submitted_at
-            )
+            user_id,
+            nonce,
+            ntime,
+            version,
+            coinbase_address,
+            coinbase_prefix_tag,
+            share_hash,
+            1 if is_block else 0,
+            level,
+            1 if billable else 0,
+            shares_consumed,
+            submitted_at
         )
-        await db.commit()
-
-        # Get inserted share ID
-        cursor = await db.execute("SELECT last_insert_rowid()")
-        share_id = (await cursor.fetchone())[0]
 
         logger.info(
             f"Stored share: user={user_id}, level={level}, "
@@ -298,16 +293,15 @@ class ShareProcessor:
             return
 
         # Get user details
-        cursor = await db.execute(
-            "SELECT address, tag FROM users WHERE user_id = ?",
-            (next_user_id,)
+        row = await db.fetchrow(
+            "SELECT address, tag FROM users WHERE user_id = $1",
+            next_user_id
         )
-        row = await cursor.fetchone()
         if not row:
             logger.error(f"User {next_user_id} not found")
             return
 
-        address, tag = row
+        address, tag = row['address'], row['tag']
 
         # Update pool's coinbase address
         async with PoolClient(str(self.config.pool_url)) as pool:
@@ -316,10 +310,9 @@ class ShareProcessor:
         if success:
             # Update user's last_served_at
             await db.execute(
-                "UPDATE users SET last_served_at = ? WHERE user_id = ?",
-                (datetime.now().isoformat(), next_user_id)
+                "UPDATE users SET last_served_at = $1 WHERE user_id = $2",
+                datetime.now().isoformat(), next_user_id
             )
-            await db.commit()
 
             # Update rotation state
             old_user = self.rotation_state.current_user_id

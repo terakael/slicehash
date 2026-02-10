@@ -30,20 +30,16 @@ async def calculate_shares_remaining(db, user_id: int) -> tuple[int, int, int]:
         Tuple of (total_purchased, total_consumed, shares_remaining)
     """
     # Calculate total shares purchased from transactions
-    cursor = await db.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = ?",
-        (user_id,)
+    total_purchased = await db.fetchval(
+        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = $1",
+        user_id
     )
-    row = await cursor.fetchone()
-    total_purchased = row[0] if row else 0
 
     # Calculate total billable shares consumed
-    cursor = await db.execute(
-        "SELECT COALESCE(SUM(shares_consumed), 0) FROM share_events WHERE user_id = ? AND billable = 1",
-        (user_id,)
+    total_consumed = await db.fetchval(
+        "SELECT COALESCE(SUM(shares_consumed), 0) FROM share_events WHERE user_id = $1 AND billable = true",
+        user_id
     )
-    row = await cursor.fetchone()
-    total_consumed = row[0] if row else 0
 
     shares_remaining = total_purchased - total_consumed
 
@@ -100,29 +96,25 @@ Examples:
         # Load configuration
         config = load_config(args.config)
         print(f"Loaded config from: {args.config}")
-        print(f"Database: {config.database_path}")
+        print(f"Database: {config.database_url}")
         print()
 
         # Initialize database if needed
-        db_path = Path(config.database_path)
-        if not db_path.exists():
-            print("Database not found. Initializing...")
-            await init_database(config.database_path)
-            print("Database initialized successfully")
-            print()
+        await init_database(config.database_url)
+        print("Database initialized successfully")
+        print()
 
         # Add transaction
-        async with DatabaseManager(config.database_path) as db:
+        async with DatabaseManager(config.database_url) as db:
             # Get or create user
             user_id = await get_or_create_user(db, args.address, args.tag)
 
             # Check if user already existed
-            cursor = await db.execute(
-                "SELECT tag FROM users WHERE user_id = ?",
-                (user_id,)
+            row = await db.fetchrow(
+                "SELECT tag FROM users WHERE user_id = $1",
+                user_id
             )
-            row = await cursor.fetchone()
-            existing_tag = row[0] if row else None
+            existing_tag = row['tag'] if row else None
 
             # Add transaction
             transaction_id = await add_transaction(db, user_id, args.amount)

@@ -45,10 +45,9 @@ async def generate_k1_challenge(db, config) -> tuple[str, str]:
     expires_at = created_at + config.auth_challenge_expiration_seconds
 
     await db.execute(
-        "INSERT INTO auth_challenges (k1, created_at, expires_at) VALUES (?, ?, ?)",
-        (k1_hex, created_at, expires_at)
+        "INSERT INTO auth_challenges (k1, created_at, expires_at) VALUES ($1, $2, $3)",
+        k1_hex, created_at, expires_at
     )
-    await db.commit()
 
     callback_url = f"{config.lnurl_callback_url}?tag=login&k1={k1_hex}"
     lnurl_string = lnurl_encode(callback_url)
@@ -160,26 +159,24 @@ async def get_or_create_user_by_pubkey(db, pubkey: str) -> int:
     Returns:
         User ID
     """
-    cursor = await db.execute(
-        "SELECT user_id FROM users WHERE lightning_pubkey = ?",
-        (pubkey,)
+    row = await db.fetchrow(
+        "SELECT user_id FROM users WHERE lightning_pubkey = $1",
+        pubkey
     )
-    row = await cursor.fetchone()
 
     if row:
-        return row[0]
+        return row['user_id']
 
     # Create new user with placeholder address
     placeholder_address = f"bc1_update_in_settings_{pubkey[:8]}"
     created_at = int(time.time())
 
-    cursor = await db.execute(
-        "INSERT INTO users (address, lightning_pubkey, created_at) VALUES (?, ?, ?)",
-        (placeholder_address, pubkey, created_at)
+    user_id = await db.fetchval(
+        "INSERT INTO users (address, lightning_pubkey, created_at) VALUES ($1, $2, $3) RETURNING user_id",
+        placeholder_address, pubkey, created_at
     )
-    await db.commit()
 
-    return cursor.lastrowid
+    return user_id
 
 
 async def cleanup_expired_challenges(db) -> int:
@@ -192,12 +189,12 @@ async def cleanup_expired_challenges(db) -> int:
         Number of challenges removed
     """
     current_time = int(time.time())
-    cursor = await db.execute(
-        "DELETE FROM auth_challenges WHERE expires_at < ?",
-        (current_time,)
+    result = await db.execute(
+        "DELETE FROM auth_challenges WHERE expires_at < $1",
+        current_time
     )
-    await db.commit()
-    return cursor.rowcount
+    # Extract row count from result string (format: "DELETE N")
+    return int(result.split()[-1]) if result else 0
 
 
 async def mark_challenge_used(db, k1: str) -> bool:
@@ -210,9 +207,10 @@ async def mark_challenge_used(db, k1: str) -> bool:
     Returns:
         True if challenge was marked (was unused), False if already used
     """
-    cursor = await db.execute(
-        "UPDATE auth_challenges SET used = 1 WHERE k1 = ? AND used = 0",
-        (k1,)
+    result = await db.execute(
+        "UPDATE auth_challenges SET used = 1 WHERE k1 = $1 AND used = 0",
+        k1
     )
-    await db.commit()
-    return cursor.rowcount > 0
+    # Extract row count from result string (format: "UPDATE N")
+    row_count = int(result.split()[-1]) if result else 0
+    return row_count > 0

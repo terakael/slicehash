@@ -1,11 +1,11 @@
 """Async database connection management and utility functions.
 
-This module provides the DatabaseManager class for managing SQLite connections
-with async support via aiosqlite, along with utility functions for common
+This module provides the DatabaseManager class for managing PostgreSQL connections
+with async support via asyncpg, along with utility functions for common
 database operations like user creation and transaction logging.
 """
 
-import aiosqlite
+import asyncpg
 from typing import Optional
 from pathlib import Path
 
@@ -13,36 +13,31 @@ from .schema import ALL_TABLES, ALL_INDEXES
 
 
 class DatabaseManager:
-    """Async context manager for SQLite database connections.
+    """Async context manager for PostgreSQL database connections.
 
-    Automatically enables foreign key constraints and provides clean
-    connection lifecycle management.
+    Provides clean connection lifecycle management with asyncpg.
 
     Example:
-        async with DatabaseManager("slicehash.db") as db:
-            cursor = await db.execute("SELECT * FROM users")
-            rows = await cursor.fetchall()
+        async with DatabaseManager("postgresql://user:pass@host/db") as db:
+            rows = await db.fetch("SELECT * FROM users")
     """
 
-    def __init__(self, db_path: str):
+    def __init__(self, database_url: str):
         """Initialize database manager.
 
         Args:
-            db_path: Path to SQLite database file
+            database_url: PostgreSQL connection URL
         """
-        self.db_path = db_path
-        self._connection: Optional[aiosqlite.Connection] = None
+        self.database_url = database_url
+        self._connection: Optional[asyncpg.Connection] = None
 
-    async def connect(self) -> aiosqlite.Connection:
-        """Create async database connection with foreign keys enabled.
+    async def connect(self) -> asyncpg.Connection:
+        """Create async database connection.
 
         Returns:
-            Connected aiosqlite.Connection instance
+            Connected asyncpg.Connection instance
         """
-        self._connection = await aiosqlite.connect(self.db_path)
-        # Enable foreign key constraints
-        await self._connection.execute("PRAGMA foreign_keys = ON")
-        await self._connection.commit()
+        self._connection = await asyncpg.connect(self.database_url)
         return self._connection
 
     async def close(self) -> None:
@@ -51,78 +46,47 @@ class DatabaseManager:
             await self._connection.close()
             self._connection = None
 
-    async def __aenter__(self) -> aiosqlite.Connection:
+    async def __aenter__(self) -> asyncpg.Connection:
         """Async context manager entry."""
-        conn = await self.connect()
-        # Performance optimizations
-        await conn.execute("PRAGMA journal_mode = WAL")
-        await conn.execute("PRAGMA synchronous = NORMAL")
-        await conn.execute("PRAGMA cache_size = -10000")
-        await conn.commit()
-        return conn
+        return await self.connect()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit."""
         await self.close()
 
-    async def get_persistent_connection(self) -> aiosqlite.Connection:
-        """Create a persistent database connection with optimizations.
+    async def get_persistent_connection(self) -> asyncpg.Connection:
+        """Create a persistent database connection.
 
         This method creates a connection that persists beyond the context manager.
         The caller is responsible for closing the connection using close_persistent_connection().
 
         Returns:
-            Connected aiosqlite.Connection instance with foreign keys enabled
-            and performance optimizations applied
+            Connected asyncpg.Connection instance
         """
-        conn = await aiosqlite.connect(self.db_path)
-        # Enable foreign key constraints
-        await conn.execute("PRAGMA foreign_keys = ON")
-        # Performance optimizations
-        await conn.execute("PRAGMA journal_mode = WAL")
-        await conn.execute("PRAGMA synchronous = NORMAL")
-        await conn.execute("PRAGMA cache_size = -10000")
-        await conn.commit()
-        return conn
+        return await asyncpg.connect(self.database_url)
 
-    async def close_persistent_connection(self, conn: aiosqlite.Connection) -> None:
+    async def close_persistent_connection(self, conn: asyncpg.Connection) -> None:
         """Close a persistent database connection.
-
-        Performs a checkpoint to flush WAL to main database before closing.
 
         Args:
             conn: The connection to close
         """
         if conn:
-            try:
-                # Checkpoint WAL to flush changes to main database file
-                await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                await conn.commit()
-            except Exception as e:
-                # Log but don't fail on checkpoint errors
-                import logging
-                logging.getLogger(__name__).warning(f"WAL checkpoint failed: {e}")
-            finally:
-                await conn.close()
+            await conn.close()
 
 
-async def init_database(db_path: str) -> None:
+async def init_database(database_url: str) -> None:
     """Initialize database with schema.
 
-    Creates the database file if it doesn't exist, then creates all tables
-    and indexes defined in schema.py. Enables foreign key constraints.
+    Creates all tables and indexes defined in schema.py.
 
     Args:
-        db_path: Path to SQLite database file to create/initialize
+        database_url: PostgreSQL connection URL
 
     Raises:
-        aiosqlite.Error: If database operations fail
+        asyncpg.PostgresError: If database operations fail
     """
-    # Ensure parent directory exists
-    db_file = Path(db_path)
-    db_file.parent.mkdir(parents=True, exist_ok=True)
-
-    async with DatabaseManager(db_path) as db:
+    async with DatabaseManager(database_url) as db:
         # Create all tables
         for table_sql in ALL_TABLES:
             await db.execute(table_sql)
@@ -131,11 +95,9 @@ async def init_database(db_path: str) -> None:
         for index_sql in ALL_INDEXES:
             await db.execute(index_sql)
 
-        await db.commit()
-
 
 async def get_or_create_user(
-    db: aiosqlite.Connection,
+    db: asyncpg.Connection,
     address: str,
     tag: Optional[str] = None
 ) -> int:
@@ -150,30 +112,28 @@ async def get_or_create_user(
         user_id of existing or newly created user
 
     Raises:
-        aiosqlite.Error: If database operations fail
+        asyncpg.PostgresError: If database operations fail
     """
     # Check if user exists
-    cursor = await db.execute(
-        "SELECT user_id FROM users WHERE address = ?",
-        (address,)
+    row = await db.fetchrow(
+        "SELECT user_id FROM users WHERE address = $1",
+        address
     )
-    row = await cursor.fetchone()
 
     if row:
-        return row[0]
+        return row['user_id']
 
     # Create new user
-    cursor = await db.execute(
-        "INSERT INTO users (address, tag) VALUES (?, ?)",
-        (address, tag)
+    user_id = await db.fetchval(
+        "INSERT INTO users (address, tag) VALUES ($1, $2) RETURNING user_id",
+        address, tag
     )
-    await db.commit()
 
-    return cursor.lastrowid
+    return user_id
 
 
 async def add_transaction(
-    db: aiosqlite.Connection,
+    db: asyncpg.Connection,
     user_id: int,
     amount: int
 ) -> int:
@@ -189,15 +149,14 @@ async def add_transaction(
 
     Raises:
         ValueError: If amount <= 0
-        aiosqlite.Error: If database operations fail (e.g., invalid user_id)
+        asyncpg.PostgresError: If database operations fail (e.g., invalid user_id)
     """
     if amount <= 0:
         raise ValueError(f"Transaction amount must be positive, got {amount}")
 
-    cursor = await db.execute(
-        "INSERT INTO transactions (user_id, amount) VALUES (?, ?)",
-        (user_id, amount)
+    transaction_id = await db.fetchval(
+        "INSERT INTO transactions (user_id, amount) VALUES ($1, $2) RETURNING transaction_id",
+        user_id, amount
     )
-    await db.commit()
 
-    return cursor.lastrowid
+    return transaction_id

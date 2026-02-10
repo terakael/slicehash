@@ -10,7 +10,7 @@ algorithm, determining which users are eligible to mine based on their
 remaining quota.
 """
 
-import aiosqlite
+import asyncpg
 from cachetools import TTLCache
 
 # Global cache for active users with 1-second TTL
@@ -42,7 +42,7 @@ def classify_share_billable(share_difficulty: float, threshold: float) -> bool:
 
 
 async def calculate_shares_remaining(
-    db: aiosqlite.Connection,
+    db: asyncpg.Connection,
     user_id: int
 ) -> int:
     """Calculate remaining share balance for a user.
@@ -60,7 +60,7 @@ async def calculate_shares_remaining(
         Integer representing shares remaining (can be 0 or negative if overconsumed)
 
     Raises:
-        aiosqlite.Error: If database query fails
+        asyncpg.PostgresError: If database query fails
 
     Example:
         >>> # User purchased 1000 shares, consumed 250 billable shares
@@ -68,29 +68,27 @@ async def calculate_shares_remaining(
         750
     """
     # Get total shares purchased
-    cursor = await db.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = ?",
-        (user_id,)
+    purchased = await db.fetchval(
+        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = $1",
+        user_id
     )
-    row = await cursor.fetchone()
-    purchased = row[0] if row else 0
+    purchased = purchased if purchased is not None else 0
 
     # Get total billable shares consumed
-    cursor = await db.execute(
+    consumed = await db.fetchval(
         """
         SELECT COALESCE(SUM(shares_consumed), 0)
         FROM share_events
-        WHERE user_id = ? AND billable = 1
+        WHERE user_id = $1 AND billable = 1
         """,
-        (user_id,)
+        user_id
     )
-    row = await cursor.fetchone()
-    consumed = row[0] if row else 0
+    consumed = consumed if consumed is not None else 0
 
     return purchased - consumed
 
 
-async def get_active_users(db: aiosqlite.Connection) -> list[int]:
+async def get_active_users(db: asyncpg.Connection) -> list[int]:
     """Get list of user IDs with positive share balance.
 
     Returns all users who have shares remaining (shares_remaining > 0),
@@ -107,7 +105,7 @@ async def get_active_users(db: aiosqlite.Connection) -> list[int]:
         List of user_ids with positive share balance, sorted by user_id
 
     Raises:
-        aiosqlite.Error: If database query fails
+        asyncpg.PostgresError: If database query fails
 
     Example:
         >>> # Returns users with quota remaining
@@ -124,7 +122,7 @@ async def get_active_users(db: aiosqlite.Connection) -> list[int]:
     # - purchased = SUM(transactions.amount) for the user
     # - consumed = SUM(share_events.shares_consumed) WHERE billable=1 for the user
     # - active = purchased > consumed
-    cursor = await db.execute(
+    rows = await db.fetch(
         """
         SELECT u.user_id
         FROM users u
@@ -143,8 +141,7 @@ async def get_active_users(db: aiosqlite.Connection) -> list[int]:
         ORDER BY u.user_id
         """
     )
-    rows = await cursor.fetchall()
-    result = [row[0] for row in rows]
+    result = [row['user_id'] for row in rows]
 
     # Cache the result with 1-second TTL
     _active_users_cache[cache_key] = result

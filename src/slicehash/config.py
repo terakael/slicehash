@@ -18,7 +18,7 @@ class Config(BaseModel):
         billable_difficulty_threshold: Minimum difficulty for shares to count toward quota.
             Shares with difficulty >= this value are considered billable.
         pool_url: HTTP URL of the SV2 pool for coinbase address updates.
-        database_path: Path to the SQLite database file for storing mining state.
+        database_url: PostgreSQL connection URL for storing mining state.
         jwt_secret: Secret key for JWT token signing.
         jwt_expiration_seconds: JWT token expiration in seconds.
         lnurl_callback_url: Public callback URL for LNURL-auth.
@@ -38,8 +38,8 @@ class Config(BaseModel):
     pool_url: HttpUrl = Field(
         description="URL of the SV2 pool"
     )
-    database_path: str = Field(
-        description="Path to SQLite database file"
+    database_url: str = Field(
+        description="PostgreSQL connection URL (e.g., postgresql://user:pass@host:port/db)"
     )
     jwt_secret: str = Field(
         description="Secret key for JWT token signing (generate with: openssl rand -hex 32)"

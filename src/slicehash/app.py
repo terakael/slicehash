@@ -169,20 +169,20 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         global current_block_target
 
         # Initialize database if it doesn't exist
-        db_path = Path(config.database_path)
+        db_path = Path(config.database_url)
         if not db_path.exists():
-            logger.info(f"Database not found at {config.database_path}. Initializing...")
-            await init_database(config.database_path)
+            logger.info(f"Database not found at {config.database_url}. Initializing...")
+            await init_database(config.database_url)
             logger.info("Database initialized successfully")
 
         # Load current block target from database
-        async with DatabaseManager(config.database_path) as db:
-            cursor = await db.execute(
-                "SELECT value FROM global_state WHERE key = 'current_block_target'"
+        async with DatabaseManager(config.database_url) as db:
+            row = await db.fetchrow(
+                "SELECT value FROM global_state WHERE key = $1",
+                'current_block_target'
             )
-            row = await cursor.fetchone()
             if row:
-                current_block_target = row[0]
+                current_block_target = row['value']
                 logger.info(f"Loaded block target: {current_block_target}")
 
         await share_processor.start()
@@ -232,7 +232,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """Generate new LNURL-auth challenge."""
         try:
             config_obj = app.config["SLICEHASH_CONFIG"]
-            async with DatabaseManager(config_obj.database_path) as db:
+            async with DatabaseManager(config_obj.database_url) as db:
                 await cleanup_expired_challenges(db)
                 k1, lnurl_string = await generate_k1_challenge(db, config_obj)
 
@@ -252,14 +252,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         try:
             config_obj = app.config["SLICEHASH_CONFIG"]
 
-            async with DatabaseManager(config_obj.database_path) as db:
-                cursor = await db.execute(
-                    "SELECT expires_at FROM auth_challenges WHERE k1 = ?",
-                    (k1,)
+            async with DatabaseManager(config_obj.database_url) as db:
+                row = await db.fetchrow(
+                    "SELECT expires_at FROM auth_challenges WHERE k1 = $1",
+                    k1
                 )
-                row = await cursor.fetchone()
 
-                if not row or int(time.time()) > row[0]:
+                if not row or int(time.time()) > row['expires_at']:
                     return jsonify({"error": "Invalid or expired challenge"}), 404
 
             callback_url = f"{config_obj.lnurl_callback_url}?tag=login&k1={k1}&action=login"
@@ -323,18 +322,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             config_obj = app.config["SLICEHASH_CONFIG"]
 
-            async with DatabaseManager(config_obj.database_path) as db:
+            async with DatabaseManager(config_obj.database_url) as db:
                 # Verify challenge exists and is valid
-                cursor = await db.execute(
-                    "SELECT used, expires_at FROM auth_challenges WHERE k1 = ?",
-                    (k1,)
+                row = await db.fetchrow(
+                    "SELECT used, expires_at FROM auth_challenges WHERE k1 = $1",
+                    k1
                 )
-                row = await cursor.fetchone()
 
                 if not row:
                     return jsonify({"status": "ERROR", "reason": "Invalid challenge"}), 400
 
-                used, expires_at = row
+                used, expires_at = row['used'], row['expires_at']
 
                 if used:
                     return jsonify({"status": "ERROR", "reason": "Challenge already used"}), 400
@@ -357,10 +355,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 # Store token temporarily for polling
                 await db.execute(
-                    "INSERT INTO auth_tokens (k1, user_id, token, created_at) VALUES (?, ?, ?, ?)",
-                    (k1, user_id, token, int(time.time()))
+                    "INSERT INTO auth_tokens (k1, user_id, token, created_at) VALUES ($1, $2, $3, $4)",
+                    k1, user_id, token, int(time.time())
                 )
-                await db.commit()
 
                 return jsonify({"status": "OK"}), 200
         except Exception as e:
@@ -377,19 +374,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             config_obj = app.config["SLICEHASH_CONFIG"]
 
-            async with DatabaseManager(config_obj.database_path) as db:
-                cursor = await db.execute(
-                    "SELECT token FROM auth_tokens WHERE k1 = ?",
-                    (k1,)
+            async with DatabaseManager(config_obj.database_url) as db:
+                row = await db.fetchrow(
+                    "SELECT token FROM auth_tokens WHERE k1 = $1",
+                    k1
                 )
-                row = await cursor.fetchone()
 
                 if row:
-                    token = row[0]
+                    token = row['token']
 
                     # Clean up token from database
-                    await db.execute("DELETE FROM auth_tokens WHERE k1 = ?", (k1,))
-                    await db.commit()
+                    await db.execute("DELETE FROM auth_tokens WHERE k1 = $1", k1)
 
                     return jsonify({"authenticated": True, "token": token}), 200
                 else:
@@ -417,18 +412,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         try:
             user_id = request.user_id
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 # Fetch user record
-                cursor = await db.execute(
-                    "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = ?",
-                    (user_id,)
+                row = await db.fetchrow(
+                    "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = $1",
+                    user_id
                 )
-                row = await cursor.fetchone()
 
                 if not row:
                     return jsonify({"error": "User not found"}), 404
 
-                user_id, address, tag, priority = row
+                user_id, address, tag, priority = row['user_id'], row['address'], row['tag'], row['priority_multiplier']
 
                 # Calculate derived fields using existing business logic
                 shares_remaining = await calculate_shares_remaining(db, user_id)
@@ -471,18 +465,21 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Validate request with Pydantic
             update_req = UserUpdateRequest(**data)
 
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 # Build dynamic UPDATE query (only include non-None fields)
                 updates = []
                 params = []
+                param_num = 1
 
                 if update_req.address is not None:
-                    updates.append("address = ?")
+                    updates.append(f"address = ${param_num}")
                     params.append(update_req.address)
+                    param_num += 1
 
                 if update_req.tag is not None:
-                    updates.append("tag = ?")
+                    updates.append(f"tag = ${param_num}")
                     params.append(update_req.tag)
+                    param_num += 1
 
                 if not updates:
                     return jsonify({"error": "No fields to update"}), 400
@@ -490,21 +487,19 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Execute update
                 params.append(user_id)
                 await db.execute(
-                    f"UPDATE users SET {', '.join(updates)} WHERE user_id = ?",
-                    tuple(params)
+                    f"UPDATE users SET {', '.join(updates)} WHERE user_id = ${param_num}",
+                    *params
                 )
-                await db.commit()
 
                 # Return updated user data (reuse GET logic)
-                cursor = await db.execute(
-                    "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = ?",
-                    (user_id,)
+                row = await db.fetchrow(
+                    "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = $1",
+                    user_id
                 )
-                row = await cursor.fetchone()
                 if not row:
                     return jsonify({"error": "User not found"}), 404
 
-                user_id, address, tag, priority = row
+                user_id, address, tag, priority = row['user_id'], row['address'], row['tag'], row['priority_multiplier']
                 shares_remaining = await calculate_shares_remaining(db, user_id)
                 active_users = await get_active_users(db)
                 traffic_level = calculate_traffic_level(len(active_users))
@@ -558,35 +553,33 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             limit = min(max(limit, 1), 100)
             offset = max(offset, 0)
 
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 # Get total count
-                cursor = await db.execute(
-                    "SELECT COUNT(*) FROM share_events WHERE user_id = ?",
-                    (user_id,)
+                total = await db.fetchval(
+                    "SELECT COUNT(*) FROM share_events WHERE user_id = $1",
+                    user_id
                 )
-                total = (await cursor.fetchone())[0]
 
                 # Get paginated results (newest first)
-                cursor = await db.execute(
+                rows = await db.fetch(
                     """
                     SELECT submitted_at, level, is_block, share_hash, billable, shares_consumed
                     FROM share_events
-                    WHERE user_id = ?
+                    WHERE user_id = $1
                     ORDER BY submitted_at DESC
-                    LIMIT ? OFFSET ?
+                    LIMIT $2 OFFSET $3
                     """,
-                    (user_id, limit, offset)
+                    user_id, limit, offset
                 )
-                rows = await cursor.fetchall()
 
                 shares = [
                     {
-                        "submitted_at": row[0],
-                        "level": row[1],
-                        "is_block": bool(row[2]),
-                        "share_hash": row[3],
-                        "billable": bool(row[4]),
-                        "shares_consumed": row[5]
+                        "submitted_at": row['submitted_at'],
+                        "level": row['level'],
+                        "is_block": bool(row['is_block']),
+                        "share_hash": row['share_hash'],
+                        "billable": bool(row['billable']),
+                        "shares_consumed": row['shares_consumed']
                     }
                     for row in rows
                 ]
@@ -674,36 +667,35 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             return jsonify({"error": "Must provide since_id or since_time"}), 400
 
         try:
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 if since_id:
                     query = """
                         SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed
                         FROM share_events
-                        WHERE user_id = ? AND id > ?
+                        WHERE user_id = $1 AND id > $2
                         ORDER BY id ASC
-                        LIMIT ?
+                        LIMIT $3
                     """
-                    cursor = await db.execute(query, (user_id, since_id, limit))
+                    rows = await db.fetch(query, user_id, since_id, limit)
                 else:
                     query = """
                         SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed
                         FROM share_events
-                        WHERE user_id = ? AND submitted_at > ?
+                        WHERE user_id = $1 AND submitted_at > $2
                         ORDER BY id ASC
-                        LIMIT ?
+                        LIMIT $3
                     """
-                    cursor = await db.execute(query, (user_id, since_time, limit))
+                    rows = await db.fetch(query, user_id, since_time, limit)
 
-                rows = await cursor.fetchall()
                 shares = [
                     {
-                        "share_id": row[0],
-                        "submitted_at": row[1],
-                        "level": row[2],
-                        "is_block": bool(row[3]),
-                        "share_hash": row[4],
-                        "billable": bool(row[5]),
-                        "shares_consumed": row[6]
+                        "share_id": row['id'],
+                        "submitted_at": row['submitted_at'],
+                        "level": row['level'],
+                        "is_block": bool(row['is_block']),
+                        "share_hash": row['share_hash'],
+                        "billable": bool(row['billable']),
+                        "shares_consumed": row['shares_consumed']
                     }
                     for row in rows
                 ]
@@ -723,7 +715,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 active_users = await get_active_users(db)
                 traffic_level = calculate_traffic_level(len(active_users))
 
@@ -749,13 +741,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             # If not in memory, try loading from database
             if current_block_target is None:
-                async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
-                    cursor = await db.execute(
-                        "SELECT value FROM global_state WHERE key = 'current_block_target'"
+                async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+                    row = await db.fetchrow(
+                        "SELECT value FROM global_state WHERE key = $1",
+                        'current_block_target'
                     )
-                    row = await cursor.fetchone()
                     if row:
-                        current_block_target = row[0]
+                        current_block_target = row['value']
 
             # Calculate level for the target
             level = calculate_level(current_block_target) if current_block_target else 0
@@ -780,24 +772,23 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         try:
             user_id = request.user_id
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 # Get all transactions for user (newest first)
-                cursor = await db.execute(
+                rows = await db.fetch(
                     """
                     SELECT transaction_id, amount, created_at
                     FROM transactions
-                    WHERE user_id = ?
+                    WHERE user_id = $1
                     ORDER BY created_at DESC
                     """,
-                    (user_id,)
+                    user_id
                 )
-                rows = await cursor.fetchall()
 
                 purchases = [
                     {
-                        "transaction_id": row[0],
-                        "amount": row[1],
-                        "created_at": row[2]
+                        "transaction_id": row['transaction_id'],
+                        "amount": row['amount'],
+                        "created_at": row['created_at']
                     }
                     for row in rows
                 ]
@@ -840,22 +831,20 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 return jsonify({"error": "Amount must be a positive integer"}), 400
 
             # Create transaction
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
-                cursor = await db.execute(
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+                row = await db.fetchrow(
                     """
                     INSERT INTO transactions (user_id, amount, created_at)
-                    VALUES (?, ?, datetime('now'))
+                    VALUES ($1, $2, NOW())
                     RETURNING transaction_id, amount, created_at
                     """,
-                    (user_id, amount)
+                    user_id, amount
                 )
-                await db.commit()
-                row = await cursor.fetchone()
 
                 return jsonify({
-                    "transaction_id": row[0],
-                    "amount": row[1],
-                    "created_at": row[2]
+                    "transaction_id": row['transaction_id'],
+                    "amount": row['amount'],
+                    "created_at": row['created_at']
                 }), 201
 
         except Exception as e:
@@ -871,8 +860,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
-                cursor = await db.execute(
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+                rows = await db.fetch(
                     """
                     SELECT
                         se.submitted_at, se.level, se.is_block, se.share_hash,
@@ -880,23 +869,22 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         COALESCE(u.tag, u.address) as username
                     FROM share_events se
                     LEFT JOIN users u ON CAST(se.user_id AS INTEGER) = u.user_id
-                    WHERE datetime(se.submitted_at) >= datetime('now', '-24 hours')
+                    WHERE se.submitted_at >= NOW() - INTERVAL '24 hours'
                     ORDER BY se.level DESC, se.submitted_at DESC
                     LIMIT 5
                     """
                 )
-                rows = await cursor.fetchall()
 
                 shares = [
                     {
-                        "submitted_at": row[0],
-                        "level": row[1],
-                        "is_block": bool(row[2]),
-                        "share_hash": row[3],
-                        "billable": bool(row[4]),
-                        "shares_consumed": row[5],
-                        "user_id": row[6],
-                        "username": row[7]
+                        "submitted_at": row['submitted_at'],
+                        "level": row['level'],
+                        "is_block": bool(row['is_block']),
+                        "share_hash": row['share_hash'],
+                        "billable": bool(row['billable']),
+                        "shares_consumed": row['shares_consumed'],
+                        "user_id": row['user_id'],
+                        "username": row['username']
                     }
                     for row in rows
                 ]
@@ -918,8 +906,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_path) as db:
-                cursor = await db.execute(
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+                rows = await db.fetch(
                     """
                     SELECT
                         se.submitted_at, se.level, se.is_block, se.share_hash,
@@ -931,18 +919,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     LIMIT 5
                     """
                 )
-                rows = await cursor.fetchall()
 
                 shares = [
                     {
-                        "submitted_at": row[0],
-                        "level": row[1],
-                        "is_block": bool(row[2]),
-                        "share_hash": row[3],
-                        "billable": bool(row[4]),
-                        "shares_consumed": row[5],
-                        "user_id": row[6],
-                        "username": row[7]
+                        "submitted_at": row['submitted_at'],
+                        "level": row['level'],
+                        "is_block": bool(row['is_block']),
+                        "share_hash": row['share_hash'],
+                        "billable": bool(row['billable']),
+                        "shares_consumed": row['shares_consumed'],
+                        "user_id": row['user_id'],
+                        "username": row['username']
                     }
                     for row in rows
                 ]

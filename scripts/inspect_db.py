@@ -63,21 +63,15 @@ Examples:
     try:
         # Load configuration
         config = load_config(args.config)
-        db_path = Path(config.database_path)
 
-        if not db_path.exists():
-            print(f"Error: Database not found at {config.database_path}", file=sys.stderr)
-            print("\nRun add_transaction.py to initialize the database first.", file=sys.stderr)
-            return 1
-
-        async with DatabaseManager(config.database_path) as db:
+        async with DatabaseManager(config.database_url) as db:
             # Get all users with quota calculations
             print("=" * 80)
             print("USERS")
             print("=" * 80)
             print()
 
-            cursor = await db.execute("""
+            users = await db.fetch("""
                 SELECT
                     user_id,
                     address,
@@ -87,28 +81,29 @@ Examples:
                 FROM users
                 ORDER BY user_id
             """)
-            users = await cursor.fetchall()
 
             if not users:
                 print("No users found.")
                 print()
             else:
                 for user in users:
-                    user_id, address, tag, priority, created_at = user
+                    user_id = user['user_id']
+                    address = user['address']
+                    tag = user['tag']
+                    priority = user['priority_multiplier']
+                    created_at = user['created_at']
 
                     # Get transaction total
-                    cursor = await db.execute(
-                        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = ?",
-                        (user_id,)
+                    total_purchased = await db.fetchval(
+                        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = $1",
+                        user_id
                     )
-                    total_purchased = (await cursor.fetchone())[0]
 
                     # Get billable shares consumed
-                    cursor = await db.execute(
-                        "SELECT COALESCE(SUM(shares_consumed), 0) FROM share_events WHERE user_id = ? AND billable = 1",
-                        (user_id,)
+                    total_consumed = await db.fetchval(
+                        "SELECT COALESCE(SUM(shares_consumed), 0) FROM share_events WHERE user_id = $1 AND billable = true",
+                        user_id
                     )
-                    total_consumed = (await cursor.fetchone())[0]
 
                     shares_remaining = total_purchased - total_consumed
 
@@ -126,8 +121,7 @@ Examples:
                     print()
 
             # Get total share events count
-            cursor = await db.execute("SELECT COUNT(*) FROM share_events")
-            total_events = (await cursor.fetchone())[0]
+            total_events = await db.fetchval("SELECT COUNT(*) FROM share_events")
 
             print("=" * 80)
             print(f"SHARE EVENTS (Total: {total_events})")
@@ -139,7 +133,7 @@ Examples:
                 print()
             else:
                 # Show recent share events
-                cursor = await db.execute("""
+                events = await db.fetch("""
                     SELECT
                         id,
                         submitted_at,
@@ -152,7 +146,6 @@ Examples:
                     ORDER BY submitted_at DESC
                     LIMIT 10
                 """)
-                events = await cursor.fetchall()
 
                 print("Recent share events (last 10):")
                 print()
@@ -160,7 +153,13 @@ Examples:
                 print("-" * 80)
 
                 for event in events:
-                    event_id, submitted_at, user_id, channel_id, difficulty, billable, consumed = event
+                    event_id = event['id']
+                    submitted_at = event['submitted_at']
+                    user_id = event['user_id']
+                    channel_id = event['channel_id']
+                    difficulty = event['share_difficulty']
+                    billable = event['billable']
+                    consumed = event['shares_consumed']
                     time_str = format_timestamp(submitted_at)
                     channel_str = (channel_id[:10] + "..") if channel_id and len(channel_id) > 12 else (channel_id or "N/A")
                     billable_str = "Yes" if billable else "No"
@@ -170,7 +169,7 @@ Examples:
                 print()
 
                 # Show billable vs non-billable breakdown
-                cursor = await db.execute("""
+                breakdown = await db.fetch("""
                     SELECT
                         billable,
                         COUNT(*) as count,
@@ -178,19 +177,19 @@ Examples:
                     FROM share_events
                     GROUP BY billable
                 """)
-                breakdown = await cursor.fetchall()
 
                 print("Breakdown by billable status:")
                 print()
                 for row in breakdown:
-                    billable, count, consumed = row
+                    billable = row['billable']
+                    count = row['count']
+                    consumed = row['total_consumed']
                     status = "Billable" if billable else "Non-billable"
                     print(f"  {status:12}: {count:6} events, {consumed:8} shares consumed")
                 print()
 
             # Get total transactions
-            cursor = await db.execute("SELECT COUNT(*) FROM transactions")
-            total_transactions = (await cursor.fetchone())[0]
+            total_transactions = await db.fetchval("SELECT COUNT(*) FROM transactions")
 
             print("=" * 80)
             print(f"TRANSACTIONS (Total: {total_transactions})")
@@ -201,7 +200,7 @@ Examples:
                 print("No transactions recorded yet.")
                 print()
             else:
-                cursor = await db.execute("""
+                transactions = await db.fetch("""
                     SELECT
                         t.transaction_id,
                         t.user_id,
@@ -213,13 +212,16 @@ Examples:
                     ORDER BY t.created_at DESC
                     LIMIT 20
                 """)
-                transactions = await cursor.fetchall()
 
                 print(f"{'ID':<8} {'User':<6} {'Address':<30} {'Amount':<10} {'Created':<20}")
                 print("-" * 80)
 
                 for txn in transactions:
-                    txn_id, user_id, address, amount, created_at = txn
+                    txn_id = txn['transaction_id']
+                    user_id = txn['user_id']
+                    address = txn['address']
+                    amount = txn['amount']
+                    created_at = txn['created_at']
                     time_str = format_timestamp(created_at)
                     addr_short = address[:27] + "..." if len(address) > 30 else address
 
