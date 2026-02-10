@@ -32,9 +32,9 @@ header {
     justify-content: space-between;
     align-items: center;
     padding: 20px 40px;
-    background-color: #0d0d0d;
-    border-bottom: 4px solid #000000;
-    box-shadow: 0 4px 0 #000000, 0 8px 0 rgba(0,0,0,0.8);
+    background-color: #1a0f05;
+    border-bottom: 4px solid #0d0702;
+    box-shadow: 0 4px 0 #0d0702, 0 8px 0 rgba(0,0,0,0.8);
 }
 
 .header-left {
@@ -100,7 +100,7 @@ footer {
     color: #888888;
     font-size: 8px;
     font-family: 'Press Start 2P', monospace;
-    border-top: 4px solid #0d0d0d;
+    border-top: 4px solid #1a0f05;
 }
 
 /* Settings page */
@@ -113,12 +113,12 @@ footer {
 }
 
 #settings-form {
-    background-color: #0d0d0d;
-    border: 4px solid #000000;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
     padding: 24px;
-    box-shadow: 0 4px 0 #000000, 0 8px 8px rgba(0,0,0,0.8);
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
 }
 
 /* Form elements */
@@ -244,16 +244,16 @@ footer {
 
 /* Dashboard - Stat Badges */
 .stat-badge {
-    background-color: #0d0d0d;
-    border: 4px solid #000000;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
     padding: 12px 16px;
     display: flex;
     flex-direction: column;
     gap: 4px;
     min-width: 160px;
-    box-shadow: 0 4px 0 #000000, 0 8px 8px rgba(0,0,0,0.8);
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
 }
 
 .stat-label {
@@ -278,12 +278,12 @@ footer {
 }
 
 .share-list-container {
-    background-color: #0d0d0d;
-    border: 4px solid #000000;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
     overflow: hidden;
-    box-shadow: 0 4px 0 #000000, 0 8px 8px rgba(0,0,0,0.8);
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
 }
 
 /* Share Table */
@@ -294,8 +294,8 @@ footer {
 }
 
 .share-table thead tr {
-    background-color: #1a1a1a;
-    border-bottom: 4px solid #000000;
+    background-color: #3d2612;
+    border-bottom: 4px solid #1a0f05;
     position: sticky;
     top: 0;
     z-index: 10;
@@ -312,13 +312,13 @@ footer {
 }
 
 .share-table tbody tr {
-    background-color: #000000;
-    border-bottom: 2px solid #0d0d0d;
+    background-color: #1a0f05;
+    border-bottom: 2px solid #0d0702;
     transition: background-color 0.1s;
 }
 
 .share-table tbody tr:hover {
-    background-color: #0d0d0d;
+    background-color: #2a1a0a;
 }
 
 .share-table tbody td {
@@ -464,18 +464,18 @@ footer {
 
 /* Share Card */
 .share-card {
-    background-color: #0d0d0d;
-    border: 4px solid #000000;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
     padding: 20px;
     transition: transform 0.05s, box-shadow 0.05s, margin-top 0.3s ease, opacity 0.3s ease;
-    box-shadow: 0 4px 0 #000000, 0 8px 8px rgba(0,0,0,0.8);
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
 }
 
 .share-card:active {
     transform: translateY(4px);
-    box-shadow: 0 0 0 #000000, 0 4px 4px rgba(0,0,0,0.8);
+    box-shadow: 0 0 0 #0d0702, 0 4px 4px rgba(0,0,0,0.8);
 }
 
 .share-card.block {
@@ -595,13 +595,13 @@ footer {
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: #0d0d0d;
-    border-top: 4px solid #000000;
+    background-color: #1a0f05;
+    border-top: 4px solid #0d0702;
     display: flex;
     justify-content: space-around;
     padding: 12px 0;
     z-index: 100;
-    box-shadow: 0 -4px 0 #000000, 0 -8px 8px rgba(0,0,0,0.8);
+    box-shadow: 0 -4px 0 #0d0702, 0 -8px 8px rgba(0,0,0,0.8);
 }
 
 .nav-item {
@@ -688,12 +688,12 @@ footer {
 
 /* Purchase Card */
 .purchase-card {
-    background-color: #0d0d0d;
-    border: 4px solid #000000;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
     padding: 20px;
-    box-shadow: 0 4px 0 #000000, 0 8px 8px rgba(0,0,0,0.8);
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
 }
 
 .purchase-card-header {
@@ -733,25 +733,25 @@ footer {
     gap: 12px;
     margin-top: 60px;
     margin-bottom: 32px;
-    background: #000000;
+    background: #0d0702;
     padding: 4px;
-    border: 4px solid #000000;
+    border: 4px solid #0d0702;
     box-shadow: inset 2px 2px 4px rgba(0,0,0,0.8);
 }
 
 .toggle-btn {
     flex: 1;
     padding: 10px 16px;
-    background: #1a1a1a;
-    border: 3px solid #0d0d0d;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
+    background: #2a1a0a;
+    border: 3px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
     color: #888888;
     font-size: 10px;
     font-family: 'Press Start 2P', monospace;
     cursor: pointer;
     transition: all 0.05s;
-    box-shadow: 2px 2px 0 #000000;
+    box-shadow: 2px 2px 0 #0d0702;
 }
 
 .toggle-btn:hover {
@@ -874,10 +874,10 @@ footer {
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
-    border: 4px solid #0d0d0d;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
-    box-shadow: 0 4px 0 #000000, 0 8px 8px rgba(0,0,0,0.8);
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
 }
 
 /* Mining/Digging Animation for Active Shares */
@@ -915,22 +915,22 @@ footer {
 
 ::-webkit-scrollbar-track {
     background: #000000;
-    border: 2px solid #0d0d0d;
+    border: 2px solid #0d0702;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #1a1a1a;
-    border: 2px solid #0d0d0d;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
+    background: #2a1a0a;
+    border: 2px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #2a2a2a;
+    background: #3d2612;
 }
 
 ::-webkit-scrollbar-thumb:active {
-    background: #0d0d0d;
+    background: #1a0f05;
 }
 
 /* Block found celebration effect */
@@ -969,17 +969,17 @@ footer {
 }
 
 .qr-container {
-    background-color: #0d0d0d;
-    border: 4px solid #000000;
-    border-right-color: #000000;
-    border-bottom-color: #000000;
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
     padding: 32px;
     margin-bottom: 24px;
     min-height: 340px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 0 #000000, 0 8px 8px rgba(0,0,0,0.8);
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
 }
 
 .qr-placeholder {
@@ -995,7 +995,7 @@ footer {
 .loading-spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #000000;
+    border: 4px solid #1a0f05;
     border-top-color: #f7931a;
     animation: pixelSpin 0.8s steps(8) infinite;
 }
@@ -1085,7 +1085,7 @@ footer {
 .logout-section {
     margin-top: 32px;
     padding-top: 32px;
-    border-top: 4px solid #0d0d0d;
+    border-top: 4px solid #1a0f05;
 }
 
 .btn-logout {
