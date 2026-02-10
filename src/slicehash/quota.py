@@ -11,6 +11,11 @@ remaining quota.
 """
 
 import aiosqlite
+from cachetools import TTLCache
+
+# Global cache for active users with 1-second TTL
+# This reduces redundant database queries during high-frequency share processing
+_active_users_cache = TTLCache(maxsize=100, ttl=1.0)
 
 
 def classify_share_billable(share_difficulty: float, threshold: float) -> bool:
@@ -91,6 +96,10 @@ async def get_active_users(db: aiosqlite.Connection) -> list[int]:
     Returns all users who have shares remaining (shares_remaining > 0),
     making them eligible for the mining rotation queue.
 
+    This function uses a 1-second cache to reduce redundant database queries
+    during high-frequency share processing. The cache is acceptable because
+    the active users list doesn't need to be perfectly real-time.
+
     Args:
         db: Active database connection
 
@@ -105,15 +114,53 @@ async def get_active_users(db: aiosqlite.Connection) -> list[int]:
         >>> await get_active_users(db)
         [1, 3, 5, 7]
     """
-    # Get all user IDs
-    cursor = await db.execute("SELECT user_id FROM users ORDER BY user_id")
-    all_users = await cursor.fetchall()
+    # Check cache first
+    cache_key = "active_users"
+    if cache_key in _active_users_cache:
+        return _active_users_cache[cache_key]
 
-    # Filter to users with positive balance
-    active_users = []
-    for (user_id,) in all_users:
-        shares_remaining = await calculate_shares_remaining(db, user_id)
-        if shares_remaining > 0:
-            active_users.append(user_id)
+    # Single aggregate query to get users with positive share balance
+    # Replicates the logic from calculate_shares_remaining:
+    # - purchased = SUM(transactions.amount) for the user
+    # - consumed = SUM(share_events.shares_consumed) WHERE billable=1 for the user
+    # - active = purchased > consumed
+    cursor = await db.execute(
+        """
+        SELECT u.user_id
+        FROM users u
+        LEFT JOIN (
+            SELECT user_id, COALESCE(SUM(amount), 0) AS purchased
+            FROM transactions
+            GROUP BY user_id
+        ) t ON u.user_id = t.user_id
+        LEFT JOIN (
+            SELECT user_id, COALESCE(SUM(shares_consumed), 0) AS consumed
+            FROM share_events
+            WHERE billable = 1
+            GROUP BY user_id
+        ) se ON u.user_id = se.user_id
+        WHERE COALESCE(t.purchased, 0) > COALESCE(se.consumed, 0)
+        ORDER BY u.user_id
+        """
+    )
+    rows = await cursor.fetchall()
+    result = [row[0] for row in rows]
 
-    return active_users
+    # Cache the result with 1-second TTL
+    _active_users_cache[cache_key] = result
+
+    return result
+
+
+def invalidate_active_users_cache():
+    """Invalidate the active users cache.
+
+    Call this function when user transactions or share events are modified
+    outside of the normal share processing flow (e.g., manual adjustments,
+    bulk imports) to ensure the cache doesn't serve stale data.
+
+    This is optional - the cache will automatically expire after 1 second.
+    This function is provided for cases where immediate cache invalidation
+    is desired.
+    """
+    _active_users_cache.pop("active_users", None)

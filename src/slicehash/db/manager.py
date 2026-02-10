@@ -53,11 +53,57 @@ class DatabaseManager:
 
     async def __aenter__(self) -> aiosqlite.Connection:
         """Async context manager entry."""
-        return await self.connect()
+        conn = await self.connect()
+        # Performance optimizations
+        await conn.execute("PRAGMA journal_mode = WAL")
+        await conn.execute("PRAGMA synchronous = NORMAL")
+        await conn.execute("PRAGMA cache_size = -10000")
+        await conn.commit()
+        return conn
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit."""
         await self.close()
+
+    async def get_persistent_connection(self) -> aiosqlite.Connection:
+        """Create a persistent database connection with optimizations.
+
+        This method creates a connection that persists beyond the context manager.
+        The caller is responsible for closing the connection using close_persistent_connection().
+
+        Returns:
+            Connected aiosqlite.Connection instance with foreign keys enabled
+            and performance optimizations applied
+        """
+        conn = await aiosqlite.connect(self.db_path)
+        # Enable foreign key constraints
+        await conn.execute("PRAGMA foreign_keys = ON")
+        # Performance optimizations
+        await conn.execute("PRAGMA journal_mode = WAL")
+        await conn.execute("PRAGMA synchronous = NORMAL")
+        await conn.execute("PRAGMA cache_size = -10000")
+        await conn.commit()
+        return conn
+
+    async def close_persistent_connection(self, conn: aiosqlite.Connection) -> None:
+        """Close a persistent database connection.
+
+        Performs a checkpoint to flush WAL to main database before closing.
+
+        Args:
+            conn: The connection to close
+        """
+        if conn:
+            try:
+                # Checkpoint WAL to flush changes to main database file
+                await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                await conn.commit()
+            except Exception as e:
+                # Log but don't fail on checkpoint errors
+                import logging
+                logging.getLogger(__name__).warning(f"WAL checkpoint failed: {e}")
+            finally:
+                await conn.close()
 
 
 async def init_database(db_path: str) -> None:

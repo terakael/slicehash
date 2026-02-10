@@ -37,7 +37,7 @@ SHARE_EVENTS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS share_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     submitted_at TEXT NOT NULL,
-    user_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
     nonce INTEGER NOT NULL,
     ntime INTEGER NOT NULL,
     version INTEGER NOT NULL,
@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS share_events (
     is_block INTEGER NOT NULL CHECK(is_block IN (0, 1)),
     level INTEGER NOT NULL,
     billable INTEGER NOT NULL CHECK(billable IN (0, 1)),
-    shares_consumed INTEGER NOT NULL CHECK(shares_consumed >= 1 AND shares_consumed <= 5)
+    shares_consumed INTEGER NOT NULL CHECK(shares_consumed >= 1 AND shares_consumed <= 5),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
 )
 """
 
@@ -82,6 +83,12 @@ ON share_events(level DESC, submitted_at DESC)
 RECOVERY_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_share_events_user_id
 ON share_events(user_id, id)
+"""
+
+# Index for transactions user_id queries (optimizes quota calculations)
+TRANSACTIONS_USER_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_transactions_user_id
+ON transactions(user_id)
 """
 
 # Auth challenges table - stores LNURL k1 challenges
@@ -126,5 +133,6 @@ ALL_INDEXES = [
     BILLABLE_SHARES_INDEX_SQL,
     HIGHSCORE_INDEX_SQL,
     RECOVERY_INDEX_SQL,
+    TRANSACTIONS_USER_INDEX_SQL,
     AUTH_CHALLENGES_INDEX_SQL,
 ]
