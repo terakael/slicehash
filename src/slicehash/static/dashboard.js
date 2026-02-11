@@ -132,31 +132,21 @@ function renderShareCards(shares, append) {
         card.dataset.level = share.level;
         card.dataset.timestamp = share.submitted_at;
 
-        // Format timestamp with username for global views
-        let timestampDisplay, userDisplay;
-
-        if (currentMode === 'recent') {
-            // Recent mode: show just timestamp and tag (current user's shares)
-            timestampDisplay = formatTimestamp(share.submitted_at);
-            userDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
-        } else {
-            // Best modes: show timestamp with username (all users' shares)
-            const { timeStr, username } = formatTimestampWithUsername(share.submitted_at, share.username);
-            timestampDisplay = timeStr;
-            userDisplay = share.tag
-                ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>`
-                : `<span class="share-username">${username}</span>`;
-        }
+        // Format timestamp
+        const timestamp = formatTimestamp(share.submitted_at);
 
         // Get level styling
         const { color, shape, borderStyle } = getLevelStyle(share.level);
         const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
 
+        // Display tag if available (use immutable tag from share)
+        const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
+
         card.innerHTML = `
             <div class="share-card-header">
                 <div class="share-header-top">
-                    <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestampDisplay}</span>
-                    ${userDisplay}
+                    <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+                    ${tagDisplay}
                 </div>
                 <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
                     ${share.level}
@@ -200,6 +190,12 @@ function showEmptyState(show) {
     const container = document.getElementById('share-cards-container');
 
     if (show) {
+        // Update message based on mode
+        let message = 'No shares yet';
+        if (currentMode === 'best-24h') {
+            message = 'No shares in the last 24 hours';
+        }
+        emptyState.querySelector('p').textContent = message;
         emptyState.style.display = 'block';
         container.style.display = 'none';
     } else {
@@ -236,29 +232,21 @@ function handleNewShare(share) {
     card.dataset.level = share.level;
     card.dataset.timestamp = share.submitted_at;
 
-    // Format display based on mode
-    let timestampDisplay, userDisplay;
-
-    if (currentMode === 'recent') {
-        timestampDisplay = formatTimestamp(share.submitted_at);
-        userDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
-    } else {
-        // For best modes, we need username info - use what's available from SSE
-        timestampDisplay = formatTimestamp(share.submitted_at);
-        userDisplay = share.tag
-            ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>`
-            : `<span class="share-username">${truncateUsername(share.address || 'Unknown')}</span>`;
-    }
+    // Format timestamp
+    const timestamp = formatTimestamp(share.submitted_at);
 
     // Get level styling
     const { color, shape, borderStyle } = getLevelStyle(share.level);
     const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
 
+    // Display tag if available (use immutable tag from share)
+    const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
+
     card.innerHTML = `
         <div class="share-card-header">
             <div class="share-header-top">
-                <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestampDisplay}</span>
-                ${userDisplay}
+                <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+                ${tagDisplay}
             </div>
             <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
                 ${share.level}
@@ -276,7 +264,7 @@ function handleNewShare(share) {
         // Recent mode: always prepend to top (newest first)
         insertBefore = container.firstChild;
     } else {
-        // Best modes: insert by level ranking
+        // Best modes: insert by level ranking (all your shares, ranked)
         // Find first card with lower level (or same level but older timestamp)
         for (const existingCard of existingCards) {
             const existingLevel = parseInt(existingCard.dataset.level);
@@ -311,21 +299,20 @@ function handleNewShare(share) {
 
 // Handle page refocus - reload shares if more than 10 received while away
 async function handlePageRefocus(missedSharesCount) {
-    if (currentMode === 'recent') {
-        // Recent mode: handle missed user shares
-        if (missedSharesCount > 10) {
-            console.log(`Reloading dashboard with latest shares (${missedSharesCount} missed)`);
+    if (missedSharesCount > 10) {
+        console.log(`Reloading dashboard with latest shares (${missedSharesCount} missed)`);
 
-            // Reset state
-            currentOffset = 0;
-            hasMore = true;
+        // Reset state
+        currentOffset = 0;
+        hasMore = true;
 
-            // Reload fresh shares from the top
-            await loadShares(false);
-        } else if (missedSharesCount > 0) {
-            console.log(`Fetching ${missedSharesCount} missed shares`);
+        // Reload fresh shares from the top
+        await loadShares(false);
+    } else if (missedSharesCount > 0) {
+        console.log(`Fetching ${missedSharesCount} missed shares`);
 
-            // Fetch the missed shares and prepend them
+        if (currentMode === 'recent') {
+            // Recent mode: prepend missed shares in order
             try {
                 const response = await fetch(`/api/users/me/shares?limit=${missedSharesCount}&offset=0`);
                 if (!response.ok) throw new Error('Failed to fetch missed shares');
@@ -343,11 +330,8 @@ async function handlePageRefocus(missedSharesCount) {
                 hasMore = true;
                 await loadShares(false);
             }
-        }
-    } else {
-        // Best modes: reload if any shares were missed (rankings may have changed)
-        if (missedSharesCount > 0) {
-            console.log(`Reloading ${currentMode} view after ${missedSharesCount} new shares`);
+        } else {
+            // Best modes: full reload since rankings may have changed
             currentOffset = 0;
             hasMore = true;
             await loadShares(false);
