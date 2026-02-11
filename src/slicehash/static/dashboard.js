@@ -266,7 +266,7 @@ function handleNewShare(share) {
                 ${tagDisplay}
             </div>
             <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
-                ${share.level}
+                ${Math.floor(share.level)}
             </div>
         </div>
         <div class="share-card-footer">
@@ -284,7 +284,7 @@ function handleNewShare(share) {
         // Best modes: insert by level ranking (all your shares, ranked)
         // Find first card with lower level (or same level but older timestamp)
         for (const existingCard of existingCards) {
-            const existingLevel = parseInt(existingCard.dataset.level);
+            const existingLevel = parseFloat(existingCard.dataset.level);
             const existingTimestamp = existingCard.dataset.timestamp;
 
             if (share.level > existingLevel) {

@@ -21,12 +21,12 @@ class ShareNotification:
     share_id: int
     user_id: int
     submitted_at: str
-    level: int
+    level: float
     is_block: bool
     share_hash: Optional[str]
     billable: bool
     shares_consumed: int
-    block_target_level: int
+    block_target_level: float
     tag: Optional[str] = None
 
 
