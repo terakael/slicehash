@@ -200,6 +200,9 @@ class ShareProcessor:
         # Step 2: Calculate level from share hash
         level = calculate_level(share_hash) if share_hash else 0
 
+        # Calculate block target level
+        block_target_level = calculate_level(self.current_block_target) if self.current_block_target else 0
+
         # Step 3: Classify billable (for now, use level >= 1 as billable)
         # TODO: Replace with proper difficulty threshold when available
         billable = level >= 1
@@ -259,7 +262,8 @@ class ShareProcessor:
                 is_block=is_block,
                 share_hash=share_hash,
                 billable=billable,
-                shares_consumed=shares_consumed
+                shares_consumed=shares_consumed,
+                block_target_level=block_target_level
             )
             await self.sse_manager.notify_share(notification)
 

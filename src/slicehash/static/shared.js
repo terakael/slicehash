@@ -223,6 +223,14 @@ function handleSharedNewShare(share) {
     // Update shares remaining (common to all pages)
     updateSharesRemaining();
 
+    // Update block target level if present
+    if (share.block_target_level !== undefined) {
+        const targetLevelElement = document.getElementById('target-level');
+        if (targetLevelElement) {
+            targetLevelElement.textContent = `Block Target: Level ${share.block_target_level}+`;
+        }
+    }
+
     // Call page-specific callback if provided
     if (onNewShareCallback && typeof onNewShareCallback === 'function') {
         onNewShareCallback(share);

@@ -26,6 +26,7 @@ class ShareNotification:
     share_hash: Optional[str]
     billable: bool
     shares_consumed: int
+    block_target_level: int
 
 
 class SSEManager:

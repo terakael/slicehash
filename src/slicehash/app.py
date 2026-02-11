@@ -47,7 +47,6 @@ share_queue: Optional[asyncio.Queue] = None
 share_processor: Optional[ShareProcessor] = None
 redis_consumer: Optional[RedisStreamConsumer] = None
 sse_manager: Optional[SSEManager] = None
-current_block_target: Optional[str] = None
 
 
 def calculate_level(hash_str: str) -> int:
@@ -165,9 +164,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
     @app.before_serving
     async def startup():
-        """Start background share processor, Redis consumer, and load block target."""
-        global current_block_target
-
+        """Start background share processor and Redis consumer."""
         # Initialize database if it doesn't exist
         db_path = Path(config.database_url)
         if not db_path.exists():
@@ -175,16 +172,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             await init_database(config.database_url)
             logger.info("Database initialized successfully")
 
-        # Load current block target from database
-        async with DatabaseManager(config.database_url) as db:
-            row = await db.fetchrow(
-                "SELECT value FROM global_state WHERE key = $1",
-                'current_block_target'
-            )
-            if row:
-                current_block_target = row['value']
-                logger.info(f"Loaded block target: {current_block_target}")
-
+        # Start background services (share processor loads block target on startup)
         await share_processor.start()
         await redis_consumer.start()
         logger.info("SliceHash application started")
@@ -627,7 +615,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                             "is_block": notification.is_block,
                             "share_hash": notification.share_hash,
                             "billable": notification.billable,
-                            "shares_consumed": notification.shares_consumed
+                            "shares_consumed": notification.shares_consumed,
+                            "block_target_level": notification.block_target_level
                         }
                         yield f"id: {notification.share_id}\nevent: share\ndata: {json.dumps(event_data)}\n\n"
                     except asyncio.TimeoutError:
@@ -667,6 +656,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             return jsonify({"error": "Must provide since_id or since_time"}), 400
 
         try:
+            # Get current block target level from cached value (updated by share processor)
+            block_target_level = 0
+            if share_processor and share_processor.current_block_target:
+                block_target_level = calculate_level(share_processor.current_block_target)
+
             async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 if since_id:
                     query = """
@@ -695,7 +689,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         "is_block": bool(row['is_block']),
                         "share_hash": row['share_hash'],
                         "billable": bool(row['billable']),
-                        "shares_consumed": row['shares_consumed']
+                        "shares_consumed": row['shares_consumed'],
+                        "block_target_level": block_target_level
                     }
                     for row in rows
                 ]
@@ -737,23 +732,16 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
-            global current_block_target
-
-            # If not in memory, try loading from database
-            if current_block_target is None:
-                async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
-                    row = await db.fetchrow(
-                        "SELECT value FROM global_state WHERE key = $1",
-                        'current_block_target'
-                    )
-                    if row:
-                        current_block_target = row['value']
+            # Get current block target from cached value (updated by share processor)
+            block_target = None
+            if share_processor and share_processor.current_block_target:
+                block_target = share_processor.current_block_target
 
             # Calculate level for the target
-            level = calculate_level(current_block_target) if current_block_target else 0
+            level = calculate_level(block_target) if block_target else 0
 
             return jsonify({
-                "block_target": current_block_target,
+                "block_target": block_target,
                 "level": level
             }), 200
 
@@ -952,7 +940,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             shares_remaining = await calculate_shares_remaining(db, request.user_id)
-        return await render_template("dashboard.html", shares_remaining=shares_remaining)
+
+        # Get current block target level from cached value (updated by share processor)
+        block_target_level = 0
+        if share_processor and share_processor.current_block_target:
+            block_target_level = calculate_level(share_processor.current_block_target)
+
+        return await render_template(
+            "dashboard.html",
+            shares_remaining=shares_remaining,
+            block_target_level=block_target_level
+        )
 
     @app.get("/settings")
     @require_auth
@@ -964,7 +962,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             shares_remaining = await calculate_shares_remaining(db, request.user_id)
-        return await render_template("settings.html", shares_remaining=shares_remaining)
+
+        # Get current block target level from cached value (updated by share processor)
+        block_target_level = 0
+        if share_processor and share_processor.current_block_target:
+            block_target_level = calculate_level(share_processor.current_block_target)
+
+        return await render_template(
+            "settings.html",
+            shares_remaining=shares_remaining,
+            block_target_level=block_target_level
+        )
 
     @app.get("/purchases")
     @require_auth
@@ -976,7 +984,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             shares_remaining = await calculate_shares_remaining(db, request.user_id)
-        return await render_template("purchases.html", shares_remaining=shares_remaining)
+
+        # Get current block target level from cached value (updated by share processor)
+        block_target_level = 0
+        if share_processor and share_processor.current_block_target:
+            block_target_level = calculate_level(share_processor.current_block_target)
+
+        return await render_template(
+            "purchases.html",
+            shares_remaining=shares_remaining,
+            block_target_level=block_target_level
+        )
 
     @app.get("/highscores")
     @require_auth
@@ -988,7 +1006,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             shares_remaining = await calculate_shares_remaining(db, request.user_id)
-        return await render_template("highscores.html", shares_remaining=shares_remaining)
+
+        # Get current block target level from cached value (updated by share processor)
+        block_target_level = 0
+        if share_processor and share_processor.current_block_target:
+            block_target_level = calculate_level(share_processor.current_block_target)
+
+        return await render_template(
+            "highscores.html",
+            shares_remaining=shares_remaining,
+            block_target_level=block_target_level
+        )
 
     return app
 
