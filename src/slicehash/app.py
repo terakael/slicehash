@@ -998,8 +998,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             return jsonify({"error": "Internal error"}), 500
 
     @app.get("/api/shares")
+    @require_auth
     async def get_shares():
-        """Return shares with pagination, supporting multiple view modes.
+        """Return current user's shares with pagination, supporting multiple view modes.
 
         Query parameters:
             mode: View mode - 'recent', 'best-24h', 'best-all-time' (default: 'recent')
@@ -1007,11 +1008,12 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             offset: Number of results to skip (default 0)
 
         Returns:
-            200: Paginated shares
+            200: Paginated shares for current user
             400: Invalid parameters
             500: Internal error
         """
         try:
+            user_id = request.user_id
             mode = request.args.get('mode', 'recent')
             limit = int(request.args.get('limit', 20))
             offset = int(request.args.get('offset', 0))
@@ -1021,13 +1023,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             # Configure query based on mode
             if mode == 'recent':
-                where_clause = ""
+                where_clause = "WHERE user_id = $1"
                 order_by = "ORDER BY submitted_at DESC"
             elif mode == 'best-24h':
-                where_clause = "WHERE submitted_at >= NOW() - INTERVAL '24 hours'"
+                where_clause = "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
                 order_by = "ORDER BY level DESC, submitted_at DESC"
             elif mode == 'best-all-time':
-                where_clause = ""
+                where_clause = "WHERE user_id = $1"
                 order_by = "ORDER BY level DESC, submitted_at DESC"
             else:
                 return jsonify({"error": "Invalid mode. Must be 'recent', 'best-24h', or 'best-all-time'"}), 400
@@ -1035,21 +1037,19 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 # Get total count
                 count_query = f"SELECT COUNT(*) FROM share_events {where_clause}"
-                total = await db.fetchval(count_query)
+                total = await db.fetchval(count_query, user_id)
 
                 # Get paginated results
                 query = f"""
                     SELECT
                         id, submitted_at, level, is_block, share_hash,
-                        billable, shares_consumed, user_id,
-                        coinbase_prefix_tag, coinbase_address,
-                        COALESCE(coinbase_prefix_tag, coinbase_address) as username
+                        billable, shares_consumed, coinbase_prefix_tag
                     FROM share_events
                     {where_clause}
                     {order_by}
-                    LIMIT $1 OFFSET $2
+                    LIMIT $2 OFFSET $3
                 """
-                rows = await db.fetch(query, limit, offset)
+                rows = await db.fetch(query, user_id, limit, offset)
 
                 shares = [
                     {
@@ -1060,10 +1060,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         "share_hash": row['share_hash'],
                         "billable": bool(row['billable']),
                         "shares_consumed": row['shares_consumed'],
-                        "user_id": row['user_id'],
-                        "tag": row['coinbase_prefix_tag'],
-                        "address": row['coinbase_address'],
-                        "username": row['username']
+                        "tag": row['coinbase_prefix_tag']
                     }
                     for row in rows
                 ]
