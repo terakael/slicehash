@@ -997,6 +997,91 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             logger.error(f"Failed to fetch all-time highscores: {e}")
             return jsonify({"error": "Internal error"}), 500
 
+    @app.get("/api/shares")
+    async def get_shares():
+        """Return shares with pagination, supporting multiple view modes.
+
+        Query parameters:
+            mode: View mode - 'recent', 'best-24h', 'best-all-time' (default: 'recent')
+            limit: Results per page (default 20, max 100)
+            offset: Number of results to skip (default 0)
+
+        Returns:
+            200: Paginated shares
+            400: Invalid parameters
+            500: Internal error
+        """
+        try:
+            mode = request.args.get('mode', 'recent')
+            limit = int(request.args.get('limit', 20))
+            offset = int(request.args.get('offset', 0))
+
+            limit = min(max(limit, 1), 100)
+            offset = max(offset, 0)
+
+            # Configure query based on mode
+            if mode == 'recent':
+                where_clause = ""
+                order_by = "ORDER BY submitted_at DESC"
+            elif mode == 'best-24h':
+                where_clause = "WHERE submitted_at >= NOW() - INTERVAL '24 hours'"
+                order_by = "ORDER BY level DESC, submitted_at DESC"
+            elif mode == 'best-all-time':
+                where_clause = ""
+                order_by = "ORDER BY level DESC, submitted_at DESC"
+            else:
+                return jsonify({"error": "Invalid mode. Must be 'recent', 'best-24h', or 'best-all-time'"}), 400
+
+            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+                # Get total count
+                count_query = f"SELECT COUNT(*) FROM share_events {where_clause}"
+                total = await db.fetchval(count_query)
+
+                # Get paginated results
+                query = f"""
+                    SELECT
+                        id, submitted_at, level, is_block, share_hash,
+                        billable, shares_consumed, user_id,
+                        coinbase_prefix_tag, coinbase_address,
+                        COALESCE(coinbase_prefix_tag, coinbase_address) as username
+                    FROM share_events
+                    {where_clause}
+                    {order_by}
+                    LIMIT $1 OFFSET $2
+                """
+                rows = await db.fetch(query, limit, offset)
+
+                shares = [
+                    {
+                        "share_id": row['id'],
+                        "submitted_at": row['submitted_at'].isoformat() if row['submitted_at'] else None,
+                        "level": row['level'],
+                        "is_block": bool(row['is_block']),
+                        "share_hash": row['share_hash'],
+                        "billable": bool(row['billable']),
+                        "shares_consumed": row['shares_consumed'],
+                        "user_id": row['user_id'],
+                        "tag": row['coinbase_prefix_tag'],
+                        "address": row['coinbase_address'],
+                        "username": row['username']
+                    }
+                    for row in rows
+                ]
+
+                return jsonify({
+                    "shares": shares,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": offset + limit < total
+                }), 200
+
+        except ValueError:
+            return jsonify({"error": "Invalid limit or offset parameter"}), 400
+        except Exception as e:
+            logger.error(f"Failed to fetch shares: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
     @app.get("/dashboard")
     @require_auth
     async def dashboard():

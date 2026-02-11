@@ -80,6 +80,12 @@ CREATE INDEX IF NOT EXISTS idx_share_events_level_time
 ON share_events(level DESC, submitted_at DESC)
 """
 
+# Index for recent shares queries (time-based ordering)
+RECENT_SHARES_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_share_events_submitted_at
+ON share_events(submitted_at DESC)
+"""
+
 # Index for SSE recovery queries (faster missed share lookups)
 RECOVERY_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_share_events_user_id
@@ -139,6 +145,7 @@ ALL_INDEXES = [
     USER_SHARE_HISTORY_INDEX_SQL,
     BILLABLE_SHARES_INDEX_SQL,
     HIGHSCORE_INDEX_SQL,
+    RECENT_SHARES_INDEX_SQL,
     RECOVERY_INDEX_SQL,
     TRANSACTIONS_USER_INDEX_SQL,
     AUTH_CHALLENGES_INDEX_SQL,
