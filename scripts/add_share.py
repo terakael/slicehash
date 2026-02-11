@@ -13,7 +13,7 @@ import asyncio
 import random
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -65,7 +65,7 @@ async def add_share_event(
     version = random.choice([0x20000000, 0x30000000])
 
     # Calculate timestamp
-    submitted_time = datetime.now() - timedelta(minutes=timestamp_offset_minutes)
+    submitted_time = datetime.now(timezone.utc) - timedelta(minutes=timestamp_offset_minutes)
     ntime = int(submitted_time.timestamp())
     submitted_at = submitted_time.isoformat()
 
