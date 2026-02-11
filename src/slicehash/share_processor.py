@@ -194,7 +194,7 @@ class ShareProcessor:
                     value = EXCLUDED.value,
                     updated_at = EXCLUDED.updated_at
                 """,
-                block_target, datetime.now()
+                'current_block_target', str(block_target)
             )
 
         # Step 2: Calculate level from share hash
