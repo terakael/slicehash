@@ -130,13 +130,21 @@ function refreshTimestamp(element) {
 function refreshTimestampWithUser(wrapper) {
     const originalTimestamp = wrapper.dataset.timestamp;
     const username = wrapper.dataset.username;
+    const tag = wrapper.dataset.tag;
     const { timeStr, username: truncatedUsername } = formatTimestampWithUsername(originalTimestamp, username);
 
     const timestampEl = wrapper.querySelector('.share-timestamp');
     const usernameEl = wrapper.querySelector('.share-username');
+    const tagEl = wrapper.querySelector('.share-user-tag');
 
     if (timestampEl) timestampEl.textContent = timeStr;
-    if (usernameEl) usernameEl.textContent = truncatedUsername;
+
+    // Update tag if present, otherwise username
+    if (tag && tagEl) {
+        tagEl.textContent = truncateUsername(tag);
+    } else if (usernameEl) {
+        usernameEl.textContent = truncatedUsername;
+    }
 }
 
 // Setup Intersection Observer to refresh timestamps when cards come into view

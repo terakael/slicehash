@@ -106,9 +106,15 @@ function renderShareCards(shares, append) {
 
         const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
 
+        // Display tag if available (use immutable tag from share)
+        const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
+
         card.innerHTML = `
             <div class="share-card-header">
-                <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+                <div class="share-header-top">
+                    <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+                    ${tagDisplay}
+                </div>
                 <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
                     ${share.level}
                 </div>
@@ -193,9 +199,15 @@ function handleNewShare(share) {
 
     const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
 
+    // Display tag if available (use immutable tag from share)
+    const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
+
     card.innerHTML = `
         <div class="share-card-header">
-            <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+            <div class="share-header-top">
+                <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+                ${tagDisplay}
+            </div>
             <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
                 ${share.level}
             </div>

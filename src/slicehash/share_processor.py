@@ -265,7 +265,8 @@ class ShareProcessor:
                 share_hash=share_hash,
                 billable=billable,
                 shares_consumed=shares_consumed,
-                block_target_level=block_target_level
+                block_target_level=block_target_level,
+                tag=coinbase_prefix_tag
             )
             await self.sse_manager.notify_share(notification)
 

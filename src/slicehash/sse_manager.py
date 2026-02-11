@@ -27,6 +27,7 @@ class ShareNotification:
     billable: bool
     shares_consumed: int
     block_target_level: int
+    tag: Optional[str] = None
 
 
 class SSEManager:

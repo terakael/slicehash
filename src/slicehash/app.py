@@ -576,7 +576,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get paginated results (newest first)
                 rows = await db.fetch(
                     """
-                    SELECT submitted_at, level, is_block, share_hash, billable, shares_consumed
+                    SELECT submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
                     FROM share_events
                     WHERE user_id = $1
                     ORDER BY submitted_at DESC
@@ -592,7 +592,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         "is_block": bool(row['is_block']),
                         "share_hash": row['share_hash'],
                         "billable": bool(row['billable']),
-                        "shares_consumed": row['shares_consumed']
+                        "shares_consumed": row['shares_consumed'],
+                        "tag": row['coinbase_prefix_tag']
                     }
                     for row in rows
                 ]
@@ -641,7 +642,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                             "share_hash": notification.share_hash,
                             "billable": notification.billable,
                             "shares_consumed": notification.shares_consumed,
-                            "block_target_level": notification.block_target_level
+                            "block_target_level": notification.block_target_level,
+                            "tag": notification.tag
                         }
                         yield f"id: {notification.share_id}\nevent: share\ndata: {json.dumps(event_data)}\n\n"
                     except asyncio.TimeoutError:
@@ -689,7 +691,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 if since_id:
                     query = """
-                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed
+                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
                         FROM share_events
                         WHERE user_id = $1 AND id > $2
                         ORDER BY id ASC
@@ -698,7 +700,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     rows = await db.fetch(query, user_id, since_id, limit)
                 else:
                     query = """
-                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed
+                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
                         FROM share_events
                         WHERE user_id = $1 AND submitted_at > $2
                         ORDER BY id ASC
@@ -715,6 +717,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         "share_hash": row['share_hash'],
                         "billable": bool(row['billable']),
                         "shares_consumed": row['shares_consumed'],
+                        "tag": row['coinbase_prefix_tag'],
                         "block_target_level": block_target_level
                     }
                     for row in rows
@@ -885,9 +888,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     SELECT
                         se.submitted_at, se.level, se.is_block, se.share_hash,
                         se.billable, se.shares_consumed, se.user_id,
-                        COALESCE(u.tag, u.address) as username
+                        se.coinbase_prefix_tag, se.coinbase_address,
+                        COALESCE(se.coinbase_prefix_tag, se.coinbase_address) as username
                     FROM share_events se
-                    LEFT JOIN users u ON CAST(se.user_id AS INTEGER) = u.user_id
                     WHERE se.submitted_at >= NOW() - INTERVAL '24 hours'
                     ORDER BY se.level DESC, se.submitted_at DESC
                     LIMIT 5
@@ -903,6 +906,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         "billable": bool(row['billable']),
                         "shares_consumed": row['shares_consumed'],
                         "user_id": row['user_id'],
+                        "tag": row['coinbase_prefix_tag'],
+                        "address": row['coinbase_address'],
                         "username": row['username']
                     }
                     for row in rows
@@ -941,9 +946,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     SELECT
                         se.submitted_at, se.level, se.is_block, se.share_hash,
                         se.billable, se.shares_consumed, se.user_id,
-                        COALESCE(u.tag, u.address) as username
+                        se.coinbase_prefix_tag, se.coinbase_address,
+                        COALESCE(se.coinbase_prefix_tag, se.coinbase_address) as username
                     FROM share_events se
-                    LEFT JOIN users u ON CAST(se.user_id AS INTEGER) = u.user_id
                     ORDER BY se.level DESC, se.submitted_at DESC
                     LIMIT 5
                     """
@@ -958,6 +963,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         "billable": bool(row['billable']),
                         "shares_consumed": row['shares_consumed'],
                         "user_id": row['user_id'],
+                        "tag": row['coinbase_prefix_tag'],
+                        "address": row['coinbase_address'],
                         "username": row['username']
                     }
                     for row in rows

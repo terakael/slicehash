@@ -105,11 +105,16 @@ function renderShareCards(shares) {
 
         const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
 
+        // Display tag if available, otherwise show address
+        const userDisplay = share.tag
+            ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>`
+            : `<span class="share-username">${username}</span>`;
+
         card.innerHTML = `
             <div class="share-card-header">
-                <div class="share-timestamp-wrapper" data-timestamp="${share.submitted_at}" data-username="${share.username}">
+                <div class="share-timestamp-wrapper" data-timestamp="${share.submitted_at}" data-username="${share.username}" data-tag="${share.tag || ''}" data-address="${share.address || ''}">
                     <span class="share-timestamp">${timeStr}</span>
-                    <span class="share-username">${username}</span>
+                    ${userDisplay}
                 </div>
                 <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
                     ${share.level}
