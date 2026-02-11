@@ -950,7 +950,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         Returns:
             HTML template for main dashboard
         """
-        async with db_manager.pool.acquire() as db:
+        async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             shares_remaining = await calculate_shares_remaining(db, request.user_id)
         return await render_template("dashboard.html", shares_remaining=shares_remaining)
 
@@ -962,7 +962,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         Returns:
             HTML template for settings page
         """
-        async with db_manager.pool.acquire() as db:
+        async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             shares_remaining = await calculate_shares_remaining(db, request.user_id)
         return await render_template("settings.html", shares_remaining=shares_remaining)
 
@@ -974,7 +974,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         Returns:
             HTML template for purchases page
         """
-        async with db_manager.pool.acquire() as db:
+        async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             shares_remaining = await calculate_shares_remaining(db, request.user_id)
         return await render_template("purchases.html", shares_remaining=shares_remaining)
 
@@ -986,7 +986,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         Returns:
             HTML template for highscores page
         """
-        async with db_manager.pool.acquire() as db:
+        async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             shares_remaining = await calculate_shares_remaining(db, request.user_id)
         return await render_template("highscores.html", shares_remaining=shares_remaining)
 
