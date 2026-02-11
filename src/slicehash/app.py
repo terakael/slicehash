@@ -7,39 +7,48 @@ This module provides the HTTP server with:
 """
 
 import asyncio
+import io
 import json
 import logging
 import re
 import time
-import io
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, Field, validator, ValidationError
-from quart import Quart, request, jsonify, render_template, Response, send_file, redirect, current_app
 import qrcode
 from PIL import Image
+from pydantic import BaseModel, Field, ValidationError, validator
+from quart import (
+    Quart,
+    Response,
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+)
 
-from .config import load_config, Config
-from .db.manager import DatabaseManager, init_database
-from .quota import calculate_shares_remaining, get_active_users
-from .priority import calculate_traffic_level, TrafficLevel
-from .share_processor import ShareProcessor
-from .sse_manager import SSEManager, ShareNotification
-from .redis_consumer import RedisStreamConsumer
-from .hash_utils import calculate_level
 from .auth import (
-    generate_k1_challenge,
-    verify_lnurl_signature,
+    cleanup_expired_challenges,
     create_jwt_token,
     decode_jwt_token,
-    require_auth,
+    generate_k1_challenge,
     get_or_create_user_by_pubkey,
-    cleanup_expired_challenges,
-    mark_challenge_used,
     lnurl_encode,
+    mark_challenge_used,
+    require_auth,
+    verify_lnurl_signature,
 )
+from .config import Config, load_config
+from .db.manager import DatabaseManager, init_database
+from .hash_utils import calculate_level
+from .priority import TrafficLevel, calculate_traffic_level
+from .quota import calculate_shares_remaining, get_active_users
+from .redis_consumer import RedisStreamConsumer
+from .share_processor import ShareProcessor
+from .sse_manager import ShareNotification, SSEManager
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +58,11 @@ share_processor: Optional[ShareProcessor] = None
 redis_consumer: Optional[RedisStreamConsumer] = None
 sse_manager: Optional[SSEManager] = None
 
+
 # Highscores cache
 class HighscoresCache:
     """Simple in-memory cache for highscores."""
+
     def __init__(self):
         self._cache = {}
         self._lock = asyncio.Lock()
@@ -69,12 +80,14 @@ class HighscoresCache:
             self._cache.clear()
             logger.info("Highscores cache invalidated")
 
+
 highscores_cache: Optional[HighscoresCache] = None
 
 
 # Pydantic models for API request/response validation
 class UserResponse(BaseModel):
     """Response model for user data."""
+
     user_id: int
     address: str
     tag: str | None
@@ -85,10 +98,11 @@ class UserResponse(BaseModel):
 
 class UserUpdateRequest(BaseModel):
     """Request model for updating user profile."""
+
     address: str | None = None
     tag: str | None = Field(None, max_length=50)
 
-    @validator('address')
+    @validator("address")
     @classmethod
     def validate_bitcoin_address(cls, v: str | None) -> str | None:
         """Validate Bitcoin address format.
@@ -105,17 +119,18 @@ class UserUpdateRequest(BaseModel):
             return v
 
         # Allow placeholder addresses for users created via LNURL-auth
-        if v.startswith('bc1_update_in_settings_'):
+        if v.startswith("bc1_update_in_settings_"):
             return v
 
-        pattern = r'^(bc1[a-z0-9]{39,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$'
+        pattern = r"^(bc1[a-z0-9]{39,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$"
         if not re.match(pattern, v):
-            raise ValueError('Invalid Bitcoin address format')
+            raise ValueError("Invalid Bitcoin address format")
         return v
 
 
 class ShareHistoryResponse(BaseModel):
     """Response model for paginated share history."""
+
     shares: list[dict]
     total: int
     limit: int
@@ -125,6 +140,7 @@ class ShareHistoryResponse(BaseModel):
 
 class TrafficStatusResponse(BaseModel):
     """Response model for traffic status."""
+
     traffic_level: str
     active_user_count: int
 
@@ -141,7 +157,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     app = Quart(__name__)
@@ -199,23 +215,27 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         if redis_consumer:
             redis_connected = await redis_consumer.is_connected()
 
-        return jsonify({
-            "status": "healthy",
-            "queue_size": share_queue.qsize() if share_queue else 0,
-            "sse_connections": sse_manager.get_subscriber_count() if sse_manager else 0,
-            "redis_connected": redis_connected
-        })
+        return jsonify(
+            {
+                "status": "healthy",
+                "queue_size": share_queue.qsize() if share_queue else 0,
+                "sse_connections": sse_manager.get_subscriber_count()
+                if sse_manager
+                else 0,
+                "redis_connected": redis_connected,
+            }
+        )
 
     @app.get("/")
     async def landing_page():
         """Landing page with LNURL-auth QR code."""
         # Check if already authenticated
-        token = request.cookies.get('auth_token')
+        token = request.cookies.get("auth_token")
         if token:
             config_obj = app.config["SLICEHASH_CONFIG"]
             payload = decode_jwt_token(token, config_obj)
             if payload:
-                return redirect('/dashboard')
+                return redirect("/dashboard")
 
         return await render_template("landing.html")
 
@@ -228,12 +248,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 await cleanup_expired_challenges(db)
                 k1, lnurl_string = await generate_k1_challenge(db, config_obj)
 
-                logger.info(f"Generated LNURL - k1: {k1[:16]}..., lnurl: {lnurl_string[:50]}...")
+                logger.info(
+                    f"Generated LNURL - k1: {k1[:16]}..., lnurl: {lnurl_string[:50]}..."
+                )
 
-                return jsonify({
-                    "lnurl": lnurl_string,
-                    "k1": k1
-                }), 200
+                return jsonify({"lnurl": lnurl_string, "k1": k1}), 200
         except Exception as e:
             logger.error(f"Failed to generate LNURL: {e}")
             return jsonify({"error": "Internal error"}), 500
@@ -246,14 +265,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             async with DatabaseManager(config_obj.database_url) as db:
                 row = await db.fetchrow(
-                    "SELECT expires_at FROM auth_challenges WHERE k1 = $1",
-                    k1
+                    "SELECT expires_at FROM auth_challenges WHERE k1 = $1", k1
                 )
 
-                if not row or int(time.time()) > row['expires_at']:
+                if not row or int(time.time()) > row["expires_at"]:
                     return jsonify({"error": "Invalid or expired challenge"}), 404
 
-            callback_url = f"{config_obj.lnurl_callback_url}?tag=login&k1={k1}&action=login"
+            callback_url = (
+                f"{config_obj.lnurl_callback_url}?tag=login&k1={k1}&action=login"
+            )
             lnurl_string = lnurl_encode(callback_url)
 
             qr = qrcode.QRCode(
@@ -266,7 +286,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             qr.make(fit=True)
 
             img = qr.make_image(fill_color="black", back_color="white")
-            img = img.convert('RGB')  # Convert to RGB for logo overlay
+            img = img.convert("RGB")  # Convert to RGB for logo overlay
 
             # Load and embed logo in center
             logo_path = Path(current_app.static_folder) / "favicon-32x32.png"
@@ -279,9 +299,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
 
                 # Add white background to logo if it has transparency
-                if logo.mode in ('RGBA', 'LA'):
-                    background = Image.new('RGB', logo.size, (255, 255, 255))
-                    if logo.mode == 'RGBA':
+                if logo.mode in ("RGBA", "LA"):
+                    background = Image.new("RGB", logo.size, (255, 255, 255))
+                    if logo.mode == "RGBA":
                         background.paste(logo, mask=logo.split()[3])
                     else:
                         background.paste(logo, mask=logo.split()[1])
@@ -292,10 +312,10 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 img.paste(logo, logo_pos)
 
             img_io = io.BytesIO()
-            img.save(img_io, 'PNG')
+            img.save(img_io, "PNG")
             img_io.seek(0)
 
-            return await send_file(img_io, mimetype='image/png')
+            return await send_file(img_io, mimetype="image/png")
         except Exception as e:
             logger.error(f"QR code generation error: {e}")
             return jsonify({"error": "Internal error"}), 500
@@ -304,12 +324,12 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     async def lnurl_callback():
         """LNURL-auth callback endpoint (called by Lightning wallets)."""
         try:
-            tag = request.args.get('tag')
-            k1 = request.args.get('k1')
-            sig = request.args.get('sig')
-            key = request.args.get('key')
+            tag = request.args.get("tag")
+            k1 = request.args.get("k1")
+            sig = request.args.get("sig")
+            key = request.args.get("key")
 
-            if tag != 'login' or not all([k1, sig, key]):
+            if tag != "login" or not all([k1, sig, key]):
                 return jsonify({"status": "ERROR", "reason": "Invalid parameters"}), 400
 
             config_obj = app.config["SLICEHASH_CONFIG"]
@@ -317,24 +337,31 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             async with DatabaseManager(config_obj.database_url) as db:
                 # Verify challenge exists and is valid
                 row = await db.fetchrow(
-                    "SELECT used, expires_at FROM auth_challenges WHERE k1 = $1",
-                    k1
+                    "SELECT used, expires_at FROM auth_challenges WHERE k1 = $1", k1
                 )
 
                 if not row:
-                    return jsonify({"status": "ERROR", "reason": "Invalid challenge"}), 400
+                    return jsonify(
+                        {"status": "ERROR", "reason": "Invalid challenge"}
+                    ), 400
 
-                used, expires_at = row['used'], row['expires_at']
+                used, expires_at = row["used"], row["expires_at"]
 
                 if used:
-                    return jsonify({"status": "ERROR", "reason": "Challenge already used"}), 400
+                    return jsonify(
+                        {"status": "ERROR", "reason": "Challenge already used"}
+                    ), 400
 
                 if int(time.time()) > expires_at:
-                    return jsonify({"status": "ERROR", "reason": "Challenge expired"}), 400
+                    return jsonify(
+                        {"status": "ERROR", "reason": "Challenge expired"}
+                    ), 400
 
                 # Verify signature
                 if not await verify_lnurl_signature(k1, sig, key):
-                    return jsonify({"status": "ERROR", "reason": "Invalid signature"}), 400
+                    return jsonify(
+                        {"status": "ERROR", "reason": "Invalid signature"}
+                    ), 400
 
                 # Mark challenge as used
                 await mark_challenge_used(db, k1)
@@ -348,7 +375,10 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Store token temporarily for polling
                 await db.execute(
                     "INSERT INTO auth_tokens (k1, user_id, token, created_at) VALUES ($1, $2, $3, $4)",
-                    k1, user_id, token, int(time.time())
+                    k1,
+                    user_id,
+                    token,
+                    int(time.time()),
                 )
 
                 return jsonify({"status": "OK"}), 200
@@ -360,7 +390,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     async def poll_auth_status():
         """Poll for authentication status (called by browser)."""
         try:
-            k1 = request.args.get('k1')
+            k1 = request.args.get("k1")
             if not k1:
                 return jsonify({"error": "Missing k1 parameter"}), 400
 
@@ -368,12 +398,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             async with DatabaseManager(config_obj.database_url) as db:
                 row = await db.fetchrow(
-                    "SELECT token FROM auth_tokens WHERE k1 = $1",
-                    k1
+                    "SELECT token FROM auth_tokens WHERE k1 = $1", k1
                 )
 
                 if row:
-                    token = row['token']
+                    token = row["token"]
 
                     # Clean up token from database
                     await db.execute("DELETE FROM auth_tokens WHERE k1 = $1", k1)
@@ -388,8 +417,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     @app.get("/api/auth/logout")
     async def logout():
         """Log out current user."""
-        response = redirect('/')
-        response.delete_cookie('auth_token')
+        response = redirect("/")
+        response.delete_cookie("auth_token")
         return response
 
     @app.get("/api/users/me")
@@ -404,31 +433,40 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         try:
             user_id = request.user_id
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 # Fetch user record
                 row = await db.fetchrow(
                     "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = $1",
-                    user_id
+                    user_id,
                 )
 
                 if not row:
                     return jsonify({"error": "User not found"}), 404
 
-                user_id, address, tag, priority = row['user_id'], row['address'], row['tag'], row['priority_multiplier']
+                user_id, address, tag, priority = (
+                    row["user_id"],
+                    row["address"],
+                    row["tag"],
+                    row["priority_multiplier"],
+                )
 
                 # Calculate derived fields using existing business logic
                 shares_remaining = await calculate_shares_remaining(db, user_id)
                 active_users = await get_active_users(db)
                 traffic_level = calculate_traffic_level(len(active_users))
 
-                return jsonify({
-                    "user_id": user_id,
-                    "address": address,
-                    "tag": tag,
-                    "priority_multiplier": priority,
-                    "shares_remaining": shares_remaining,
-                    "traffic_level": traffic_level.value
-                }), 200
+                return jsonify(
+                    {
+                        "user_id": user_id,
+                        "address": address,
+                        "tag": tag,
+                        "priority_multiplier": priority,
+                        "shares_remaining": shares_remaining,
+                        "traffic_level": traffic_level.value,
+                    }
+                ), 200
 
         except Exception as e:
             logger.error(f"Failed to fetch user: {e}")
@@ -457,7 +495,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Validate request with Pydantic
             update_req = UserUpdateRequest(**data)
 
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 # Build dynamic UPDATE query (only include non-None fields)
                 updates = []
                 params = []
@@ -480,43 +520,55 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 params.append(user_id)
                 await db.execute(
                     f"UPDATE users SET {', '.join(updates)} WHERE user_id = ${param_num}",
-                    *params
+                    *params,
                 )
 
                 # Return updated user data (reuse GET logic)
                 row = await db.fetchrow(
                     "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = $1",
-                    user_id
+                    user_id,
                 )
                 if not row:
                     return jsonify({"error": "User not found"}), 404
 
-                user_id, address, tag, priority = row['user_id'], row['address'], row['tag'], row['priority_multiplier']
+                user_id, address, tag, priority = (
+                    row["user_id"],
+                    row["address"],
+                    row["tag"],
+                    row["priority_multiplier"],
+                )
                 shares_remaining = await calculate_shares_remaining(db, user_id)
                 active_users = await get_active_users(db)
                 traffic_level = calculate_traffic_level(len(active_users))
 
-                return jsonify({
-                    "user_id": user_id,
-                    "address": address,
-                    "tag": tag,
-                    "priority_multiplier": priority,
-                    "shares_remaining": shares_remaining,
-                    "traffic_level": traffic_level.value
-                }), 200
+                return jsonify(
+                    {
+                        "user_id": user_id,
+                        "address": address,
+                        "tag": tag,
+                        "priority_multiplier": priority,
+                        "shares_remaining": shares_remaining,
+                        "traffic_level": traffic_level.value,
+                    }
+                ), 200
 
         except ValidationError as e:
             # Pydantic validation failed
-            return jsonify({
-                "error": "Validation failed",
-                "details": [{"field": err["loc"][0] if err["loc"] else "unknown", "message": err["msg"]} for err in e.errors()]
-            }), 400
+            return jsonify(
+                {
+                    "error": "Validation failed",
+                    "details": [
+                        {
+                            "field": err["loc"][0] if err["loc"] else "unknown",
+                            "message": err["msg"],
+                        }
+                        for err in e.errors()
+                    ],
+                }
+            ), 400
         except ValueError as e:
             # Field validator raised ValueError
-            return jsonify({
-                "error": "Validation failed",
-                "details": str(e)
-            }), 400
+            return jsonify({"error": "Validation failed", "details": str(e)}), 400
         except Exception as e:
             logger.error(f"Failed to update user: {e}")
             return jsonify({"error": "Internal error"}), 500
@@ -538,18 +590,19 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         try:
             user_id = request.user_id
             # Parse and validate query params
-            limit = int(request.args.get('limit', 50))
-            offset = int(request.args.get('offset', 0))
+            limit = int(request.args.get("limit", 50))
+            offset = int(request.args.get("offset", 0))
 
             # Clamp to reasonable values
             limit = min(max(limit, 1), 100)
             offset = max(offset, 0)
 
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 # Get total count
                 total = await db.fetchval(
-                    "SELECT COUNT(*) FROM share_events WHERE user_id = $1",
-                    user_id
+                    "SELECT COUNT(*) FROM share_events WHERE user_id = $1", user_id
                 )
 
                 # Get paginated results (newest first)
@@ -561,29 +614,35 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     ORDER BY submitted_at DESC
                     LIMIT $2 OFFSET $3
                     """,
-                    user_id, limit, offset
+                    user_id,
+                    limit,
+                    offset,
                 )
 
                 shares = [
                     {
-                        "submitted_at": row['submitted_at'].isoformat() if row['submitted_at'] else None,
-                        "level": row['level'],
-                        "is_block": bool(row['is_block']),
-                        "share_hash": row['share_hash'],
-                        "billable": bool(row['billable']),
-                        "shares_consumed": row['shares_consumed'],
-                        "tag": row['coinbase_prefix_tag']
+                        "submitted_at": row["submitted_at"].isoformat()
+                        if row["submitted_at"]
+                        else None,
+                        "level": row["level"],
+                        "is_block": bool(row["is_block"]),
+                        "share_hash": row["share_hash"],
+                        "billable": bool(row["billable"]),
+                        "shares_consumed": row["shares_consumed"],
+                        "tag": row["coinbase_prefix_tag"],
                     }
                     for row in rows
                 ]
 
-                return jsonify({
-                    "shares": shares,
-                    "total": total,
-                    "limit": limit,
-                    "offset": offset,
-                    "has_more": offset + limit < total
-                }), 200
+                return jsonify(
+                    {
+                        "shares": shares,
+                        "total": total,
+                        "limit": limit,
+                        "offset": offset,
+                        "has_more": offset + limit < total,
+                    }
+                ), 200
 
         except ValueError:
             return jsonify({"error": "Invalid limit or offset parameter"}), 400
@@ -615,14 +674,16 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         notification = await asyncio.wait_for(queue.get(), timeout=30.0)
                         event_data = {
                             "share_id": notification.share_id,
-                            "submitted_at": notification.submitted_at.isoformat() if hasattr(notification.submitted_at, 'isoformat') else notification.submitted_at,
+                            "submitted_at": notification.submitted_at.isoformat()
+                            if hasattr(notification.submitted_at, "isoformat")
+                            else notification.submitted_at,
                             "level": notification.level,
                             "is_block": notification.is_block,
                             "share_hash": notification.share_hash,
                             "billable": notification.billable,
                             "shares_consumed": notification.shares_consumed,
                             "block_target_level": notification.block_target_level,
-                            "tag": notification.tag
+                            "tag": notification.tag,
                         }
                         yield f"id: {notification.share_id}\nevent: share\ndata: {json.dumps(event_data)}\n\n"
                     except asyncio.TimeoutError:
@@ -632,11 +693,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 if queue:
                     await sse_manager.unsubscribe(user_id, queue)
 
-        return Response(event_stream(), mimetype="text/event-stream", headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive"
-        })
+        return Response(
+            event_stream(),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
 
     @app.get("/api/users/me/shares/recovery")
     @require_auth
@@ -654,9 +719,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         user_id = request.user_id
-        since_id = request.args.get('since_id', type=int)
-        since_time = request.args.get('since_time', type=str)
-        limit = min(int(request.args.get('limit', 50)), 200)
+        since_id = request.args.get("since_id", type=int)
+        since_time = request.args.get("since_time", type=str)
+        limit = min(int(request.args.get("limit", 50)), 200)
 
         if not since_id and not since_time:
             return jsonify({"error": "Must provide since_id or since_time"}), 400
@@ -665,9 +730,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Get current block target level from cached value (updated by share processor)
             block_target_level = 0
             if share_processor and share_processor.current_block_target:
-                block_target_level = calculate_level(share_processor.current_block_target)
+                block_target_level = calculate_level(
+                    share_processor.current_block_target
+                )
 
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 if since_id:
                     query = """
                         SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
@@ -689,20 +758,28 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "share_id": row['id'],
-                        "submitted_at": row['submitted_at'].isoformat() if row['submitted_at'] else None,
-                        "level": row['level'],
-                        "is_block": bool(row['is_block']),
-                        "share_hash": row['share_hash'],
-                        "billable": bool(row['billable']),
-                        "shares_consumed": row['shares_consumed'],
-                        "tag": row['coinbase_prefix_tag'],
-                        "block_target_level": block_target_level
+                        "share_id": row["id"],
+                        "submitted_at": row["submitted_at"].isoformat()
+                        if row["submitted_at"]
+                        else None,
+                        "level": row["level"],
+                        "is_block": bool(row["is_block"]),
+                        "share_hash": row["share_hash"],
+                        "billable": bool(row["billable"]),
+                        "shares_consumed": row["shares_consumed"],
+                        "tag": row["coinbase_prefix_tag"],
+                        "block_target_level": int(block_target_level),
                     }
                     for row in rows
                 ]
 
-                return jsonify({"shares": shares, "count": len(shares), "has_more": len(shares) == limit})
+                return jsonify(
+                    {
+                        "shares": shares,
+                        "count": len(shares),
+                        "has_more": len(shares) == limit,
+                    }
+                )
 
         except Exception as e:
             logger.error(f"Failed to recover missed shares: {e}")
@@ -717,14 +794,18 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 active_users = await get_active_users(db)
                 traffic_level = calculate_traffic_level(len(active_users))
 
-                return jsonify({
-                    "traffic_level": traffic_level.value,
-                    "active_user_count": len(active_users)
-                }), 200
+                return jsonify(
+                    {
+                        "traffic_level": traffic_level.value,
+                        "active_user_count": len(active_users),
+                    }
+                ), 200
 
         except Exception as e:
             logger.error(f"Failed to fetch traffic status: {e}")
@@ -747,10 +828,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Calculate level for the target
             level = calculate_level(block_target) if block_target else 0
 
-            return jsonify({
-                "block_target": block_target,
-                "level": level
-            }), 200
+            return jsonify({"block_target": block_target, "level": level}), 200
 
         except Exception as e:
             logger.error(f"Failed to fetch block target: {e}")
@@ -767,7 +845,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         try:
             user_id = request.user_id
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 # Get all transactions for user (newest first)
                 rows = await db.fetch(
                     """
@@ -776,22 +856,19 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     WHERE user_id = $1
                     ORDER BY created_at DESC
                     """,
-                    user_id
+                    user_id,
                 )
 
                 purchases = [
                     {
-                        "transaction_id": row['transaction_id'],
-                        "amount": row['amount'],
-                        "created_at": row['created_at']
+                        "transaction_id": row["transaction_id"],
+                        "amount": row["amount"],
+                        "created_at": row["created_at"],
                     }
                     for row in rows
                 ]
 
-                return jsonify({
-                    "purchases": purchases,
-                    "total": len(purchases)
-                }), 200
+                return jsonify({"purchases": purchases, "total": len(purchases)}), 200
 
         except Exception as e:
             logger.error(f"Failed to fetch purchase history: {e}")
@@ -826,20 +903,23 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 return jsonify({"error": "Amount must be a positive integer"}), 400
 
             # Check if user has set a valid Bitcoin address
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 user = await db.fetchrow(
-                    "SELECT address FROM users WHERE user_id = $1",
-                    user_id
+                    "SELECT address FROM users WHERE user_id = $1", user_id
                 )
 
                 if not user:
                     return jsonify({"error": "User not found"}), 404
 
                 # Check if address is a placeholder
-                if user['address'].startswith('bc1_update_in_settings_'):
-                    return jsonify({
-                        "error": "Please set your Bitcoin address in Settings before purchasing shares"
-                    }), 400
+                if user["address"].startswith("bc1_update_in_settings_"):
+                    return jsonify(
+                        {
+                            "error": "Please set your Bitcoin address in Settings before purchasing shares"
+                        }
+                    ), 400
 
                 # Create transaction
                 row = await db.fetchrow(
@@ -848,14 +928,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     VALUES ($1, $2, NOW())
                     RETURNING transaction_id, amount, created_at
                     """,
-                    user_id, amount
+                    user_id,
+                    amount,
                 )
 
-                return jsonify({
-                    "transaction_id": row['transaction_id'],
-                    "amount": row['amount'],
-                    "created_at": row['created_at']
-                }), 201
+                return jsonify(
+                    {
+                        "transaction_id": row["transaction_id"],
+                        "amount": row["amount"],
+                        "created_at": row["created_at"],
+                    }
+                ), 201
 
         except Exception as e:
             logger.error(f"Failed to create purchase: {e}")
@@ -871,12 +954,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         try:
             # Check cache first
-            cached = await highscores_cache.get('24h')
+            cached = await highscores_cache.get("24h")
             if cached:
                 logger.debug("Returning cached 24h highscores")
                 return jsonify(cached), 200
 
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 rows = await db.fetch(
                     """
                     SELECT
@@ -893,16 +978,18 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": row['submitted_at'].isoformat() if row['submitted_at'] else None,
-                        "level": row['level'],
-                        "is_block": bool(row['is_block']),
-                        "share_hash": row['share_hash'],
-                        "billable": bool(row['billable']),
-                        "shares_consumed": row['shares_consumed'],
-                        "user_id": row['user_id'],
-                        "tag": row['coinbase_prefix_tag'],
-                        "address": row['coinbase_address'],
-                        "username": row['username']
+                        "submitted_at": row["submitted_at"].isoformat()
+                        if row["submitted_at"]
+                        else None,
+                        "level": row["level"],
+                        "is_block": bool(row["is_block"]),
+                        "share_hash": row["share_hash"],
+                        "billable": bool(row["billable"]),
+                        "shares_consumed": row["shares_consumed"],
+                        "user_id": row["user_id"],
+                        "tag": row["coinbase_prefix_tag"],
+                        "address": row["coinbase_address"],
+                        "username": row["username"],
                     }
                     for row in rows
                 ]
@@ -910,7 +997,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 result = {"shares": shares}
 
                 # Cache the result
-                await highscores_cache.set('24h', result)
+                await highscores_cache.set("24h", result)
                 logger.debug("Cached 24h highscores")
 
                 return jsonify(result), 200
@@ -929,12 +1016,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         try:
             # Check cache first
-            cached = await highscores_cache.get('all-time')
+            cached = await highscores_cache.get("all-time")
             if cached:
                 logger.debug("Returning cached all-time highscores")
                 return jsonify(cached), 200
 
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 rows = await db.fetch(
                     """
                     SELECT
@@ -950,16 +1039,18 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": row['submitted_at'].isoformat() if row['submitted_at'] else None,
-                        "level": row['level'],
-                        "is_block": bool(row['is_block']),
-                        "share_hash": row['share_hash'],
-                        "billable": bool(row['billable']),
-                        "shares_consumed": row['shares_consumed'],
-                        "user_id": row['user_id'],
-                        "tag": row['coinbase_prefix_tag'],
-                        "address": row['coinbase_address'],
-                        "username": row['username']
+                        "submitted_at": row["submitted_at"].isoformat()
+                        if row["submitted_at"]
+                        else None,
+                        "level": row["level"],
+                        "is_block": bool(row["is_block"]),
+                        "share_hash": row["share_hash"],
+                        "billable": bool(row["billable"]),
+                        "shares_consumed": row["shares_consumed"],
+                        "user_id": row["user_id"],
+                        "tag": row["coinbase_prefix_tag"],
+                        "address": row["coinbase_address"],
+                        "username": row["username"],
                     }
                     for row in rows
                 ]
@@ -967,7 +1058,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 result = {"shares": shares}
 
                 # Cache the result
-                await highscores_cache.set('all-time', result)
+                await highscores_cache.set("all-time", result)
                 logger.debug("Cached all-time highscores")
 
                 return jsonify(result), 200
@@ -993,27 +1084,35 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         """
         try:
             user_id = request.user_id
-            mode = request.args.get('mode', 'recent')
-            limit = int(request.args.get('limit', 20))
-            offset = int(request.args.get('offset', 0))
+            mode = request.args.get("mode", "recent")
+            limit = int(request.args.get("limit", 20))
+            offset = int(request.args.get("offset", 0))
 
             limit = min(max(limit, 1), 100)
             offset = max(offset, 0)
 
             # Configure query based on mode
-            if mode == 'recent':
+            if mode == "recent":
                 where_clause = "WHERE user_id = $1"
                 order_by = "ORDER BY submitted_at DESC"
-            elif mode == 'best-24h':
-                where_clause = "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+            elif mode == "best-24h":
+                where_clause = (
+                    "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+                )
                 order_by = "ORDER BY level DESC, submitted_at DESC"
-            elif mode == 'best-all-time':
+            elif mode == "best-all-time":
                 where_clause = "WHERE user_id = $1"
                 order_by = "ORDER BY level DESC, submitted_at DESC"
             else:
-                return jsonify({"error": "Invalid mode. Must be 'recent', 'best-24h', or 'best-all-time'"}), 400
+                return jsonify(
+                    {
+                        "error": "Invalid mode. Must be 'recent', 'best-24h', or 'best-all-time'"
+                    }
+                ), 400
 
-            async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
                 # Get total count
                 count_query = f"SELECT COUNT(*) FROM share_events {where_clause}"
                 total = await db.fetchval(count_query, user_id)
@@ -1032,25 +1131,29 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "share_id": row['id'],
-                        "submitted_at": row['submitted_at'].isoformat() if row['submitted_at'] else None,
-                        "level": row['level'],
-                        "is_block": bool(row['is_block']),
-                        "share_hash": row['share_hash'],
-                        "billable": bool(row['billable']),
-                        "shares_consumed": row['shares_consumed'],
-                        "tag": row['coinbase_prefix_tag']
+                        "share_id": row["id"],
+                        "submitted_at": row["submitted_at"].isoformat()
+                        if row["submitted_at"]
+                        else None,
+                        "level": row["level"],
+                        "is_block": bool(row["is_block"]),
+                        "share_hash": row["share_hash"],
+                        "billable": bool(row["billable"]),
+                        "shares_consumed": row["shares_consumed"],
+                        "tag": row["coinbase_prefix_tag"],
                     }
                     for row in rows
                 ]
 
-                return jsonify({
-                    "shares": shares,
-                    "total": total,
-                    "limit": limit,
-                    "offset": offset,
-                    "has_more": offset + limit < total
-                }), 200
+                return jsonify(
+                    {
+                        "shares": shares,
+                        "total": total,
+                        "limit": limit,
+                        "offset": offset,
+                        "has_more": offset + limit < total,
+                    }
+                ), 200
 
         except ValueError:
             return jsonify({"error": "Invalid limit or offset parameter"}), 400
@@ -1077,7 +1180,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         return await render_template(
             "dashboard.html",
             shares_remaining=shares_remaining,
-            block_target_level=block_target_level
+            block_target_level=int(block_target_level),
         )
 
     @app.get("/settings")
@@ -1099,7 +1202,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         return await render_template(
             "settings.html",
             shares_remaining=shares_remaining,
-            block_target_level=block_target_level
+            block_target_level=int(block_target_level),
         )
 
     @app.get("/purchases")
@@ -1121,7 +1224,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         return await render_template(
             "purchases.html",
             shares_remaining=shares_remaining,
-            block_target_level=block_target_level
+            block_target_level=int(block_target_level),
         )
 
     @app.get("/highscores")
@@ -1143,7 +1246,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         return await render_template(
             "highscores.html",
             shares_remaining=shares_remaining,
-            block_target_level=block_target_level
+            block_target_level=int(block_target_level),
         )
 
     return app

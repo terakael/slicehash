@@ -20,12 +20,17 @@ import asyncpg
 
 from .config import Config
 from .db.manager import DatabaseManager
-from .quota import classify_share_billable, calculate_shares_remaining, get_active_users
-from .priority import calculate_traffic_level, calculate_shares_consumed
-from .pool_client import PoolClient
-from .rotation import RotationState, select_next_user, should_rotate, calculate_rotation_interval
-from .sse_manager import SSEManager, ShareNotification
 from .hash_utils import calculate_level
+from .pool_client import PoolClient
+from .priority import calculate_shares_consumed, calculate_traffic_level
+from .quota import calculate_shares_remaining, classify_share_billable, get_active_users
+from .rotation import (
+    RotationState,
+    calculate_rotation_interval,
+    select_next_user,
+    should_rotate,
+)
+from .sse_manager import ShareNotification, SSEManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +41,13 @@ class ShareProcessor:
     Integrates quota calculation, priority system, and rotation logic.
     """
 
-    def __init__(self, config: Config, share_queue: asyncio.Queue, sse_manager: Optional[SSEManager] = None, highscores_cache=None):
+    def __init__(
+        self,
+        config: Config,
+        share_queue: asyncio.Queue,
+        sse_manager: Optional[SSEManager] = None,
+        highscores_cache=None,
+    ):
         """Initialize share processor.
 
         Args:
@@ -65,11 +76,10 @@ class ShareProcessor:
 
             # Load current block target from database
             row = await self._db_conn.fetchrow(
-                "SELECT value FROM global_state WHERE key = $1",
-                'current_block_target'
+                "SELECT value FROM global_state WHERE key = $1", "current_block_target"
             )
             if row:
-                self.current_block_target = row['value']
+                self.current_block_target = row["value"]
                 logger.info(f"Loaded block target: {self.current_block_target}")
         except Exception as e:
             # Clean up connection on failure
@@ -106,10 +116,7 @@ class ShareProcessor:
         while self._running:
             try:
                 # Get next share from queue (with timeout for responsiveness)
-                share_data = await asyncio.wait_for(
-                    self.share_queue.get(),
-                    timeout=1.0
-                )
+                share_data = await asyncio.wait_for(self.share_queue.get(), timeout=1.0)
 
                 # Process share with all business logic
                 await self._process_share(share_data)
@@ -123,11 +130,16 @@ class ShareProcessor:
                 logger.warning("Attempting to reconnect to database")
                 try:
                     if self._db_conn:
-                        await self._db_manager.close_persistent_connection(self._db_conn)
+                        await self._db_manager.close_persistent_connection(
+                            self._db_conn
+                        )
                     self._db_conn = await self._db_manager.get_persistent_connection()
                     logger.info("Successfully reconnected to database")
                 except Exception as reconnect_error:
-                    logger.error(f"Failed to reconnect to database: {reconnect_error}", exc_info=True)
+                    logger.error(
+                        f"Failed to reconnect to database: {reconnect_error}",
+                        exc_info=True,
+                    )
             except Exception as e:
                 # Other errors - log but continue processing
                 logger.error(f"Unexpected error processing share: {e}", exc_info=True)
@@ -163,7 +175,9 @@ class ShareProcessor:
 
         # Step 1: Check and update block target if changed
         if block_target and block_target != self.current_block_target:
-            logger.info(f"Block target changed: {self.current_block_target} -> {block_target}")
+            logger.info(
+                f"Block target changed: {self.current_block_target} -> {block_target}"
+            )
             self.current_block_target = block_target
 
             # Update database
@@ -175,14 +189,19 @@ class ShareProcessor:
                     value = EXCLUDED.value,
                     updated_at = EXCLUDED.updated_at
                 """,
-                'current_block_target', str(block_target)
+                "current_block_target",
+                str(block_target),
             )
 
         # Step 2: Calculate level from share hash
         level = calculate_level(share_hash) if share_hash else 0
 
         # Calculate block target level
-        block_target_level = calculate_level(self.current_block_target) if self.current_block_target else 0
+        block_target_level = (
+            calculate_level(self.current_block_target)
+            if self.current_block_target
+            else 0
+        )
 
         # Step 3: Classify billable (for now, use level >= 1 as billable)
         # TODO: Replace with proper difficulty threshold when available
@@ -197,10 +216,9 @@ class ShareProcessor:
 
             # Get user's priority multiplier
             row = await db.fetchrow(
-                "SELECT priority_multiplier FROM users WHERE user_id = $1",
-                user_id
+                "SELECT priority_multiplier FROM users WHERE user_id = $1", user_id
             )
-            priority = row['priority_multiplier'] if row else 1
+            priority = row["priority_multiplier"] if row else 1
 
             shares_consumed = calculate_shares_consumed(priority, traffic_level)
 
@@ -225,7 +243,7 @@ class ShareProcessor:
             level,
             1 if billable else 0,
             shares_consumed,
-            submitted_at_dt
+            submitted_at_dt,
         )
 
         logger.info(
@@ -245,7 +263,7 @@ class ShareProcessor:
                 billable=billable,
                 shares_consumed=shares_consumed,
                 block_target_level=block_target_level,
-                tag=coinbase_prefix_tag
+                tag=coinbase_prefix_tag,
             )
             await self.sse_manager.notify_share(notification)
 
@@ -285,14 +303,13 @@ class ShareProcessor:
 
         # Get user details
         row = await db.fetchrow(
-            "SELECT address, tag FROM users WHERE user_id = $1",
-            next_user_id
+            "SELECT address, tag FROM users WHERE user_id = $1", next_user_id
         )
         if not row:
             logger.error(f"User {next_user_id} not found")
             return
 
-        address, tag = row['address'], row['tag']
+        address, tag = row["address"], row["tag"]
 
         # Update pool's coinbase address
         async with PoolClient(str(self.config.pool_url)) as pool:
@@ -302,7 +319,8 @@ class ShareProcessor:
             # Update user's last_served_at
             await db.execute(
                 "UPDATE users SET last_served_at = $1 WHERE user_id = $2",
-                datetime.now(), next_user_id
+                datetime.now(),
+                next_user_id,
             )
 
             # Update rotation state
