@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadUserData();
     await loadShares();
     setupInfiniteScroll();
-    initSharedSSE(handleNewShare);
+    initSharedSSE(handleNewShare, handlePageRefocus);
     startTimestampRefresh();
 });
 
@@ -216,4 +216,39 @@ function handleNewShare(share) {
     }, 400);
 
     currentOffset++;
+}
+
+// Handle page refocus - reload shares if more than 10 received while away
+async function handlePageRefocus(missedSharesCount) {
+    if (missedSharesCount > 10) {
+        console.log(`Reloading dashboard with latest shares (${missedSharesCount} missed)`);
+
+        // Reset state
+        currentOffset = 0;
+        hasMore = true;
+
+        // Reload fresh shares from the top
+        await loadShares(false);
+    } else if (missedSharesCount > 0) {
+        console.log(`Fetching ${missedSharesCount} missed shares`);
+
+        // Fetch the missed shares and prepend them
+        try {
+            const response = await fetch(`/api/users/me/shares?limit=${missedSharesCount}&offset=0`);
+            if (!response.ok) throw new Error('Failed to fetch missed shares');
+
+            const data = await response.json();
+
+            // Prepend shares in reverse order (oldest first) so newest ends up on top
+            for (let i = data.shares.length - 1; i >= 0; i--) {
+                handleNewShare(data.shares[i]);
+            }
+        } catch (error) {
+            console.error('Error fetching missed shares:', error);
+            // Fall back to full reload
+            currentOffset = 0;
+            hasMore = true;
+            await loadShares(false);
+        }
+    }
 }

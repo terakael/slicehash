@@ -4,12 +4,19 @@
 let currentPeriod = '24h';
 let isLoading = false;
 
+// Cache management
+const highscoresCache = {
+    '24h': { data: null, timestamp: 0 },
+    'all-time': { data: null, timestamp: 0 }
+};
+const CACHE_DURATION = 60000; // 1 minute in milliseconds
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
     await loadUserData();
     await loadHighscores(currentPeriod);
     setupToggleButtons();
-    initSharedSSE();
+    initSharedSSE(null, handlePageRefocus);
     startTimestampRefresh();
 });
 
@@ -31,8 +38,24 @@ async function loadUserData() {
 }
 
 // Load highscores for given period
-async function loadHighscores(period) {
+async function loadHighscores(period, forceRefresh = false) {
     if (isLoading) return;
+
+    // Check cache first (unless forced refresh)
+    if (!forceRefresh) {
+        const cached = highscoresCache[period];
+        const now = Date.now();
+        if (cached.data && (now - cached.timestamp < CACHE_DURATION)) {
+            console.log(`Using cached highscores for ${period}`);
+            if (cached.data.shares.length === 0) {
+                showEmptyState(true, period);
+            } else {
+                showEmptyState(false, period);
+                renderShareCards(cached.data.shares);
+            }
+            return;
+        }
+    }
 
     isLoading = true;
     showLoading(true);
@@ -43,6 +66,12 @@ async function loadHighscores(period) {
         if (!response.ok) throw new Error('Failed to fetch highscores');
 
         const data = await response.json();
+
+        // Update cache
+        highscoresCache[period] = {
+            data: data,
+            timestamp: Date.now()
+        };
 
         if (data.shares.length === 0) {
             showEmptyState(true, period);
@@ -152,4 +181,13 @@ function showEmptyState(show, period) {
 function showError(message) {
     console.error(message);
     // Could add a toast notification here in the future
+}
+
+// Handle page refocus - check for new highscores if any shares arrived
+async function handlePageRefocus(missedSharesCount) {
+    if (missedSharesCount > 0) {
+        console.log(`Checking for new highscores after ${missedSharesCount} shares`);
+        // Force refresh to get latest highscores
+        await loadHighscores(currentPeriod, true);
+    }
 }

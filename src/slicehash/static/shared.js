@@ -182,13 +182,21 @@ let lastEventId = null;
 const INITIAL_RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_DELAY = 30000;
 
+// Page visibility tracking
+let isPageVisible = !document.hidden;
+let sharesReceivedWhileHidden = 0;
+let lastVisibilityChange = Date.now();
+
 // Callback for handling new shares (optional, page-specific)
 let onNewShareCallback = null;
+let onPageRefocusCallback = null;
 
 // Initialize SSE connection with optional callback
 // callback will be called when a new share arrives (e.g., for dashboard to add card)
-function initSharedSSE(callback = null) {
+// refocusCallback will be called when page regains focus (optional)
+function initSharedSSE(callback = null, refocusCallback = null) {
     onNewShareCallback = callback;
+    onPageRefocusCallback = refocusCallback;
 
     if (eventSource) {
         eventSource.close();
@@ -220,6 +228,12 @@ function initSharedSSE(callback = null) {
 
 // Handle new share event
 function handleSharedNewShare(share) {
+    // Track shares received while hidden
+    if (!isPageVisible) {
+        sharesReceivedWhileHidden++;
+        lastEventId = share.share_id;
+    }
+
     // Update shares remaining (common to all pages)
     updateSharesRemaining();
 
@@ -231,8 +245,8 @@ function handleSharedNewShare(share) {
         }
     }
 
-    // Call page-specific callback if provided
-    if (onNewShareCallback && typeof onNewShareCallback === 'function') {
+    // Call page-specific callback if provided (only when page is visible)
+    if (isPageVisible && onNewShareCallback && typeof onNewShareCallback === 'function') {
         onNewShareCallback(share);
     }
 }
@@ -256,7 +270,7 @@ async function handleSharedSSEDisconnect() {
     );
 
     console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})...`);
-    setTimeout(() => initSharedSSE(onNewShareCallback), delay);
+    setTimeout(() => initSharedSSE(onNewShareCallback, onPageRefocusCallback), delay);
 }
 
 // Recover missed shares during disconnection
@@ -292,6 +306,33 @@ async function updateSharesRemaining() {
         console.error('Error updating shares remaining:', error);
     }
 }
+
+// Handle page visibility changes
+function handleVisibilityChange() {
+    const wasVisible = isPageVisible;
+    isPageVisible = !document.hidden;
+    lastVisibilityChange = Date.now();
+
+    if (!wasVisible && isPageVisible) {
+        // Page just became visible
+        console.log(`Page refocused, ${sharesReceivedWhileHidden} shares received while hidden`);
+
+        // Call page-specific refocus callback if provided
+        if (onPageRefocusCallback && typeof onPageRefocusCallback === 'function') {
+            onPageRefocusCallback(sharesReceivedWhileHidden);
+        }
+
+        // Reset counter
+        sharesReceivedWhileHidden = 0;
+    } else if (wasVisible && !isPageVisible) {
+        // Page just became hidden
+        console.log('Page lost focus');
+        sharesReceivedWhileHidden = 0;
+    }
+}
+
+// Setup page visibility tracking
+document.addEventListener('visibilitychange', handleVisibilityChange);
 
 // Cleanup SSE connection
 function cleanupSharedSSE() {

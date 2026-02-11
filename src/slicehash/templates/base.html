@@ -11,6 +11,11 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <!-- Target level display - shared across all pages -->
+    <div class="target-level-display">
+        <div class="target-level-value" id="target-level">Block Target: Level {{ block_target_level }}+</div>
+    </div>
+
     {% block content %}{% endblock %}
 
     <!-- Bottom navigation widget - persistent across all pages -->
