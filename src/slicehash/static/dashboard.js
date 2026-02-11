@@ -4,11 +4,14 @@
 let isLoading = false;
 let hasMore = true;
 let currentOffset = 0;
-let currentMode = 'recent';
+let currentMode = localStorage.getItem('dashboardMode') || 'recent';
 const LIMIT = 20;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
+    // Restore saved mode and set active button
+    restoreSavedMode();
+
     await loadUserData();
     await loadShares();
     setupInfiniteScroll();
@@ -16,6 +19,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSharedSSE(handleNewShare, handlePageRefocus);
     startTimestampRefresh();
 });
+
+// Restore saved mode from localStorage
+function restoreSavedMode() {
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        if (btn.dataset.mode === currentMode) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+}
 
 // Fetch and display user data
 async function loadUserData() {
@@ -92,6 +106,9 @@ function switchMode(mode) {
     if (mode === currentMode || isLoading) return;
 
     currentMode = mode;
+
+    // Save preference to localStorage
+    localStorage.setItem('dashboardMode', mode);
 
     // Update button active states
     document.querySelectorAll('.toggle-btn').forEach(btn => {
