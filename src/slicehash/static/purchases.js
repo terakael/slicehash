@@ -23,6 +23,11 @@ async function loadUserData() {
         // Update shares remaining display
         document.getElementById('shares-remaining').textContent = data.shares_remaining;
 
+        // Check if user needs to set Bitcoin address
+        if (data.address && data.address.startsWith('bc1_update_in_settings_')) {
+            showBtcAddressWarning();
+        }
+
     } catch (error) {
         console.error('Error loading user data:', error);
         document.getElementById('shares-remaining').textContent = 'Error';
@@ -161,7 +166,14 @@ async function handlePurchase() {
 
     } catch (error) {
         console.error('Error creating purchase:', error);
-        showError(error.message || 'Failed to create purchase');
+        const errorMsg = error.message || 'Failed to create purchase';
+
+        // Check if error is about BTC address not being set
+        if (errorMsg.includes('Bitcoin address')) {
+            showError(errorMsg + ' <a href="/settings" style="color: #007bff; text-decoration: underline;">Go to Settings</a>');
+        } else {
+            showError(errorMsg);
+        }
     } finally {
         isPurchasing = false;
         button.disabled = false;
@@ -192,4 +204,47 @@ function showEmptyState(show) {
 // Show error message
 function showError(message) {
     console.error(message);
+
+    // Create or update error alert
+    let errorAlert = document.getElementById('purchase-error-alert');
+    if (!errorAlert) {
+        errorAlert = document.createElement('div');
+        errorAlert.id = 'purchase-error-alert';
+        errorAlert.className = 'alert alert-danger';
+        errorAlert.style.marginTop = '1rem';
+
+        const form = document.querySelector('.purchase-form');
+        form.parentNode.insertBefore(errorAlert, form.nextSibling);
+    }
+
+    errorAlert.innerHTML = message;
+    errorAlert.style.display = 'block';
+
+    // Auto-hide after 5 seconds (unless it contains a link)
+    if (!message.includes('<a')) {
+        setTimeout(() => {
+            errorAlert.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Show Bitcoin address warning banner
+function showBtcAddressWarning() {
+    // Check if warning already exists
+    if (document.getElementById('btc-address-warning')) return;
+
+    const warning = document.createElement('div');
+    warning.id = 'btc-address-warning';
+    warning.className = 'alert alert-warning';
+    warning.style.marginBottom = '1.5rem';
+    warning.innerHTML = `
+        <strong>⚠️ Action Required:</strong> You must set your Bitcoin address before purchasing shares.
+        <a href="/settings" style="color: #856404; text-decoration: underline; font-weight: bold;">Go to Settings →</a>
+    `;
+
+    // Insert at the top of the main content
+    const mainContent = document.querySelector('main') || document.querySelector('.container');
+    if (mainContent && mainContent.firstChild) {
+        mainContent.insertBefore(warning, mainContent.firstChild);
+    }
 }

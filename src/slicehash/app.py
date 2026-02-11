@@ -830,7 +830,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
         Returns:
             201: Purchase created successfully
-            400: Invalid request (missing/invalid amount)
+            400: Invalid request (missing/invalid amount, or BTC address not set)
             500: Internal error
         """
         try:
@@ -846,8 +846,23 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             if not isinstance(amount, int) or amount <= 0:
                 return jsonify({"error": "Amount must be a positive integer"}), 400
 
-            # Create transaction
+            # Check if user has set a valid Bitcoin address
             async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+                user = await db.fetchrow(
+                    "SELECT address FROM users WHERE user_id = $1",
+                    user_id
+                )
+
+                if not user:
+                    return jsonify({"error": "User not found"}), 404
+
+                # Check if address is a placeholder
+                if user['address'].startswith('bc1_update_in_settings_'):
+                    return jsonify({
+                        "error": "Please set your Bitcoin address in Settings before purchasing shares"
+                    }), 400
+
+                # Create transaction
                 row = await db.fetchrow(
                     """
                     INSERT INTO transactions (user_id, amount, created_at)
