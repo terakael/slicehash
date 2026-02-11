@@ -6,10 +6,29 @@ let isLoading = false;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadUserData();
     await loadHighscores(currentPeriod);
     setupToggleButtons();
+    initSharedSSE();
     startTimestampRefresh();
 });
+
+// Fetch and display user data
+async function loadUserData() {
+    try {
+        const response = await fetch('/api/users/me');
+        if (!response.ok) throw new Error('Failed to fetch user data');
+
+        const data = await response.json();
+
+        // Update shares remaining display
+        document.getElementById('shares-remaining').textContent = data.shares_remaining;
+
+    } catch (error) {
+        console.error('Error loading user data:', error);
+        document.getElementById('shares-remaining').textContent = 'Error';
+    }
+}
 
 // Load highscores for given period
 async function loadHighscores(period) {

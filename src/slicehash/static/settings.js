@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Setup form submission handler
     form.addEventListener('submit', handleFormSubmit);
+
+    // Initialize SSE connection
+    initSharedSSE();
 });
 
 // Load current user settings from API
@@ -40,13 +43,17 @@ async function loadCurrentSettings() {
         }
 
         const data = await response.json();
-        
+
         // Populate form fields
         addressInput.value = data.address || '';
         tagInput.value = data.tag || '';
 
+        // Update shares remaining display
+        document.getElementById('shares-remaining').textContent = data.shares_remaining;
+
     } catch (error) {
         console.error('Error loading settings:', error);
+        document.getElementById('shares-remaining').textContent = 'Error';
         showError('Failed to load current settings. Please refresh the page.');
     }
 }

@@ -4,6 +4,18 @@
 
 {% block content %}
 <div class="mobile-dashboard">
+    <!-- Target level display -->
+    <div class="target-level-display">
+        <div class="target-level-label">Target Level for Valid Block</div>
+        <div class="target-level-value" id="target-level">Level 50+</div>
+    </div>
+
+    <!-- Large shares remaining display -->
+    <div class="shares-remaining-display">
+        <div class="shares-label">Shares Remaining</div>
+        <div class="shares-value" id="shares-remaining">--</div>
+    </div>
+
     <!-- Toggle/tab bar for periods -->
     <div class="highscore-toggle">
         <button class="toggle-btn active" data-period="24h">Last 24h</button>

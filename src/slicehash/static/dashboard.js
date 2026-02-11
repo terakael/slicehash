@@ -6,19 +6,12 @@ let hasMore = true;
 let currentOffset = 0;
 const LIMIT = 20;
 
-// SSE state
-let eventSource = null;
-let lastEventId = null;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_DELAY = 30000;
-const INITIAL_RECONNECT_DELAY = 1000;
-
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
     await loadUserData();
     await loadShares();
     setupInfiniteScroll();
-    initSSE();
+    initSharedSSE(handleNewShare);
     startTimestampRefresh();
 });
 
@@ -172,75 +165,7 @@ function showError(message) {
     // Could add a toast notification here in the future
 }
 
-// SSE Functions
-
-function initSSE() {
-    if (eventSource) {
-        eventSource.close();
-    }
-
-    eventSource = new EventSource('/api/users/me/shares/stream');
-
-    eventSource.addEventListener('connected', (event) => {
-        console.log('SSE connected');
-        reconnectAttempts = 0;
-    });
-
-    eventSource.addEventListener('share', (event) => {
-        const share = JSON.parse(event.data);
-        lastEventId = event.lastEventId;
-        handleNewShare(share);
-    });
-
-    eventSource.addEventListener('heartbeat', (event) => {
-        console.debug('SSE heartbeat');
-    });
-
-    eventSource.onerror = (error) => {
-        console.error('SSE error:', error);
-        eventSource.close();
-        handleSSEDisconnect();
-    };
-}
-
-async function handleSSEDisconnect() {
-    console.log('SSE disconnected, attempting recovery...');
-
-    if (lastEventId) {
-        try {
-            await recoverMissedShares(lastEventId);
-        } catch (error) {
-            console.error('Failed to recover:', error);
-        }
-    }
-
-    reconnectAttempts++;
-    const delay = Math.min(
-        INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1),
-        MAX_RECONNECT_DELAY
-    );
-
-    console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})...`);
-    setTimeout(initSSE, delay);
-}
-
-async function recoverMissedShares(sinceId) {
-    const response = await fetch(`/api/users/me/shares/recovery?since_id=${sinceId}&limit=200`);
-    if (!response.ok) throw new Error('Recovery failed');
-
-    const data = await response.json();
-    console.log(`Recovered ${data.shares.length} shares`);
-
-    for (const share of data.shares) {
-        handleNewShare(share);
-        lastEventId = share.share_id;
-    }
-
-    if (data.has_more) {
-        await recoverMissedShares(lastEventId);
-    }
-}
-
+// SSE callback for handling new shares (adds card to dashboard)
 function handleNewShare(share) {
     const container = document.getElementById('share-cards-container');
 
@@ -291,5 +216,4 @@ function handleNewShare(share) {
     }, 400);
 
     currentOffset++;
-    loadUserData(); // Update shares remaining counter
 }

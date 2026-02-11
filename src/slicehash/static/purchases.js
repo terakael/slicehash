@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadUserData();
     await loadPurchases();
     setupPurchaseForm();
+    initSharedSSE();
 });
 
 // Fetch and display user data
