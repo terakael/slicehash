@@ -2,7 +2,15 @@
 
 // Format timestamp as relative time
 function formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
+    // Handle both ISO strings and Date objects
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+        console.error('Invalid timestamp:', timestamp);
+        return 'Unknown';
+    }
+
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
@@ -110,6 +118,10 @@ function refreshTimestamps() {
 // Refresh a single timestamp element
 function refreshTimestamp(element) {
     const originalTimestamp = element.dataset.timestamp;
+    if (!originalTimestamp) {
+        console.warn('Missing timestamp data attribute', element);
+        return;
+    }
     const newDisplay = formatTimestamp(originalTimestamp);
     element.textContent = newDisplay;
 }
