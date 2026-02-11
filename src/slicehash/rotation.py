@@ -147,18 +147,14 @@ def should_rotate(
     return elapsed >= rotation_interval
 
 
-async def select_next_user(
-    db: asyncpg.Connection,
-    exclude_user_id: Optional[int] = None
-) -> Optional[int]:
+async def select_next_user(db: asyncpg.Connection) -> Optional[int]:
     """Select next user for mining based on fairness algorithm.
 
     Implements weighted fairness algorithm:
     1. Get all active users (positive share balance)
-    2. Exclude current user if specified (prevents immediate re-selection)
-    3. Prioritize never-served users (last_served_at IS NULL)
-    4. Among served users, calculate weighted_wait = time_since / priority_multiplier
-    5. Select user with maximum weighted_wait
+    2. Prioritize never-served users (last_served_at IS NULL)
+    3. Among served users, calculate weighted_wait = time_since / priority_multiplier
+    4. Select user with maximum weighted_wait
 
     Weighted Wait Time Rationale:
     - User with priority 1 who waited 10 min: weighted_wait = 600s / 1 = 600s
@@ -169,10 +165,10 @@ async def select_next_user(
     - High priority users (pay more) don't monopolize the queue
     - Low priority users (pay less) get fair turns based on wait time
     - Everyone eventually gets served proportional to their patience
+    - Users who were just served have low weighted_wait and are naturally deprioritized
 
     Args:
         db: Active database connection
-        exclude_user_id: User to exclude from selection (typically current user)
 
     Returns:
         user_id of selected user, or None if no eligible users
@@ -183,15 +179,11 @@ async def select_next_user(
     Example:
         >>> # Select initial user
         >>> next_user = await select_next_user(db)
-        >>> # Later, rotate to different user
-        >>> next_user = await select_next_user(db, exclude_user_id=current_user)
+        >>> # Later, select fairest user (naturally rotates due to last_served_at)
+        >>> next_user = await select_next_user(db)
     """
     # Get all users with positive share balance
     active_users = await get_active_users(db)
-
-    # Filter out excluded user if specified
-    if exclude_user_id is not None:
-        active_users = [uid for uid in active_users if uid != exclude_user_id]
 
     # No eligible users
     if not active_users:

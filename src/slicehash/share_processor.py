@@ -298,7 +298,7 @@ class ShareProcessor:
             active_users: List of active user IDs
         """
         # Select next user
-        next_user_id = await select_next_user(db, exclude_user_id=self.rotation_state.current_user_id)
+        next_user_id = await select_next_user(db)
 
         if next_user_id is None:
             logger.warning("No active users available for rotation")
