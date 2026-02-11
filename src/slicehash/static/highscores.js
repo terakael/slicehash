@@ -117,7 +117,7 @@ function renderShareCards(shares) {
                     ${userDisplay}
                 </div>
                 <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
-                    ${share.level}
+                    ${Math.floor(share.level)}
                 </div>
             </div>
             <div class="share-card-footer">

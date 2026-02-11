@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS share_events (
     coinbase_prefix_tag TEXT NOT NULL,
     share_hash TEXT,
     is_block INTEGER NOT NULL CHECK(is_block IN (0, 1)),
-    level INTEGER NOT NULL,
+    level REAL NOT NULL,
     billable INTEGER NOT NULL CHECK(billable IN (0, 1)),
     shares_consumed INTEGER NOT NULL CHECK(shares_consumed >= 1 AND shares_consumed <= 5),
     FOREIGN KEY (user_id) REFERENCES users(user_id)

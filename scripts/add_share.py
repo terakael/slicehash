@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from slicehash.config import load_config
 from slicehash.db.manager import DatabaseManager
+from slicehash.hash_utils import calculate_level
 
 
 def generate_hash_with_level(level: int) -> str:

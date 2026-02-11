@@ -55,6 +55,9 @@ function truncateUsername(username) {
 
 // Get level styling (color, shape, border)
 function getLevelStyle(level) {
+    // Level can now be a float, but styling is based on integer part
+    const levelInt = Math.floor(level);
+
     // Color palette cycling every 8 levels
     const colorPalette = [
         '#58a6ff', // Blue
@@ -68,8 +71,8 @@ function getLevelStyle(level) {
     ];
 
     // Shape tiers (every 8 levels)
-    const tier = Math.floor((level - 1) / 8);
-    const colorIndex = (level - 1) % 8;
+    const tier = Math.floor((levelInt - 1) / 8);
+    const colorIndex = (levelInt - 1) % 8;
     const color = colorPalette[colorIndex];
 
     let shape, borderStyle = '';
@@ -249,7 +252,7 @@ function handleSharedNewShare(share) {
     if (share.block_target_level !== undefined) {
         const targetLevelElement = document.getElementById('target-level');
         if (targetLevelElement) {
-            targetLevelElement.textContent = `Block Target: Level ${share.block_target_level}+`;
+            targetLevelElement.textContent = `Block Target: Level ${Math.floor(share.block_target_level)}+`;
         }
     }
 

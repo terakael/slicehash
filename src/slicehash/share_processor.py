@@ -25,30 +25,9 @@ from .priority import calculate_traffic_level, calculate_shares_consumed
 from .pool_client import PoolClient
 from .rotation import RotationState, select_next_user, should_rotate, calculate_rotation_interval
 from .sse_manager import SSEManager, ShareNotification
+from .hash_utils import calculate_level
 
 logger = logging.getLogger(__name__)
-
-
-def calculate_level(hash_str: str) -> int:
-    """Calculate the level of a hash (number of leading zeros minus 5).
-
-    Args:
-        hash_str: Hexadecimal hash string
-
-    Returns:
-        Level value (leading zeros - 5), minimum 0
-    """
-    if not hash_str:
-        return 0
-
-    leading_zeros = 0
-    for char in hash_str:
-        if char == '0':
-            leading_zeros += 1
-        else:
-            break
-
-    return max(0, leading_zeros - 5)
 
 
 class ShareProcessor:

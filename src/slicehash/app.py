@@ -28,6 +28,7 @@ from .priority import calculate_traffic_level, TrafficLevel
 from .share_processor import ShareProcessor
 from .sse_manager import SSEManager, ShareNotification
 from .redis_consumer import RedisStreamConsumer
+from .hash_utils import calculate_level
 from .auth import (
     generate_k1_challenge,
     verify_lnurl_signature,
@@ -69,28 +70,6 @@ class HighscoresCache:
             logger.info("Highscores cache invalidated")
 
 highscores_cache: Optional[HighscoresCache] = None
-
-
-def calculate_level(hash_str: str) -> int:
-    """Calculate the level of a hash (number of leading zeros minus 5).
-
-    Args:
-        hash_str: Hexadecimal hash string
-
-    Returns:
-        Level value (leading zeros - 5), minimum 0
-    """
-    if not hash_str:
-        return 0
-
-    leading_zeros = 0
-    for char in hash_str:
-        if char == '0':
-            leading_zeros += 1
-        else:
-            break
-
-    return max(0, leading_zeros - 5)
 
 
 # Pydantic models for API request/response validation
