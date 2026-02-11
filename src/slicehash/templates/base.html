@@ -11,10 +11,18 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <!-- Target level display - shared across all pages -->
+    {% block header %}
+    <!-- Large shares remaining display -->
+    <div class="shares-remaining-display">
+        <div class="shares-label">Shares Remaining</div>
+        <div class="shares-value" id="shares-remaining">{{ shares_remaining }}</div>
+    </div>
+
+    <!-- Target level display -->
     <div class="target-level-display">
         <div class="target-level-value" id="target-level">Block Target: Level {{ block_target_level }}+</div>
     </div>
+    {% endblock %}
 
     {% block content %}{% endblock %}
 

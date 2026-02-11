@@ -48,6 +48,28 @@ share_processor: Optional[ShareProcessor] = None
 redis_consumer: Optional[RedisStreamConsumer] = None
 sse_manager: Optional[SSEManager] = None
 
+# Highscores cache
+class HighscoresCache:
+    """Simple in-memory cache for highscores."""
+    def __init__(self):
+        self._cache = {}
+        self._lock = asyncio.Lock()
+
+    async def get(self, key: str):
+        async with self._lock:
+            return self._cache.get(key)
+
+    async def set(self, key: str, value):
+        async with self._lock:
+            self._cache[key] = value
+
+    async def invalidate(self):
+        async with self._lock:
+            self._cache.clear()
+            logger.info("Highscores cache invalidated")
+
+highscores_cache: Optional[HighscoresCache] = None
+
 
 def calculate_level(hash_str: str) -> int:
     """Calculate the level of a hash (number of leading zeros minus 5).
@@ -150,14 +172,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     app.config["SLICEHASH_CONFIG"] = config
 
     # Initialize share queue (in-memory, unbounded)
-    global share_queue, share_processor, redis_consumer, sse_manager
+    global share_queue, share_processor, redis_consumer, sse_manager, highscores_cache
     share_queue = asyncio.Queue()
 
     # Initialize SSE manager
     sse_manager = SSEManager()
 
+    # Initialize highscores cache
+    highscores_cache = HighscoresCache()
+
     # Initialize share processor (will start background task)
-    share_processor = ShareProcessor(config, share_queue, sse_manager)
+    share_processor = ShareProcessor(config, share_queue, sse_manager, highscores_cache)
 
     # Initialize Redis stream consumer
     redis_consumer = RedisStreamConsumer(config, share_queue)
@@ -848,6 +873,12 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
+            # Check cache first
+            cached = await highscores_cache.get('24h')
+            if cached:
+                logger.debug("Returning cached 24h highscores")
+                return jsonify(cached), 200
+
             async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 rows = await db.fetch(
                     """
@@ -877,9 +908,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     for row in rows
                 ]
 
-                return jsonify({
-                    "shares": shares
-                }), 200
+                result = {"shares": shares}
+
+                # Cache the result
+                await highscores_cache.set('24h', result)
+                logger.debug("Cached 24h highscores")
+
+                return jsonify(result), 200
 
         except Exception as e:
             logger.error(f"Failed to fetch 24h highscores: {e}")
@@ -894,6 +929,12 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             500: Internal error
         """
         try:
+            # Check cache first
+            cached = await highscores_cache.get('all-time')
+            if cached:
+                logger.debug("Returning cached all-time highscores")
+                return jsonify(cached), 200
+
             async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
                 rows = await db.fetch(
                     """
@@ -922,9 +963,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     for row in rows
                 ]
 
-                return jsonify({
-                    "shares": shares
-                }), 200
+                result = {"shares": shares}
+
+                # Cache the result
+                await highscores_cache.set('all-time', result)
+                logger.debug("Cached all-time highscores")
+
+                return jsonify(result), 200
 
         except Exception as e:
             logger.error(f"Failed to fetch all-time highscores: {e}")

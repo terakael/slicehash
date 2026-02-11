@@ -2,17 +2,24 @@
 
 {% block title %}MineShare - Dashboard{% endblock %}
 
+{% block header %}
+<!-- Large shares remaining display -->
+<div class="shares-remaining-display">
+    <div class="shares-label">Shares Remaining</div>
+    <div class="shares-value" id="shares-remaining">{{ shares_remaining }}</div>
+</div>
+
+<!-- Target level display -->
+<div class="target-level-display">
+    <div class="target-level-value" id="target-level">Block Target: Level {{ block_target_level }}+</div>
+</div>
+{% endblock %}
+
 {% block content %}
 <div class="mobile-dashboard">
     <!-- Network difficulty dot in top corner -->
     <div class="network-difficulty-dot" id="network-difficulty-dot" title="Network active">
         <span id="network-difficulty-value">0</span>
-    </div>
-
-    <!-- Large shares remaining display -->
-    <div class="shares-remaining-display">
-        <div class="shares-label">Shares Remaining</div>
-        <div class="shares-value" id="shares-remaining">{{ shares_remaining }}</div>
     </div>
 
     <!-- Share cards container -->

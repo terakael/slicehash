@@ -57,17 +57,19 @@ class ShareProcessor:
     Integrates quota calculation, priority system, and rotation logic.
     """
 
-    def __init__(self, config: Config, share_queue: asyncio.Queue, sse_manager: Optional[SSEManager] = None):
+    def __init__(self, config: Config, share_queue: asyncio.Queue, sse_manager: Optional[SSEManager] = None, highscores_cache=None):
         """Initialize share processor.
 
         Args:
             config: Application configuration
             share_queue: Queue of incoming share events from webhook
             sse_manager: Optional SSE manager for real-time notifications
+            highscores_cache: Optional highscores cache to invalidate on new shares
         """
         self.config = config
         self.share_queue = share_queue
         self.sse_manager = sse_manager
+        self.highscores_cache = highscores_cache
         self.rotation_state = RotationState()
         self.current_block_target: Optional[str] = None
         self._task: Optional[asyncio.Task] = None
@@ -266,6 +268,10 @@ class ShareProcessor:
                 block_target_level=block_target_level
             )
             await self.sse_manager.notify_share(notification)
+
+        # Invalidate highscores cache (new share might be a highscore)
+        if self.highscores_cache:
+            await self.highscores_cache.invalidate()
 
         # Step 6: Update rotation state
         if self.rotation_state.current_user_id == user_id:
