@@ -800,7 +800,6 @@ footer {
 .highscore-toggle {
     display: flex;
     gap: 12px;
-    margin-top: 60px;
     margin-bottom: 32px;
     background: #0d0702;
     padding: 4px;
