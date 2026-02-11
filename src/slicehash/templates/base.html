@@ -39,10 +39,17 @@
         </a>
         <a href="/highscores" class="nav-item {% if request.path == '/highscores' %}active{% endif %}">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 9H4.5C3.67 9 3 9.67 3 10.5V20C3 20.83 3.67 21.5 4.5 21.5H6V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M18 9H19.5C20.33 9 21 9.67 21 10.5V20C21 20.83 20.33 21.5 19.5 21.5H18V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M6 9V6C6 4.34 7.34 3 9 3H15C16.66 3 18 4.34 18 6V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <rect x="6" y="9" width="12" height="12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Trophy cup -->
+                <path d="M7 8V5C7 4.45 7.45 4 8 4H16C16.55 4 17 4.45 17 5V8C17 10.76 14.76 13 12 13C9.24 13 7 10.76 7 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Left handle -->
+                <path d="M7 6H5C4.45 6 4 6.45 4 7V8C4 9.1 4.9 10 6 10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Right handle -->
+                <path d="M17 6H19C19.55 6 20 6.45 20 7V8C20 9.1 19.1 10 18 10H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Stem -->
+                <path d="M12 13V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Base -->
+                <path d="M8 20H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 17H15V20H9V17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             <span>Highscore</span>
         </a>
