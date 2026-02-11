@@ -226,18 +226,15 @@ async def select_next_user(db: asyncpg.Connection) -> Optional[int]:
     if not previously_served:
         return None
 
-    # Get current timestamp from database for consistency
-    now = await db.fetchval("SELECT NOW()")
+    # Use Python datetime (timezone-naive) for consistency with stored timestamps
+    now = datetime.now()
 
     best_user_id = None
     max_weighted_wait = -1
 
     for user_id, last_served_at, priority_multiplier in previously_served:
         # Calculate seconds since last served
-        time_since_seconds = await db.fetchval(
-            "SELECT EXTRACT(EPOCH FROM $1::timestamp - $2::timestamp)",
-            now, last_served_at
-        )
+        time_since_seconds = (now - last_served_at).total_seconds()
         time_since = int(time_since_seconds)
 
         # Weighted wait time = time_since / priority_multiplier

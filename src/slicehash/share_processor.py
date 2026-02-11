@@ -13,7 +13,7 @@ This module provides the ShareProcessor class which:
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 import asyncpg
@@ -226,7 +226,7 @@ class ShareProcessor:
             shares_consumed = calculate_shares_consumed(priority, traffic_level)
 
         # Step 5: Store share event
-        submitted_at_dt = datetime.fromtimestamp(ntime, tz=timezone.utc)
+        submitted_at_dt = datetime.fromtimestamp(ntime)
         share_id = await db.fetchval(
             """
             INSERT INTO share_events
@@ -281,13 +281,13 @@ class ShareProcessor:
             # First user to mine
             self.rotation_state.current_user_id = user_id
             self.rotation_state.shares_this_turn = 1
-            self.rotation_state.rotation_started_at = datetime.now(timezone.utc)
+            self.rotation_state.rotation_started_at = datetime.now()
 
         # Step 7: Check rotation
         active_users = await get_active_users(db)
         rotation_interval = calculate_rotation_interval(len(active_users))
 
-        if should_rotate(self.rotation_state, rotation_interval, datetime.now(timezone.utc)):
+        if should_rotate(self.rotation_state, rotation_interval, datetime.now()):
             await self._rotate_user(db, active_users)
 
     async def _rotate_user(self, db, active_users: list[int]):
@@ -323,15 +323,15 @@ class ShareProcessor:
             # Update user's last_served_at
             await db.execute(
                 "UPDATE users SET last_served_at = $1 WHERE user_id = $2",
-                datetime.now(timezone.utc), next_user_id
+                datetime.now(), next_user_id
             )
 
             # Update rotation state
             old_user = self.rotation_state.current_user_id
             self.rotation_state.current_user_id = next_user_id
             self.rotation_state.shares_this_turn = 0
-            self.rotation_state.rotation_started_at = datetime.now(timezone.utc)
-            self.rotation_state.last_rotation_at = datetime.now(timezone.utc)
+            self.rotation_state.rotation_started_at = datetime.now()
+            self.rotation_state.last_rotation_at = datetime.now()
 
             logger.info(f"Rotated from user {old_user} to user {next_user_id}")
         else:
