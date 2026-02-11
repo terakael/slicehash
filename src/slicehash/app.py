@@ -950,7 +950,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         Returns:
             HTML template for main dashboard
         """
-        return await render_template("dashboard.html")
+        async with db_manager.pool.acquire() as db:
+            shares_remaining = await calculate_shares_remaining(db, request.user_id)
+        return await render_template("dashboard.html", shares_remaining=shares_remaining)
 
     @app.get("/settings")
     @require_auth
@@ -960,7 +962,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         Returns:
             HTML template for settings page
         """
-        return await render_template("settings.html")
+        async with db_manager.pool.acquire() as db:
+            shares_remaining = await calculate_shares_remaining(db, request.user_id)
+        return await render_template("settings.html", shares_remaining=shares_remaining)
 
     @app.get("/purchases")
     @require_auth
@@ -970,7 +974,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         Returns:
             HTML template for purchases page
         """
-        return await render_template("purchases.html")
+        async with db_manager.pool.acquire() as db:
+            shares_remaining = await calculate_shares_remaining(db, request.user_id)
+        return await render_template("purchases.html", shares_remaining=shares_remaining)
 
     @app.get("/highscores")
     @require_auth
@@ -980,7 +986,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         Returns:
             HTML template for highscores page
         """
-        return await render_template("highscores.html")
+        async with db_manager.pool.acquire() as db:
+            shares_remaining = await calculate_shares_remaining(db, request.user_id)
+        return await render_template("highscores.html", shares_remaining=shares_remaining)
 
     return app
 
