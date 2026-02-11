@@ -419,35 +419,24 @@ footer {
     display: none;
 }
 
-/* Target Level Display */
-.target-level-display {
-    text-align: center;
-    margin-top: 10px;
-    margin-bottom: 10px;
-}
-
-.target-level-label {
-    font-size: 8px;
-    font-family: 'Press Start 2P', monospace;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #888888;
-    margin-bottom: 6px;
-}
-
-.target-level-value {
-    font-size: 14px;
-    font-family: 'Press Start 2P', monospace;
-    color: #4a9eff;
-    line-height: 1.2;
-    text-shadow: 2px 2px 0px #2566b8, 3px 3px 0px rgba(0,0,0,0.6);
-}
-
 /* Shares Remaining Display */
 .shares-remaining-display {
     text-align: center;
-    margin-top: 20px;
-    margin-bottom: 40px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+}
+
+/* Target Level Display */
+.target-level-display {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.target-level-value {
+    font-size: 8px;
+    font-family: 'Press Start 2P', monospace;
+    color: #888888;
+    line-height: 1.2;
 }
 
 .shares-label {
