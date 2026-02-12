@@ -188,15 +188,16 @@ function startTimestampRefresh() {
 
 // Shared SSE connection management
 let eventSource = null;
-let reconnectAttempts = 0;
 let lastEventId = null;
-const INITIAL_RECONNECT_DELAY = 1000;
-const MAX_RECONNECT_DELAY = 30000;
+const IDLE_GRACE_PERIOD_MS = 30000;        // 30s before killing SSE
+const CATCHUP_SHARE_DELAY_MS = 50;         // 50ms between share animations
+const SSE_RECONNECT_DELAY_MS = 1000;       // 1s reconnect delay
 
 // Page visibility tracking
 let isPageVisible = !document.hidden;
-let sharesReceivedWhileHidden = 0;
-let lastVisibilityChange = Date.now();
+let idleGraceTimer = null;
+let isCatchingUp = false;
+let catchupBuffer = [];
 
 // Callback for handling new shares (optional, page-specific)
 let onNewShareCallback = null;
@@ -217,7 +218,6 @@ function initSharedSSE(callback = null, refocusCallback = null) {
 
     eventSource.addEventListener('connected', (event) => {
         console.log('SSE connected');
-        reconnectAttempts = 0;
     });
 
     eventSource.addEventListener('share', (event) => {
@@ -239,10 +239,11 @@ function initSharedSSE(callback = null, refocusCallback = null) {
 
 // Handle new share event
 function handleSharedNewShare(share) {
-    // Track shares received while hidden
-    if (!isPageVisible) {
-        sharesReceivedWhileHidden++;
-        lastEventId = share.share_id;
+    lastEventId = share.share_id;
+
+    if (isCatchingUp) {
+        catchupBuffer.push(share);
+        return;
     }
 
     // Update shares remaining (common to all pages)
@@ -262,44 +263,21 @@ function handleSharedNewShare(share) {
     }
 }
 
-// Handle SSE disconnection with exponential backoff
+// Handle SSE disconnection
 async function handleSharedSSEDisconnect() {
-    console.log('SSE disconnected, attempting recovery...');
+    console.log('SSE disconnected');
 
-    if (lastEventId && onNewShareCallback) {
-        try {
-            await recoverMissedShares(lastEventId);
-        } catch (error) {
-            console.error('Failed to recover:', error);
+    if (!isPageVisible) {
+        console.log('Page hidden, skipping reconnect');
+        return;
+    }
+
+    console.log(`Reconnecting in ${SSE_RECONNECT_DELAY_MS}ms...`);
+    setTimeout(() => {
+        if (isPageVisible) {
+            initSharedSSE(onNewShareCallback, onPageRefocusCallback);
         }
-    }
-
-    reconnectAttempts++;
-    const delay = Math.min(
-        INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1),
-        MAX_RECONNECT_DELAY
-    );
-
-    console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})...`);
-    setTimeout(() => initSharedSSE(onNewShareCallback, onPageRefocusCallback), delay);
-}
-
-// Recover missed shares during disconnection
-async function recoverMissedShares(sinceId) {
-    const response = await fetch(`/api/users/me/shares/recovery?since_id=${sinceId}&limit=200`);
-    if (!response.ok) throw new Error('Recovery failed');
-
-    const data = await response.json();
-    console.log(`Recovered ${data.shares.length} shares`);
-
-    for (const share of data.shares) {
-        handleSharedNewShare(share);
-        lastEventId = share.share_id;
-    }
-
-    if (data.has_more) {
-        await recoverMissedShares(lastEventId);
-    }
+    }, SSE_RECONNECT_DELAY_MS);
 }
 
 // Update shares remaining display (common function)
@@ -322,23 +300,87 @@ async function updateSharesRemaining() {
 function handleVisibilityChange() {
     const wasVisible = isPageVisible;
     isPageVisible = !document.hidden;
-    lastVisibilityChange = Date.now();
 
     if (!wasVisible && isPageVisible) {
-        // Page just became visible
-        console.log(`Page refocused, ${sharesReceivedWhileHidden} shares received while hidden`);
-
-        // Call page-specific refocus callback if provided
-        if (onPageRefocusCallback && typeof onPageRefocusCallback === 'function') {
-            onPageRefocusCallback(sharesReceivedWhileHidden);
+        // REFOCUSED
+        clearTimeout(idleGraceTimer);
+        if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+            initSharedSSE(onNewShareCallback, onPageRefocusCallback);
         }
-
-        // Reset counter
-        sharesReceivedWhileHidden = 0;
+        handleRefocusCatchup();
     } else if (wasVisible && !isPageVisible) {
-        // Page just became hidden
-        console.log('Page lost focus');
-        sharesReceivedWhileHidden = 0;
+        // HIDDEN
+        idleGraceTimer = setTimeout(() => {
+            console.log('Grace period expired, killing SSE');
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+        }, IDLE_GRACE_PERIOD_MS);
+    }
+}
+
+// Handle refocus catch-up logic
+async function handleRefocusCatchup() {
+    if (!lastEventId) {
+        console.log('No lastEventId, triggering full refresh');
+        if (typeof loadShares === 'function') {
+            await loadShares(false);  // Dashboard function
+        }
+        return;
+    }
+
+    isCatchingUp = true;
+    catchupBuffer = [];
+
+    try {
+        const response = await fetch(`/api/users/me/shares/refresh?since_id=${lastEventId}&mode=${currentMode}`);
+        if (!response.ok) throw new Error('Refresh failed');
+
+        const data = await response.json();
+
+        if (data.type === 'incremental') {
+            console.log(`Incremental catch-up: ${data.shares.length} shares`);
+
+            // Stream shares with animation
+            const sharesToStream = currentMode === 'recent'
+                ? data.shares                    // Keep DESC for prepending
+                : [...data.shares].reverse();    // Reverse to ASC for level insertion
+
+            for (const share of sharesToStream) {
+                if (onNewShareCallback) {
+                    onNewShareCallback(share);
+                }
+                await new Promise(resolve => setTimeout(resolve, CATCHUP_SHARE_DELAY_MS));
+            }
+
+            // Process buffered real-time events
+            isCatchingUp = false;
+            for (const share of catchupBuffer) {
+                if (onNewShareCallback) {
+                    onNewShareCallback(share);
+                }
+            }
+            catchupBuffer = [];
+        } else {
+            // Full refresh
+            console.log('Full refresh required');
+            isCatchingUp = false;
+            catchupBuffer = [];
+
+            if (typeof loadShares === 'function') {
+                await loadShares(false);  // Reset and reload
+            }
+        }
+    } catch (error) {
+        console.error('Catch-up failed:', error);
+        isCatchingUp = false;
+        catchupBuffer = [];
+
+        // Fall back to full refresh
+        if (typeof loadShares === 'function') {
+            await loadShares(false);
+        }
     }
 }
 

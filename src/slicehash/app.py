@@ -791,6 +791,207 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             logger.error(f"Failed to recover missed shares: {e}")
             return jsonify({"error": "Internal error"}), 500
 
+    @app.get("/api/users/me/shares/load")
+    @require_auth
+    async def load_shares():
+        """Load shares page with mode support (initial load and pagination).
+
+        Query parameters:
+            mode: 'recent', 'best-24h', 'best-all-time' (default: 'recent')
+            offset: Number of results to skip (default: 0)
+            limit: Results per page (default: 20, max: 100)
+
+        Returns:
+            {"shares": [...], "has_more": bool}
+        """
+        user_id = request.user_id
+        mode = request.args.get("mode", "recent")
+        offset = max(int(request.args.get("offset", 0)), 0)
+        limit = min(max(int(request.args.get("limit", 20)), 1), 100)
+
+        # Configure query based on mode
+        if mode == "recent":
+            where_clause = "WHERE user_id = $1"
+            order_by = "ORDER BY submitted_at DESC"
+        elif mode == "best-24h":
+            where_clause = "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+            order_by = "ORDER BY level DESC, submitted_at DESC"
+        elif mode == "best-all-time":
+            where_clause = "WHERE user_id = $1"
+            order_by = "ORDER BY level DESC, submitted_at DESC"
+        else:
+            return jsonify({"error": "Invalid mode"}), 400
+
+        async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            # Get total count for has_more
+            count_query = f"SELECT COUNT(*) FROM share_events {where_clause}"
+            total = await db.fetchval(count_query, user_id)
+
+            # Get paginated results
+            query = f"""
+                SELECT id, submitted_at, level, is_block, share_hash,
+                       billable, shares_consumed, coinbase_prefix_tag
+                FROM share_events
+                {where_clause}
+                {order_by}
+                LIMIT $2 OFFSET $3
+            """
+            rows = await db.fetch(query, user_id, limit, offset)
+
+            shares = [
+                {
+                    "share_id": row["id"],
+                    "submitted_at": row["submitted_at"].isoformat() if row["submitted_at"] else None,
+                    "level": row["level"],
+                    "is_block": bool(row["is_block"]),
+                    "share_hash": row["share_hash"],
+                    "billable": bool(row["billable"]),
+                    "shares_consumed": row["shares_consumed"],
+                    "tag": row["coinbase_prefix_tag"],
+                }
+                for row in rows
+            ]
+
+            return jsonify({
+                "shares": shares,
+                "has_more": offset + len(rows) < total
+            }), 200
+
+    @app.get("/api/users/me/shares/refresh")
+    @require_auth
+    async def refresh_shares():
+        """Refocus catch-up: incremental or full refresh based on staleness.
+
+        Query parameters:
+            since_id: Last share ID received (REQUIRED)
+            mode: View mode (default: 'recent')
+            limit: Check window size (default: 20, max: 100)
+
+        Returns:
+            Incremental: {"type": "incremental", "shares": [...]}
+            Full refresh: {"type": "full_refresh", "shares": [...], "has_more": bool}
+        """
+        user_id = request.user_id
+        since_id = request.args.get("since_id")
+        mode = request.args.get("mode", "recent")
+        limit = min(max(int(request.args.get("limit", 20)), 1), 100)
+
+        if not since_id:
+            return jsonify({"error": "since_id is required"}), 400
+
+        try:
+            since_id = int(since_id)
+        except ValueError:
+            return jsonify({"error": "Invalid since_id"}), 400
+
+        async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            # Single query: fetch latest N by time
+            check_query = """
+                SELECT id, submitted_at, level, is_block, share_hash,
+                       billable, shares_consumed, coinbase_prefix_tag
+                FROM share_events
+                WHERE user_id = $1
+                ORDER BY submitted_at DESC
+                LIMIT $2
+            """
+            rows = await db.fetch(check_query, user_id, limit)
+
+            if not rows:
+                return jsonify({"type": "full_refresh", "shares": [], "has_more": False}), 200
+
+            share_ids = [row["id"] for row in rows]
+
+            if since_id in share_ids:
+                # INCREMENTAL: Trim to shares before since_id
+                since_index = share_ids.index(since_id)
+                new_rows = rows[:since_index]
+
+                shares = [
+                    {
+                        "share_id": row["id"],
+                        "submitted_at": row["submitted_at"].isoformat(),
+                        "level": row["level"],
+                        "is_block": bool(row["is_block"]),
+                        "share_hash": row["share_hash"],
+                        "billable": bool(row["billable"]),
+                        "shares_consumed": row["shares_consumed"],
+                        "tag": row["coinbase_prefix_tag"],
+                    }
+                    for row in new_rows
+                ]
+
+                return jsonify({"type": "incremental", "shares": shares}), 200
+
+            else:
+                # FULL REFRESH: User is >limit shares stale
+                if mode == "recent":
+                    # Reuse rows (already DESC by time) - 1 query total
+                    shares = [
+                        {
+                            "share_id": row["id"],
+                            "submitted_at": row["submitted_at"].isoformat(),
+                            "level": row["level"],
+                            "is_block": bool(row["is_block"]),
+                            "share_hash": row["share_hash"],
+                            "billable": bool(row["billable"]),
+                            "shares_consumed": row["shares_consumed"],
+                            "tag": row["coinbase_prefix_tag"],
+                        }
+                        for row in rows
+                    ]
+
+                    # Check if more exists
+                    count_query = "SELECT COUNT(*) FROM share_events WHERE user_id = $1"
+                    total = await db.fetchval(count_query, user_id)
+
+                    return jsonify({
+                        "type": "full_refresh",
+                        "shares": shares,
+                        "has_more": len(rows) < total
+                    }), 200
+
+                else:
+                    # Best modes: fetch by level - 2 queries total
+                    if mode == "best-24h":
+                        where_clause = "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+                    else:  # best-all-time
+                        where_clause = "WHERE user_id = $1"
+
+                    # Get total count
+                    count_query = f"SELECT COUNT(*) FROM share_events {where_clause}"
+                    total = await db.fetchval(count_query, user_id)
+
+                    # Get by level
+                    best_query = f"""
+                        SELECT id, submitted_at, level, is_block, share_hash,
+                               billable, shares_consumed, coinbase_prefix_tag
+                        FROM share_events
+                        {where_clause}
+                        ORDER BY level DESC, submitted_at DESC
+                        LIMIT $2
+                    """
+                    rows = await db.fetch(best_query, user_id, limit)
+
+                    shares = [
+                        {
+                            "share_id": row["id"],
+                            "submitted_at": row["submitted_at"].isoformat(),
+                            "level": row["level"],
+                            "is_block": bool(row["is_block"]),
+                            "share_hash": row["share_hash"],
+                            "billable": bool(row["billable"]),
+                            "shares_consumed": row["shares_consumed"],
+                            "tag": row["coinbase_prefix_tag"],
+                        }
+                        for row in rows
+                    ]
+
+                    return jsonify({
+                        "type": "full_refresh",
+                        "shares": shares,
+                        "has_more": len(rows) < total
+                    }), 200
+
     @app.get("/api/traffic/status")
     async def get_traffic_status():
         """Return current traffic level and active user count.

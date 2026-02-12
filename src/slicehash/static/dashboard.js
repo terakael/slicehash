@@ -6,6 +6,7 @@ let hasMore = true;
 let currentOffset = 0;
 let currentMode = localStorage.getItem('dashboardMode') || 'recent';
 const LIMIT = 20;
+let hasLoadedAllShares = false;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -16,7 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadShares();
     setupInfiniteScroll();
     setupToggleButtons();
-    initSharedSSE(handleNewShare, handlePageRefocus);
+    initSharedSSE(handleNewShare);
     startTimestampRefresh();
 });
 
@@ -75,7 +76,7 @@ async function loadShares(append = false) {
     showLoading(true);
 
     try {
-        const url = `/api/shares?mode=${currentMode}&limit=${LIMIT}&offset=${currentOffset}`;
+        const url = `/api/users/me/shares/load?mode=${currentMode}&limit=${LIMIT}&offset=${currentOffset}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch shares');
 
@@ -90,6 +91,7 @@ async function loadShares(append = false) {
             // Update pagination state
             currentOffset += data.shares.length;
             hasMore = data.has_more;
+            hasLoadedAllShares = !data.has_more;
         }
 
     } catch (error) {
@@ -276,6 +278,7 @@ function handleNewShare(share) {
 
     // Determine insertion position based on mode
     let insertBefore = null;
+    let insertPosition = 0;
 
     if (currentMode === 'recent') {
         // Recent mode: always prepend to top (newest first)
@@ -294,7 +297,15 @@ function handleNewShare(share) {
                 insertBefore = existingCard;
                 break;
             }
+            insertPosition++;
         }
+    }
+
+    // Discard if would insert beyond loaded shares (unless we have complete dataset)
+    if (!hasLoadedAllShares && insertPosition >= existingCards.length && currentMode !== 'recent') {
+        console.log(`Discarding share ${share.share_id} - ranks below loaded set`);
+        lastEventId = share.share_id;  // Still update for catch-up tracking
+        return;
     }
 
     // Insert with animation
@@ -312,46 +323,4 @@ function handleNewShare(share) {
     }, 400);
 
     currentOffset++;
-}
-
-// Handle page refocus - reload shares if more than 10 received while away
-async function handlePageRefocus(missedSharesCount) {
-    if (missedSharesCount > 10) {
-        console.log(`Reloading dashboard with latest shares (${missedSharesCount} missed)`);
-
-        // Reset state
-        currentOffset = 0;
-        hasMore = true;
-
-        // Reload fresh shares from the top
-        await loadShares(false);
-    } else if (missedSharesCount > 0) {
-        console.log(`Fetching ${missedSharesCount} missed shares`);
-
-        if (currentMode === 'recent') {
-            // Recent mode: prepend missed shares in order
-            try {
-                const response = await fetch(`/api/users/me/shares?limit=${missedSharesCount}&offset=0`);
-                if (!response.ok) throw new Error('Failed to fetch missed shares');
-
-                const data = await response.json();
-
-                // Prepend shares in reverse order (oldest first) so newest ends up on top
-                for (let i = data.shares.length - 1; i >= 0; i--) {
-                    handleNewShare(data.shares[i]);
-                }
-            } catch (error) {
-                console.error('Error fetching missed shares:', error);
-                // Fall back to full reload
-                currentOffset = 0;
-                hasMore = true;
-                await loadShares(false);
-            }
-        } else {
-            // Best modes: full reload since rankings may have changed
-            currentOffset = 0;
-            hasMore = true;
-            await loadShares(false);
-        }
-    }
 }
