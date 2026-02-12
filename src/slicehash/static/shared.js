@@ -350,9 +350,11 @@ async function handleRefocusCatchup() {
             console.log(`Incremental catch-up: ${data.shares.length} shares`);
 
             // Stream shares with animation
+            // Backend returns DESC (newest first). For recent mode, reverse to ASC (oldest first)
+            // so when we prepend, newest ends up at top. For best modes, keep DESC.
             const sharesToStream = mode === 'recent'
-                ? data.shares                    // Keep DESC for prepending
-                : [...data.shares].reverse();    // Reverse to ASC for level insertion
+                ? [...data.shares].reverse()     // Reverse to ASC - process oldest first, prepend newest last
+                : data.shares;                   // Keep DESC for level insertion
 
             for (const share of sharesToStream) {
                 if (onNewShareCallback) {
