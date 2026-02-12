@@ -70,27 +70,27 @@ function getLevelStyle(level) {
         '#ffa657', // Bright Orange
     ];
 
-    // Shape tiers (every 8 levels)
-    const tier = Math.floor((levelInt - 1) / 8);
-    const colorIndex = (levelInt - 1) % 8;
+    // Shape tiers (every 80 levels)
+    const tier = Math.floor((levelInt - 10) / 80);
+    const colorIndex = Math.floor((levelInt - 10) / 10) % 8;
     const color = colorPalette[colorIndex];
 
     let shape, borderStyle = '';
 
     if (tier === 0) {
-        // Levels 1-8: Square
+        // Levels 10-80: Square
         shape = 'square';
     } else if (tier === 1) {
-        // Levels 9-16: Circle
+        // Levels 90-160: Circle
         shape = 'circle';
     } else if (tier === 2) {
-        // Levels 17-24: Diamond
+        // Levels 170-240: Diamond
         shape = 'diamond';
     } else if (tier === 3) {
-        // Levels 25-32: Hexagon
+        // Levels 250-320: Hexagon
         shape = 'hexagon';
     } else {
-        // Levels 33+: Hexagon with special borders
+        // Levels 330+: Hexagon with special borders
         shape = 'hexagon';
         const borderColors = ['#f85149', '#ffa657', '#e3b341', '#ff7b72'];
         const borderColor = borderColors[tier % borderColors.length];

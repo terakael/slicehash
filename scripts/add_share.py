@@ -4,8 +4,8 @@ This script allows manual insertion of share events for testing and POC
 demonstrations to visualize what the shares page looks like with data.
 
 Usage:
-    python scripts/add_share.py --user-id "test-user" --level 3
-    python scripts/add_share.py --user-id "test-user" --level 10 --is-block
+    python scripts/add_share.py --user-id "test-user" --level 30
+    python scripts/add_share.py --user-id "test-user" --level 100 --is-block
 """
 
 import argparse
@@ -28,12 +28,12 @@ def generate_hash_with_level(level: int) -> str:
     """Generate a dummy hash with specified number of leading zeros.
 
     Args:
-        level: Desired level (leading zeros - 5)
+        level: Desired level ((leading zeros - 5) * 10)
 
     Returns:
         Hexadecimal hash string
     """
-    leading_zeros = level + 5
+    leading_zeros = (level // 10) + 5
     hash_str = "0" * leading_zeros
     # Add random hex characters for the rest
     remaining_length = 64 - leading_zeros
@@ -112,17 +112,17 @@ async def add_batch_shares(db, user_id: str, count: int, priority: int = 1):
     print(f"Generating {count} random shares with priority={priority}...")
 
     for i in range(count):
-        # Generate random level between 1 and 10, with bias towards lower levels
-        # Most shares are level 1, progressively rarer for higher levels
+        # Generate random level between 10 and 100, with bias towards lower levels
+        # Most shares are level 10, progressively rarer for higher levels
         level = random.choices(
-            range(1, 11),
+            range(10, 101, 10),
             weights=[50, 30, 10, 5, 3, 1, 0.5, 0.3, 0.2, 0.1]
         )[0]
 
         # Random timestamp offset (last 24 hours)
         offset = random.randint(0, 1440)
 
-        # All shares are billable now (levels start at 1)
+        # All shares are billable now (levels start at 10)
         billable = True
 
         # Shares consumed equals priority multiplier
@@ -149,17 +149,17 @@ async def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Add a single level 3 share
-  python scripts/add_share.py --user-id "1" --level 3
+  # Add a single level 30 share
+  python scripts/add_share.py --user-id "1" --level 30
 
-  # Add a block share (level 10)
-  python scripts/add_share.py --user-id "1" --level 10 --is-block
+  # Add a block share (level 100)
+  python scripts/add_share.py --user-id "1" --level 100 --is-block
 
   # Generate 50 random shares
   python scripts/add_share.py --user-id "1" --batch 50
 
   # Use custom config file location
-  python scripts/add_share.py --user-id "1" --level 5 --config /path/to/config.yaml
+  python scripts/add_share.py --user-id "1" --level 50 --config /path/to/config.yaml
         """
     )
 
@@ -171,7 +171,7 @@ Examples:
     parser.add_argument(
         "--level",
         type=int,
-        help="Share level (leading zeros - 5), typically 1-64"
+        help="Share level ((leading zeros - 5) * 10), typically 10-640"
     )
     parser.add_argument(
         "--is-block",

@@ -203,9 +203,9 @@ class ShareProcessor:
             else 0
         )
 
-        # Step 3: Classify billable (for now, use level >= 1 as billable)
+        # Step 3: Classify billable (for now, use level >= 10 as billable)
         # TODO: Replace with proper difficulty threshold when available
-        billable = level >= 1
+        billable = level >= 10
 
         # Step 4: Calculate shares consumed (if billable)
         shares_consumed = 1  # Default for non-billable
