@@ -103,6 +103,22 @@ async function loadShares(append = false) {
     }
 }
 
+// Refresh dashboard - reset state and reload (called by shared.js on refocus)
+window.refreshDashboard = async function() {
+    console.log('Refreshing dashboard - resetting state and reloading shares');
+    currentOffset = 0;
+    hasMore = true;
+    hasLoadedAllShares = false;
+
+    // Clear existing shares
+    const container = document.getElementById('share-cards-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+
+    await loadShares(false);
+};
+
 // Switch between view modes
 function switchMode(mode) {
     if (mode === currentMode || isLoading) return;
@@ -124,6 +140,7 @@ function switchMode(mode) {
     // Reset pagination state and reload
     currentOffset = 0;
     hasMore = true;
+    hasLoadedAllShares = false;
     loadShares(false);
 }
 

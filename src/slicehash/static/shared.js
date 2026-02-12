@@ -303,13 +303,16 @@ function handleVisibilityChange() {
 
     if (!wasVisible && isPageVisible) {
         // REFOCUSED
+        console.log('Page refocused, checking SSE status and triggering catch-up');
         clearTimeout(idleGraceTimer);
         if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+            console.log('SSE was closed, reconnecting...');
             initSharedSSE(onNewShareCallback, onPageRefocusCallback);
         }
         handleRefocusCatchup();
     } else if (wasVisible && !isPageVisible) {
         // HIDDEN
+        console.log('Page hidden, starting grace period timer');
         idleGraceTimer = setTimeout(() => {
             console.log('Grace period expired, killing SSE');
             if (eventSource) {
@@ -324,8 +327,8 @@ function handleVisibilityChange() {
 async function handleRefocusCatchup() {
     if (!lastEventId) {
         console.log('No lastEventId, triggering full refresh');
-        if (typeof loadShares === 'function') {
-            await loadShares(false);  // Dashboard function
+        if (typeof window.refreshDashboard === 'function') {
+            await window.refreshDashboard();
         }
         return;
     }
@@ -334,7 +337,11 @@ async function handleRefocusCatchup() {
     catchupBuffer = [];
 
     try {
-        const response = await fetch(`/api/users/me/shares/refresh?since_id=${lastEventId}&mode=${currentMode}`);
+        // Read mode from localStorage (same as dashboard.js)
+        const mode = localStorage.getItem('dashboardMode') || 'recent';
+
+        console.log(`Fetching catch-up data: since_id=${lastEventId}, mode=${mode}`);
+        const response = await fetch(`/api/users/me/shares/refresh?since_id=${lastEventId}&mode=${mode}`);
         if (!response.ok) throw new Error('Refresh failed');
 
         const data = await response.json();
@@ -343,7 +350,7 @@ async function handleRefocusCatchup() {
             console.log(`Incremental catch-up: ${data.shares.length} shares`);
 
             // Stream shares with animation
-            const sharesToStream = currentMode === 'recent'
+            const sharesToStream = mode === 'recent'
                 ? data.shares                    // Keep DESC for prepending
                 : [...data.shares].reverse();    // Reverse to ASC for level insertion
 
@@ -356,6 +363,7 @@ async function handleRefocusCatchup() {
 
             // Process buffered real-time events
             isCatchingUp = false;
+            console.log(`Processing ${catchupBuffer.length} buffered shares`);
             for (const share of catchupBuffer) {
                 if (onNewShareCallback) {
                     onNewShareCallback(share);
@@ -368,8 +376,8 @@ async function handleRefocusCatchup() {
             isCatchingUp = false;
             catchupBuffer = [];
 
-            if (typeof loadShares === 'function') {
-                await loadShares(false);  // Reset and reload
+            if (typeof window.refreshDashboard === 'function') {
+                await window.refreshDashboard();
             }
         }
     } catch (error) {
@@ -378,8 +386,8 @@ async function handleRefocusCatchup() {
         catchupBuffer = [];
 
         // Fall back to full refresh
-        if (typeof loadShares === 'function') {
-            await loadShares(false);
+        if (typeof window.refreshDashboard === 'function') {
+            await window.refreshDashboard();
         }
     }
 }
