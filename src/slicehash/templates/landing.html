@@ -3,39 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MineShare - Lightning Login</title>
+    <title>MineShare - Trustless Hosted Mining</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="landing-page">
-    <div class="landing-container">
-        <div class="landing-header">
-            <img src="{{ url_for('static', filename='mineshare.jpeg') }}" alt="MineShare" class="pixel-logo">
-            <p class="landing-subtitle">Fair mining rotation powered by Lightning</p>
-        </div>
+<body class="landing-content-page">
+    <!-- Floating Login Button -->
+    <button id="floating-login-btn" class="floating-login-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 10V3L4 14h7v7l9-11h-7z" fill="currentColor"/>
+        </svg>
+        <span>Log In</span>
+    </button>
 
-        <div class="qr-container">
-            <div id="qr-code-placeholder" class="qr-placeholder">
-                <div class="loading-spinner"></div>
-                <p>Generating QR code...</p>
+    <!-- QR Code Overlay (Desktop) -->
+    <div id="qr-overlay" class="qr-overlay" style="display: none;">
+        <div class="qr-overlay-content">
+            <button class="qr-close-btn" id="qr-close-btn">×</button>
+            <h2 class="qr-overlay-title">Log In with Lightning</h2>
+            <div class="qr-container-overlay">
+                <div id="qr-code-placeholder" class="qr-placeholder">
+                    <div class="loading-spinner"></div>
+                    <p>Generating QR code...</p>
+                </div>
+            </div>
+            <p class="qr-overlay-instructions">Scan with your Lightning wallet</p>
+            <p class="qr-overlay-help">New users are created automatically</p>
+
+            <div id="auth-status" class="auth-status" style="display: none;">
+                <div class="status-icon">✓</div>
+                <p>Authentication successful! Redirecting...</p>
+            </div>
+
+            <div id="auth-error" class="auth-error" style="display: none;">
+                <p class="error-message"></p>
+                <button onclick="location.reload()" class="btn-retry">Try Again</button>
             </div>
         </div>
+    </div>
 
-        <div class="auth-instructions">
-            <p>Scan with your Lightning wallet to login</p>
-            <p class="auth-help">New users are created automatically</p>
+    <!-- Main Content -->
+    <div class="landing-content-container">
+        <div class="landing-content-header">
+            <img src="{{ url_for('static', filename='mineshare.jpeg') }}" alt="MineShare" class="pixel-logo-content">
+            <h1 class="landing-content-title">MineShare</h1>
+            <p class="landing-tagline">Trustless, fun, easy hosted mining. Get started in seconds. No mining expertise or hardware necessary.</p>
         </div>
 
-        <div id="auth-status" class="auth-status" style="display: none;">
-            <div class="status-icon">✓</div>
-            <p>Authentication successful! Redirecting...</p>
+        <div class="landing-content-body">
+            <section class="content-section">
+                <h2 class="section-title">How does it work?</h2>
+                <p class="section-text">You buy hash power, and we provably mine on your behalf. Set your Bitcoin address, and if you mine a block, you receive the reward directly - no intermediaries.</p>
+            </section>
+
+            <section class="content-section">
+                <h2 class="section-title">What is hash power?</h2>
+                <p class="section-text">Mining is essentially "guess the number". Bitcoin uses incredibly large numbers - far more possibilities than atoms in the universe. Every guess (called a "hash") is a mathematically unpredictable number.</p>
+                <p class="section-text">To mine Bitcoin, you need to guess a number lower than a specific target. Guess low enough, and you've mined a Bitcoin block!</p>
+                <p class="section-text">Finding a low enough number takes many, many guesses. We prove our work by showing you "shares" - guesses that are low enough to be statistically rare, but not quite low enough to be a full block. Shares are mathematical proof we're actually mining for you.</p>
+            </section>
+
+            <section class="content-section">
+                <h2 class="section-title">Trustless</h2>
+                <p class="section-text-bold">How do you know we're actually mining?</p>
+                <p class="section-text">Every share includes cryptographic proof that links it to your personal Bitcoin address. You can independently verify each share using our validation tool - inspect the code right in your browser. No trust required; the math speaks for itself.</p>
+                <p class="section-text-bold">How do you know we won't steal your Bitcoin?</p>
+                <p class="section-text">Bitcoin's design makes this impossible. If you mine a block, it must pay to your address. Changing the address would invalidate the entire block - the cryptography ensures this automatically.</p>
+            </section>
+
+            <section class="content-section">
+                <h2 class="section-title">Fun</h2>
+                <p class="section-text">Not all shares are equal. Some are extraordinarily rare.</p>
+                <p class="section-text">Every guess is unique to your Bitcoin address - other users generate completely different shares. You're not competing for the same rare finds; everyone is mining their own distinct shares.</p>
+                <p class="section-text">Track your rarest shares and compete on global leaderboards for the rarest of the day or all time. Find one rare enough, and you've mined a block!</p>
+            </section>
+
+            <section class="content-section">
+                <h2 class="section-title">Easy</h2>
+                <ol class="section-list">
+                    <li>Log in with Lightning authentication (anonymous, instant)</li>
+                    <li>Set your Bitcoin receiving address</li>
+                    <li>Purchase hash power</li>
+                </ol>
+                <p class="section-text">That's it. Start mining.</p>
+            </section>
         </div>
 
-        <div id="auth-error" class="auth-error" style="display: none;">
-            <p class="error-message"></p>
-            <button onclick="location.reload()" class="btn-retry">Try Again</button>
+        <div class="landing-content-footer">
+            <p class="footer-cta">Ready to start mining?</p>
+            <button class="cta-login-btn" id="cta-login-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13 10V3L4 14h7v7l9-11h-7z" fill="currentColor"/>
+                </svg>
+                <span>Log In with Lightning</span>
+            </button>
         </div>
     </div>
 

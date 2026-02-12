@@ -1191,6 +1191,343 @@ footer {
     box-shadow: 0 0 0 #888, 0 4px 4px rgba(0,0,0,0.8);
 }
 
+/* Landing Content Page */
+.landing-content-page {
+    background: #000000;
+    background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(20,20,20,0.8) 4px, rgba(20,20,20,0.8) 8px),
+        repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(20,20,20,0.8) 4px, rgba(20,20,20,0.8) 8px);
+    min-height: 100vh;
+    padding: 40px 20px 100px 20px;
+}
+
+.landing-content-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.landing-content-header {
+    text-align: center;
+    margin-bottom: 60px;
+}
+
+.pixel-logo-content {
+    max-width: 300px;
+    width: 100%;
+    height: auto;
+    margin-bottom: 24px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+}
+
+.landing-content-title {
+    font-size: 28px;
+    font-family: 'Press Start 2P', monospace;
+    color: #f7931a;
+    margin-bottom: 24px;
+    letter-spacing: 2px;
+    text-shadow: 3px 3px 0px #c46700, 4px 4px 0px rgba(0,0,0,0.8);
+}
+
+.landing-tagline {
+    font-size: 12px;
+    font-family: 'Press Start 2P', monospace;
+    color: #cccccc;
+    line-height: 1.8;
+    margin-bottom: 16px;
+}
+
+.landing-content-body {
+    margin-bottom: 60px;
+}
+
+.content-section {
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+}
+
+.section-title {
+    font-size: 14px;
+    font-family: 'Press Start 2P', monospace;
+    color: #f7931a;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+    text-shadow: 2px 2px 0px #c46700;
+}
+
+.section-text {
+    font-size: 10px;
+    font-family: 'Press Start 2P', monospace;
+    color: #e0e0e0;
+    line-height: 2;
+    margin-bottom: 16px;
+}
+
+.section-text:last-child {
+    margin-bottom: 0;
+}
+
+.section-text-bold {
+    font-size: 10px;
+    font-family: 'Press Start 2P', monospace;
+    color: #ffffff;
+    line-height: 2;
+    margin-bottom: 12px;
+    margin-top: 12px;
+}
+
+.section-list {
+    font-size: 10px;
+    font-family: 'Press Start 2P', monospace;
+    color: #e0e0e0;
+    line-height: 2;
+    margin-left: 24px;
+    margin-bottom: 16px;
+}
+
+.section-list li {
+    margin-bottom: 12px;
+}
+
+.landing-content-footer {
+    text-align: center;
+    padding: 40px 20px;
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+}
+
+.footer-cta {
+    font-size: 12px;
+    font-family: 'Press Start 2P', monospace;
+    color: #ffffff;
+    margin-bottom: 24px;
+    line-height: 1.8;
+}
+
+.cta-login-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: #f7931a;
+    color: #000000;
+    padding: 16px 32px;
+    border: 4px solid #c46700;
+    border-right-color: #a05600;
+    border-bottom-color: #a05600;
+    font-size: 12px;
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    transition: transform 0.05s, background-color 0.1s;
+    box-shadow: 0 4px 0 #a05600, 0 8px 8px rgba(0,0,0,0.8);
+    text-shadow: none;
+}
+
+.cta-login-btn:hover {
+    background: #ffa929;
+}
+
+.cta-login-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #a05600, 0 4px 4px rgba(0,0,0,0.8);
+}
+
+.cta-login-btn svg {
+    display: block;
+}
+
+/* Floating Login Button */
+.floating-login-btn {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f7931a;
+    color: #000000;
+    padding: 14px 24px;
+    border: 4px solid #c46700;
+    border-right-color: #a05600;
+    border-bottom-color: #a05600;
+    font-size: 11px;
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    transition: transform 0.05s, background-color 0.1s;
+    box-shadow: 0 6px 0 #a05600, 0 10px 12px rgba(0,0,0,0.8);
+    z-index: 1000;
+    text-shadow: none;
+    animation: floatPulse 2s ease-in-out infinite;
+}
+
+@keyframes floatPulse {
+    0%, 100% {
+        box-shadow: 0 6px 0 #a05600, 0 10px 12px rgba(0,0,0,0.8);
+    }
+    50% {
+        box-shadow: 0 6px 0 #a05600, 0 10px 20px rgba(247, 147, 26, 0.6);
+    }
+}
+
+.floating-login-btn:hover {
+    background: #ffa929;
+}
+
+.floating-login-btn:active {
+    transform: translateY(6px);
+    box-shadow: 0 0 0 #a05600, 0 4px 8px rgba(0,0,0,0.8);
+}
+
+.floating-login-btn svg {
+    display: block;
+}
+
+/* QR Code Overlay */
+.qr-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.qr-overlay-content {
+    position: relative;
+    background-color: #2a1a0a;
+    border: 4px solid #1a0f05;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
+    padding: 40px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 8px 0 #0d0702, 0 16px 24px rgba(0,0,0,0.9);
+    text-align: center;
+}
+
+.qr-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #ff6347;
+    color: #ffffff;
+    border: 3px solid #8b0000;
+    border-right-color: #5a0000;
+    border-bottom-color: #5a0000;
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 0 #5a0000;
+    transition: transform 0.05s;
+    line-height: 1;
+}
+
+.qr-close-btn:hover {
+    background: #ff7f5a;
+}
+
+.qr-close-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 #5a0000;
+}
+
+.qr-overlay-title {
+    font-size: 16px;
+    font-family: 'Press Start 2P', monospace;
+    color: #f7931a;
+    margin-bottom: 32px;
+    text-shadow: 2px 2px 0px #c46700;
+}
+
+.qr-container-overlay {
+    background-color: #1a0f05;
+    border: 4px solid #0d0702;
+    padding: 24px;
+    margin-bottom: 24px;
+    min-height: 340px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.8);
+}
+
+.qr-overlay-instructions {
+    color: #ffffff;
+    font-size: 10px;
+    font-family: 'Press Start 2P', monospace;
+    margin-bottom: 12px;
+    line-height: 1.8;
+}
+
+.qr-overlay-help {
+    color: #cccccc;
+    font-size: 8px;
+    font-family: 'Press Start 2P', monospace;
+    line-height: 1.8;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .floating-login-btn {
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        font-size: 10px;
+        gap: 8px;
+    }
+
+    .floating-login-btn span {
+        display: none;
+    }
+
+    .landing-content-title {
+        font-size: 20px;
+    }
+
+    .landing-tagline {
+        font-size: 10px;
+    }
+
+    .section-title {
+        font-size: 12px;
+    }
+
+    .pixel-logo-content {
+        max-width: 200px;
+    }
+
+    .qr-overlay-content {
+        padding: 24px;
+    }
+
+    .cta-login-btn {
+        padding: 14px 28px;
+        font-size: 11px;
+    }
+}
+
 /* Logout button */
 .logout-section {
     margin-top: 32px;
