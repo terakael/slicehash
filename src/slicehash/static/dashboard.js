@@ -248,6 +248,8 @@ function showError(message) {
 
 // SSE callback for handling new shares (adds card to dashboard)
 function handleNewShare(share) {
+    console.log(`handleNewShare called for share ${share.share_id}, level=${share.level}, mode=${currentMode}`);
+
     const container = document.getElementById('share-cards-container');
 
     // Duplicate detection using share_id
@@ -255,6 +257,7 @@ function handleNewShare(share) {
     for (const card of existingCards) {
         const cardShareId = card.dataset.shareId;
         if (cardShareId === String(share.share_id)) {
+            console.log(`Duplicate share ${share.share_id} detected, skipping`);
             return; // Duplicate, skip
         }
     }
@@ -320,10 +323,12 @@ function handleNewShare(share) {
 
     // Discard if would insert beyond loaded shares (unless we have complete dataset)
     if (!hasLoadedAllShares && insertPosition >= existingCards.length && currentMode !== 'recent') {
-        console.log(`Discarding share ${share.share_id} - ranks below loaded set`);
+        console.log(`Discarding share ${share.share_id} - ranks below loaded set (hasLoadedAllShares=${hasLoadedAllShares}, insertPosition=${insertPosition}, existingCards.length=${existingCards.length})`);
         lastEventId = share.share_id;  // Still update for catch-up tracking
         return;
     }
+
+    console.log(`Inserting share ${share.share_id} at position ${insertPosition} (mode=${currentMode}, hasLoadedAllShares=${hasLoadedAllShares})`);
 
     // Insert with animation
     card.classList.add('share-card-new');

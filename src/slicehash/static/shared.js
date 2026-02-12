@@ -356,20 +356,39 @@ async function handleRefocusCatchup() {
 
             for (const share of sharesToStream) {
                 if (onNewShareCallback) {
-                    onNewShareCallback(share);
+                    try {
+                        console.log(`Processing catch-up share: ${share.share_id}`);
+                        onNewShareCallback(share);
+                    } catch (error) {
+                        console.error(`Error processing catch-up share ${share.share_id}:`, error);
+                    }
                 }
                 await new Promise(resolve => setTimeout(resolve, CATCHUP_SHARE_DELAY_MS));
             }
 
+            // Update shares remaining after catch-up
+            console.log('Catch-up complete, updating shares remaining');
+            await updateSharesRemaining();
+
             // Process buffered real-time events
             isCatchingUp = false;
-            console.log(`Processing ${catchupBuffer.length} buffered shares`);
+            const bufferedCount = catchupBuffer.length;
+            console.log(`Processing ${bufferedCount} buffered shares`);
             for (const share of catchupBuffer) {
                 if (onNewShareCallback) {
-                    onNewShareCallback(share);
+                    try {
+                        onNewShareCallback(share);
+                    } catch (error) {
+                        console.error(`Error processing buffered share ${share.share_id}:`, error);
+                    }
                 }
             }
             catchupBuffer = [];
+
+            // Update shares remaining again after processing buffered shares
+            if (bufferedCount > 0) {
+                await updateSharesRemaining();
+            }
         } else {
             // Full refresh
             console.log('Full refresh required');
