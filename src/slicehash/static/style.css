@@ -27,7 +27,7 @@ body {
 }
 
 body:not(.landing-content-page):not(.landing-page) {
-    padding-top: 140px; /* Space for fixed top header */
+    padding-top: 100px; /* Space for fixed top header */
 }
 
 /* Top Header - Fixed at top */
@@ -396,7 +396,7 @@ footer {
 /* Network Difficulty Dot */
 .network-difficulty-dot {
     position: fixed;
-    top: 150px;
+    top: 110px;
     right: 16px;
     width: 16px;
     height: 16px;
