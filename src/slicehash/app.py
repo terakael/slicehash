@@ -671,6 +671,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
         async def event_stream():
             queue = None
+            connection_start = time.time()
             try:
                 queue = await sse_manager.subscribe(f"user:{user_id}")
                 yield f"event: connected\ndata: {json.dumps({'user_id': user_id})}\n\n"
@@ -693,9 +694,23 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         }
                         yield f"id: {notification.share_id}\nevent: share\ndata: {json.dumps(event_data)}\n\n"
                     except asyncio.TimeoutError:
-                        # Heartbeat every 30s
+                        # Heartbeat every 30s with padding to defeat TCP/proxy buffering
                         yield f"event: heartbeat\ndata: {json.dumps({'timestamp': datetime.now().isoformat()})}\n\n"
+                        yield ": ping\n\n"  # SSE comment for keepalive
+                    except Exception as e:
+                        logger.error(f"Error in SSE event loop for user {user_id}: {e}", exc_info=True)
+                        raise
+            except asyncio.CancelledError:
+                connection_duration = time.time() - connection_start
+                logger.warning(f"SSE connection cancelled for user {user_id} after {connection_duration:.2f}s")
+                raise
+            except Exception as e:
+                connection_duration = time.time() - connection_start
+                logger.error(f"SSE connection error for user {user_id} after {connection_duration:.2f}s: {e}", exc_info=True)
+                raise
             finally:
+                connection_duration = time.time() - connection_start
+                logger.info(f"SSE connection closed for user {user_id} after {connection_duration:.2f}s")
                 if queue:
                     await sse_manager.unsubscribe(f"user:{user_id}", queue)
 
