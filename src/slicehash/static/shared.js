@@ -242,6 +242,7 @@ function handleSharedNewShare(share) {
     lastEventId = share.share_id;
 
     if (isCatchingUp) {
+        console.log(`Buffering share ${share.share_id} (catch-up in progress)`);
         catchupBuffer.push(share);
         return;
     }
@@ -305,10 +306,12 @@ function handleVisibilityChange() {
         // REFOCUSED
         console.log('Page refocused, checking SSE status and triggering catch-up');
         clearTimeout(idleGraceTimer);
-        if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
-            console.log('SSE was closed, reconnecting...');
-            initSharedSSE(onNewShareCallback, onPageRefocusCallback);
-        }
+
+        // Always update shares remaining on refocus (even if SSE is still connected)
+        updateSharesRemaining();
+
+        // If SSE is closed, reconnect will happen after catch-up completes
+        // If SSE is still connected (quick refocus), it will keep running
         handleRefocusCatchup();
     } else if (wasVisible && !isPageVisible) {
         // HIDDEN
@@ -325,10 +328,17 @@ function handleVisibilityChange() {
 
 // Handle refocus catch-up logic
 async function handleRefocusCatchup() {
+    const sseWasClosed = !eventSource || eventSource.readyState === EventSource.CLOSED;
+
     if (!lastEventId) {
         console.log('No lastEventId, triggering full refresh');
         if (typeof window.refreshDashboard === 'function') {
             await window.refreshDashboard();
+        }
+        // Reconnect SSE after refresh if it was closed
+        if (sseWasClosed) {
+            console.log('Reconnecting SSE after full refresh');
+            initSharedSSE(onNewShareCallback, onPageRefocusCallback);
         }
         return;
     }
@@ -340,7 +350,7 @@ async function handleRefocusCatchup() {
         // Read mode from localStorage (same as dashboard.js)
         const mode = localStorage.getItem('dashboardMode') || 'recent';
 
-        console.log(`Fetching catch-up data: since_id=${lastEventId}, mode=${mode}`);
+        console.log(`Fetching catch-up data: since_id=${lastEventId}, mode=${mode}, SSE was closed=${sseWasClosed}`);
         const response = await fetch(`/api/users/me/shares/refresh?since_id=${lastEventId}&mode=${mode}`);
         if (!response.ok) throw new Error('Refresh failed');
 
@@ -349,7 +359,32 @@ async function handleRefocusCatchup() {
         if (data.type === 'incremental') {
             console.log(`Incremental catch-up: ${data.shares.length} shares`);
 
-            // Stream shares with animation
+            if (data.shares.length === 0) {
+                // No shares to catch up on, just process any buffered events
+                console.log('No catch-up shares, processing buffered events');
+                isCatchingUp = false;
+                const bufferedCount = catchupBuffer.length;
+                const bufferedShares = [...catchupBuffer];
+                catchupBuffer = [];
+
+                for (const share of bufferedShares) {
+                    if (onNewShareCallback) {
+                        try {
+                            onNewShareCallback(share);
+                        } catch (error) {
+                            console.error(`Error processing buffered share ${share.share_id}:`, error);
+                        }
+                    }
+                }
+
+                if (bufferedCount > 0) {
+                    await updateSharesRemaining();
+                }
+                return;
+            }
+
+            // Pause SSE event processing during catch-up streaming
+            // Stream shares with animation (no more events will be buffered during this)
             // Backend returns DESC (newest first). For recent mode, reverse to ASC (oldest first)
             // so when we prepend, newest ends up at top. For best modes, keep DESC.
             const sharesToStream = mode === 'recent'
@@ -359,7 +394,7 @@ async function handleRefocusCatchup() {
             for (const share of sharesToStream) {
                 if (onNewShareCallback) {
                     try {
-                        console.log(`Processing catch-up share: ${share.share_id}`);
+                        console.log(`Processing catch-up share: ${share.share_id}, level=${share.level}`);
                         onNewShareCallback(share);
                     } catch (error) {
                         console.error(`Error processing catch-up share ${share.share_id}:`, error);
@@ -372,24 +407,33 @@ async function handleRefocusCatchup() {
             console.log('Catch-up complete, updating shares remaining');
             await updateSharesRemaining();
 
-            // Process buffered real-time events
+            // Now process buffered real-time events that arrived during catch-up
             isCatchingUp = false;
             const bufferedCount = catchupBuffer.length;
-            console.log(`Processing ${bufferedCount} buffered shares`);
-            for (const share of catchupBuffer) {
+            const bufferedShares = [...catchupBuffer];
+            catchupBuffer = [];
+
+            console.log(`Processing ${bufferedCount} buffered shares that arrived during catch-up`);
+            for (const share of bufferedShares) {
                 if (onNewShareCallback) {
                     try {
+                        console.log(`Processing buffered share: ${share.share_id}, level=${share.level}`);
                         onNewShareCallback(share);
                     } catch (error) {
                         console.error(`Error processing buffered share ${share.share_id}:`, error);
                     }
                 }
             }
-            catchupBuffer = [];
 
             // Update shares remaining again after processing buffered shares
             if (bufferedCount > 0) {
                 await updateSharesRemaining();
+            }
+
+            // Reconnect SSE after catch-up if it was closed
+            if (sseWasClosed) {
+                console.log('Reconnecting SSE after incremental catch-up');
+                initSharedSSE(onNewShareCallback, onPageRefocusCallback);
             }
         } else {
             // Full refresh
@@ -400,6 +444,12 @@ async function handleRefocusCatchup() {
             if (typeof window.refreshDashboard === 'function') {
                 await window.refreshDashboard();
             }
+
+            // Reconnect SSE after full refresh if it was closed
+            if (sseWasClosed) {
+                console.log('Reconnecting SSE after full refresh');
+                initSharedSSE(onNewShareCallback, onPageRefocusCallback);
+            }
         }
     } catch (error) {
         console.error('Catch-up failed:', error);
@@ -409,6 +459,12 @@ async function handleRefocusCatchup() {
         // Fall back to full refresh
         if (typeof window.refreshDashboard === 'function') {
             await window.refreshDashboard();
+        }
+
+        // Reconnect SSE after error if it was closed
+        if (sseWasClosed) {
+            console.log('Reconnecting SSE after catch-up error');
+            initSharedSSE(onNewShareCallback, onPageRefocusCallback);
         }
     }
 }
