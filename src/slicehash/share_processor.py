@@ -45,7 +45,7 @@ class ShareProcessor:
         self,
         config: Config,
         share_queue: asyncio.Queue,
-        sse_manager: Optional[SSEManager] = None,
+        sse_manager: SSEManager,
         highscores_cache=None,
     ):
         """Initialize share processor.
@@ -53,7 +53,7 @@ class ShareProcessor:
         Args:
             config: Application configuration
             share_queue: Queue of incoming share events from webhook
-            sse_manager: Optional SSE manager for real-time notifications
+            sse_manager: SSE manager for real-time notifications
             highscores_cache: Optional highscores cache to invalidate on new shares
         """
         self.config = config
@@ -252,20 +252,19 @@ class ShareProcessor:
         )
 
         # Notify SSE subscribers
-        if self.sse_manager:
-            notification = ShareNotification(
-                share_id=share_id,
-                user_id=user_id,
-                submitted_at=submitted_at_dt.isoformat(),
-                level=level,
-                is_block=is_block,
-                share_hash=share_hash,
-                billable=billable,
-                shares_consumed=shares_consumed,
-                block_target_level=block_target_level,
-                tag=coinbase_prefix_tag,
-            )
-            await self.sse_manager.notify(notification)
+        notification = ShareNotification(
+            share_id=share_id,
+            user_id=user_id,
+            submitted_at=submitted_at_dt.isoformat(),
+            level=level,
+            is_block=is_block,
+            share_hash=share_hash,
+            billable=billable,
+            shares_consumed=shares_consumed,
+            block_target_level=block_target_level,
+            tag=coinbase_prefix_tag,
+        )
+        await self.sse_manager.notify(notification)
 
         # Invalidate highscores cache (new share might be a highscore)
         if self.highscores_cache:

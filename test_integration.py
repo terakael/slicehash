@@ -13,6 +13,7 @@ from datetime import datetime
 from src.slicehash.config import Config
 from src.slicehash.db.manager import DatabaseManager, init_database, get_or_create_user, add_transaction
 from src.slicehash.share_processor import ShareProcessor
+from src.slicehash.sse_manager import SSEManager
 
 
 async def test_integration():
@@ -50,7 +51,8 @@ async def test_integration():
 
     # Create queue and processor
     queue = asyncio.Queue()
-    processor = ShareProcessor(config, queue)
+    sse_manager = SSEManager()
+    processor = ShareProcessor(config, queue, sse_manager)
 
     print("\n3. Queueing test shares...")
     # Queue test shares

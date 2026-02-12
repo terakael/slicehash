@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 share_queue: Optional[asyncio.Queue] = None
 share_processor: Optional[ShareProcessor] = None
 redis_consumer: Optional[RedisStreamConsumer] = None
-sse_manager: Optional[SSEManager] = None
+sse_manager: SSEManager
 
 
 # Highscores cache
@@ -220,9 +220,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             {
                 "status": "healthy",
                 "queue_size": share_queue.qsize() if share_queue else 0,
-                "sse_connections": sse_manager.get_subscriber_count()
-                if sse_manager
-                else 0,
+                "sse_connections": sse_manager.get_subscriber_count(),
                 "redis_connected": redis_connected,
             }
         )
