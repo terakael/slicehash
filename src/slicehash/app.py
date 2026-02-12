@@ -25,6 +25,7 @@ from quart import (
     Response,
     current_app,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -410,15 +411,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 if queue:
                     await sse_manager.unsubscribe(f"auth:{k1}", queue)
 
-        return Response(
+        response = await make_response(
             event_stream(),
-            mimetype="text/event-stream",
-            headers={
+            {
+                "Content-Type": "text/event-stream",
                 "Cache-Control": "no-cache",
                 "X-Accel-Buffering": "no",
                 "Connection": "keep-alive",
             },
         )
+        response.timeout = None  # Disable timeout for SSE
+        return response
 
     @app.get("/api/auth/logout")
     async def logout():
@@ -714,15 +717,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 if queue:
                     await sse_manager.unsubscribe(f"user:{user_id}", queue)
 
-        return Response(
+        response = await make_response(
             event_stream(),
-            mimetype="text/event-stream",
-            headers={
+            {
+                "Content-Type": "text/event-stream",
                 "Cache-Control": "no-cache",
                 "X-Accel-Buffering": "no",
                 "Connection": "keep-alive",
             },
         )
+        response.timeout = None  # Disable timeout for SSE
+        return response
 
     @app.get("/api/users/me/shares/recovery")
     @require_auth
