@@ -1,22 +1,40 @@
-"""Server-Sent Events (SSE) manager for real-time share notifications.
+"""Server-Sent Events (SSE) manager for real-time notifications.
 
 This module provides SSE functionality with:
 - Multi-tab support (multiple connections per user)
 - In-memory subscriber tracking (no Redis required)
 - Thread-safe queue management
 - Automatic cleanup on disconnect
+- Type-safe notification system
 """
 
 import asyncio
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, Set, Optional
 
 logger = logging.getLogger(__name__)
 
 
+class NotificationBase(ABC):
+    """Base class for all SSE notifications.
+
+    All notification types must implement get_channel() to support self-routing.
+    """
+
+    @abstractmethod
+    def get_channel(self) -> str:
+        """Return the channel this notification should be routed to.
+
+        Returns:
+            Channel identifier string (e.g., "user:123" or "auth:abc")
+        """
+        pass
+
+
 @dataclass
-class ShareNotification:
+class ShareNotification(NotificationBase):
     """Share notification sent to SSE clients."""
     share_id: int
     user_id: int
@@ -29,12 +47,29 @@ class ShareNotification:
     block_target_level: float
     tag: Optional[str] = None
 
+    def get_channel(self) -> str:
+        """Get the routing channel for this notification."""
+        return f"user:{self.user_id}"
+
+
+@dataclass
+class AuthNotification(NotificationBase):
+    """Authentication success notification sent to SSE clients."""
+    token: str
+    k1: str
+
+    def get_channel(self) -> str:
+        """Get the routing channel for this notification."""
+        return f"auth:{self.k1}"
+
 
 class SSEManager:
-    """Manages SSE connections and dispatches share notifications.
+    """Manages SSE connections and dispatches typed notifications.
+
+    Supports multiple notification types (shares, auth, etc.) with type safety.
 
     Attributes:
-        _subscribers: Maps user_id to set of asyncio.Queue objects (one per tab/connection)
+        _subscribers: Maps channel (str) to set of asyncio.Queue objects (one per tab/connection)
         _lock: Asyncio lock for thread-safe access to subscribers
     """
 
@@ -44,68 +79,71 @@ class SSEManager:
         Args:
             queue_maxsize: Maximum number of buffered notifications per connection
         """
-        self._subscribers: Dict[int, Set[asyncio.Queue]] = {}
+        self._subscribers: Dict[str, Set[asyncio.Queue]] = {}
         self._lock = asyncio.Lock()
         self._queue_maxsize = queue_maxsize
 
-    async def subscribe(self, user_id: int) -> asyncio.Queue:
-        """Register new SSE connection for user.
+    async def subscribe(self, channel: str) -> asyncio.Queue:
+        """Register new SSE connection for channel.
 
         Args:
-            user_id: User ID for the connection
+            channel: Channel identifier (str) for the connection
 
         Returns:
-            Queue that will receive ShareNotification objects
+            Queue that will receive notification objects
         """
         queue = asyncio.Queue(maxsize=self._queue_maxsize)
 
         async with self._lock:
-            if user_id not in self._subscribers:
-                self._subscribers[user_id] = set()
-            self._subscribers[user_id].add(queue)
+            if channel not in self._subscribers:
+                self._subscribers[channel] = set()
+            self._subscribers[channel].add(queue)
 
-        logger.info(f"SSE subscriber added: user_id={user_id}, total={len(self._subscribers[user_id])}")
+        logger.info(f"SSE subscriber added: channel={channel}, total={len(self._subscribers[channel])}")
         return queue
 
-    async def unsubscribe(self, user_id: int, queue: asyncio.Queue):
-        """Remove SSE connection for user.
+    async def unsubscribe(self, channel: str, queue: asyncio.Queue):
+        """Remove SSE connection for channel.
 
         Args:
-            user_id: User ID for the connection
+            channel: Channel identifier (str) for the connection
             queue: Queue to remove
         """
         async with self._lock:
-            if user_id in self._subscribers:
-                self._subscribers[user_id].discard(queue)
+            if channel in self._subscribers:
+                self._subscribers[channel].discard(queue)
 
-                # Cleanup empty user entries
-                if not self._subscribers[user_id]:
-                    del self._subscribers[user_id]
+                # Cleanup empty channel entries
+                if not self._subscribers[channel]:
+                    del self._subscribers[channel]
 
-        logger.info(f"SSE subscriber removed: user_id={user_id}")
+        logger.info(f"SSE subscriber removed: channel={channel}")
 
-    async def notify_share(self, notification: ShareNotification):
-        """Dispatch share notification to all user's connections.
+    async def notify(self, notification: NotificationBase):
+        """Dispatch typed notification to all connections on a channel.
+
+        The notification determines its own routing channel via get_channel().
 
         Args:
-            notification: Share notification to send
+            notification: Notification object that implements NotificationBase
         """
+        channel = notification.get_channel()
+
         async with self._lock:
-            if notification.user_id not in self._subscribers:
-                logger.debug(f"No subscribers for user {notification.user_id}")
+            if channel not in self._subscribers:
+                logger.debug(f"No subscribers for channel {channel}")
                 return
 
             # Copy set to avoid modification during iteration
-            queues = self._subscribers[notification.user_id].copy()
+            queues = self._subscribers[channel].copy()
 
-        logger.info(f"Notifying {len(queues)} SSE connections for user {notification.user_id}, share_id={notification.share_id}")
+        logger.info(f"Notifying {len(queues)} SSE connections for channel {channel}")
         for queue in queues:
             try:
                 queue.put_nowait(notification)
             except asyncio.QueueFull:
                 logger.warning(
-                    f"SSE queue full for user {notification.user_id}, "
-                    f"dropping notification (share_id={notification.share_id})"
+                    f"SSE queue full for channel {channel}, dropping notification"
                 )
 
     def get_subscriber_count(self) -> int:

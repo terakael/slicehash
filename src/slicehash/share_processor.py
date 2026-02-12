@@ -255,7 +255,7 @@ class ShareProcessor:
         if self.sse_manager:
             notification = ShareNotification(
                 share_id=share_id,
-                user_id=int(user_id),
+                user_id=user_id,
                 submitted_at=submitted_at_dt.isoformat(),
                 level=level,
                 is_block=is_block,
@@ -265,7 +265,7 @@ class ShareProcessor:
                 block_target_level=block_target_level,
                 tag=coinbase_prefix_tag,
             )
-            await self.sse_manager.notify_share(notification)
+            await self.sse_manager.notify(notification)
 
         # Invalidate highscores cache (new share might be a highscore)
         if self.highscores_cache:

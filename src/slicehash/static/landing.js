@@ -1,6 +1,6 @@
 let currentK1 = null;
-let pollInterval = null;
 let currentLnurl = null;
+let authEventSource = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     // Setup login button click handlers
@@ -48,6 +48,9 @@ async function handleLoginClick() {
         currentK1 = data.k1;
         currentLnurl = data.lnurl;
 
+        // Start SSE listener BEFORE opening wallet/showing QR
+        startAuthSSE();
+
         if (isMobile && data.lnurl) {
             // Mobile: Try to open lightning wallet
             const deepLink = `lightning:${data.lnurl.toUpperCase()}`;
@@ -58,9 +61,6 @@ async function handleLoginClick() {
             }, 1000);
 
             window.location.href = deepLink;
-
-            // Start polling for auth in background
-            startAuthPolling();
         } else {
             // Desktop: Show QR overlay
             await showQROverlay();
@@ -111,9 +111,6 @@ async function showQROverlay() {
 
         placeholder.innerHTML = '';
         placeholder.appendChild(img);
-
-        // Start polling for authentication
-        startAuthPolling();
     } catch (error) {
         console.error('Error generating QR code:', error);
         showError('Failed to generate login QR code');
@@ -126,33 +123,41 @@ function closeQROverlay() {
         overlay.style.display = 'none';
     }
 
-    // Stop polling when overlay is closed
-    if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
+    // Close SSE connection when overlay is closed
+    if (authEventSource) {
+        authEventSource.close();
+        authEventSource = null;
     }
 }
 
-function startAuthPolling() {
-    if (pollInterval) clearInterval(pollInterval);
+function startAuthSSE() {
+    // Close existing connection if any
+    if (authEventSource) {
+        authEventSource.close();
+    }
 
-    pollInterval = setInterval(async () => {
-        if (!currentK1) return;
+    // Open SSE connection
+    authEventSource = new EventSource(`/api/auth/stream/${currentK1}`);
 
-        try {
-            const response = await fetch(`/api/auth/poll?k1=${currentK1}`);
-            if (!response.ok) throw new Error('Poll failed');
+    authEventSource.addEventListener('connected', (e) => {
+        console.log('Auth SSE connected:', e.data);
+    });
 
-            const data = await response.json();
+    authEventSource.addEventListener('authenticated', (e) => {
+        const data = JSON.parse(e.data);
+        authEventSource.close();
+        authEventSource = null;
+        handleAuthSuccess(data.token);
+    });
 
-            if (data.authenticated) {
-                clearInterval(pollInterval);
-                handleAuthSuccess(data.token);
-            }
-        } catch (error) {
-            console.error('Polling error:', error);
+    authEventSource.addEventListener('error', (e) => {
+        console.error('Auth SSE error:', e);
+        if (authEventSource) {
+            authEventSource.close();
+            authEventSource = null;
         }
-    }, 2000);
+        showError('Connection error. Please try again.');
+    });
 }
 
 function handleAuthSuccess(token) {

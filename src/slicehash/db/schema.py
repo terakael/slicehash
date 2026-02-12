@@ -119,17 +119,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_lightning_pubkey
 ON users(lightning_pubkey)
 """
 
-# Auth tokens table - temporary storage for LNURL callback flow
-AUTH_TOKENS_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS auth_tokens (
-    k1 TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    token TEXT NOT NULL,
-    created_at BIGINT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-)
-"""
-
 # All table creation statements in order
 ALL_TABLES = [
     USERS_TABLE_SQL,
@@ -137,7 +126,6 @@ ALL_TABLES = [
     SHARE_EVENTS_TABLE_SQL,
     GLOBAL_STATE_TABLE_SQL,
     AUTH_CHALLENGES_TABLE_SQL,
-    AUTH_TOKENS_TABLE_SQL,
 ]
 
 # All index creation statements

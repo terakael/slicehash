@@ -12,6 +12,7 @@ import json
 import logging
 import re
 import time
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -48,7 +49,7 @@ from .priority import TrafficLevel, calculate_traffic_level
 from .quota import calculate_shares_remaining, get_active_users
 from .redis_consumer import RedisStreamConsumer
 from .share_processor import ShareProcessor
-from .sse_manager import ShareNotification, SSEManager
+from .sse_manager import AuthNotification, ShareNotification, SSEManager
 
 logger = logging.getLogger(__name__)
 
@@ -372,47 +373,54 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Generate JWT token
                 token = create_jwt_token(user_id, key, config_obj)
 
-                # Store token temporarily for polling
-                await db.execute(
-                    "INSERT INTO auth_tokens (k1, user_id, token, created_at) VALUES ($1, $2, $3, $4)",
-                    k1,
-                    user_id,
-                    token,
-                    int(time.time()),
-                )
+            # Notify via SSE (instant push to waiting browsers)
+            notification = AuthNotification(token=token, k1=k1)
+            await sse_manager.notify(notification)
 
-                return jsonify({"status": "OK"}), 200
+            return jsonify({"status": "OK"}), 200
         except Exception as e:
             logger.error(f"LNURL callback error: {e}")
             return jsonify({"status": "ERROR", "reason": "Internal error"}), 500
 
-    @app.get("/api/auth/poll")
-    async def poll_auth_status():
-        """Poll for authentication status (called by browser)."""
-        try:
-            k1 = request.args.get("k1")
-            if not k1:
-                return jsonify({"error": "Missing k1 parameter"}), 400
+    @app.get("/api/auth/stream/<k1>")
+    async def stream_auth_status(k1: str):
+        """SSE endpoint for real-time authentication status updates.
 
-            config_obj = app.config["SLICEHASH_CONFIG"]
+        Args:
+            k1: Challenge identifier
 
-            async with DatabaseManager(config_obj.database_url) as db:
-                row = await db.fetchrow(
-                    "SELECT token FROM auth_tokens WHERE k1 = $1", k1
-                )
+        Returns:
+            Server-Sent Events stream with:
+            - connected: Initial connection event
+            - authenticated: Auth success with token
+        """
+        async def event_stream():
+            queue = None
+            try:
+                # Subscribe using k1 as channel identifier
+                queue = await sse_manager.subscribe(f"auth:{k1}")
+                yield f"event: connected\ndata: {json.dumps({'k1': k1})}\n\n"
 
-                if row:
-                    token = row["token"]
+                # Wait for auth success notification (no timeout, browser will handle)
+                notification = await queue.get()  # Receives AuthNotification object
+                yield f"event: authenticated\ndata: {json.dumps(asdict(notification))}\n\n"
 
-                    # Clean up token from database
-                    await db.execute("DELETE FROM auth_tokens WHERE k1 = $1", k1)
+            except Exception as e:
+                logger.error(f"Auth SSE error: {e}")
+                yield f"event: error\ndata: {json.dumps({'error': 'Internal error'})}\n\n"
+            finally:
+                if queue:
+                    await sse_manager.unsubscribe(f"auth:{k1}", queue)
 
-                    return jsonify({"authenticated": True, "token": token}), 200
-                else:
-                    return jsonify({"authenticated": False}), 200
-        except Exception as e:
-            logger.error(f"Poll auth error: {e}")
-            return jsonify({"error": "Internal error"}), 500
+        return Response(
+            event_stream(),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
 
     @app.get("/api/auth/logout")
     async def logout():
@@ -666,7 +674,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         async def event_stream():
             queue = None
             try:
-                queue = await sse_manager.subscribe(user_id)
+                queue = await sse_manager.subscribe(f"user:{user_id}")
                 yield f"event: connected\ndata: {json.dumps({'user_id': user_id})}\n\n"
 
                 while True:
@@ -691,7 +699,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         yield f"event: heartbeat\ndata: {json.dumps({'timestamp': datetime.now().isoformat()})}\n\n"
             finally:
                 if queue:
-                    await sse_manager.unsubscribe(user_id, queue)
+                    await sse_manager.unsubscribe(f"user:{user_id}", queue)
 
         return Response(
             event_stream(),
