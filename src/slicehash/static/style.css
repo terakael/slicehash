@@ -393,10 +393,6 @@ footer {
     margin: 0 auto;
 }
 
-.mobile-dashboard.purchases {
-    padding: 0px 20px 80px 20px;
-}
-
 /* Network Difficulty Dot */
 .network-difficulty-dot {
     position: fixed;
