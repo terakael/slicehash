@@ -11,18 +11,21 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    {% block header %}
-    <!-- Large shares remaining display -->
-    <div class="shares-remaining-display">
-        <div class="shares-label">Shares Remaining</div>
-        <div class="shares-value" id="shares-remaining">{{ shares_remaining }}</div>
-    </div>
+    <!-- Top header - persistent across all pages -->
+    <div class="top-header">
+        {% block header %}
+        <!-- Large shares remaining display -->
+        <div class="shares-remaining-display">
+            <div class="shares-label">Shares Remaining</div>
+            <div class="shares-value" id="shares-remaining">{{ shares_remaining }}</div>
+        </div>
 
-    <!-- Target level display -->
-    <div class="target-level-display">
-        <div class="target-level-value" id="target-level">Block Target: Level {{ block_target_level }}+</div>
+        <!-- Target level display -->
+        <div class="target-level-display">
+            <div class="target-level-value" id="target-level">Block Target: Level {{ block_target_level }}+</div>
+        </div>
+        {% endblock %}
     </div>
-    {% endblock %}
 
     {% block content %}{% endblock %}
 
