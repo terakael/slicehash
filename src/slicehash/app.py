@@ -631,7 +631,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": row["submitted_at"].isoformat()
+                        "submitted_at": int(row["submitted_at"].timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
@@ -685,9 +685,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         notification = await asyncio.wait_for(queue.get(), timeout=30.0)
                         event_data = {
                             "share_id": notification.share_id,
-                            "submitted_at": notification.submitted_at.isoformat()
-                            if hasattr(notification.submitted_at, "isoformat")
-                            else notification.submitted_at,
+                            "submitted_at": notification.submitted_at,
                             "level": notification.level,
                             "is_block": notification.is_block,
                             "share_hash": notification.share_hash,
@@ -796,7 +794,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["id"],
-                        "submitted_at": row["submitted_at"].isoformat()
+                        "submitted_at": int(row["submitted_at"].timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
@@ -878,7 +876,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             shares = [
                 {
                     "share_id": row["id"],
-                    "submitted_at": row["submitted_at"].isoformat()
+                    "submitted_at": int(row["submitted_at"].timestamp())
                     if row["submitted_at"]
                     else None,
                     "level": row["level"],
@@ -969,7 +967,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["id"],
-                        "submitted_at": row["submitted_at"].isoformat(),
+                        "submitted_at": int(row["submitted_at"].timestamp()),
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
@@ -995,7 +993,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     shares = [
                         {
                             "share_id": row["id"],
-                            "submitted_at": row["submitted_at"].isoformat(),
+                            "submitted_at": int(row["submitted_at"].timestamp()),
                             "level": row["level"],
                             "is_block": bool(row["is_block"]),
                             "share_hash": row["share_hash"],
@@ -1050,7 +1048,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     shares = [
                         {
                             "share_id": row["id"],
-                            "submitted_at": row["submitted_at"].isoformat(),
+                            "submitted_at": int(row["submitted_at"].timestamp()),
                             "level": row["level"],
                             "is_block": bool(row["is_block"]),
                             "share_hash": row["share_hash"],
@@ -1151,7 +1149,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     {
                         "transaction_id": row["transaction_id"],
                         "amount": row["amount"],
-                        "created_at": row["created_at"],
+                        "created_at": int(row["created_at"].timestamp()) if row["created_at"] else None,
                     }
                     for row in rows
                 ]
@@ -1224,7 +1222,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     {
                         "transaction_id": row["transaction_id"],
                         "amount": row["amount"],
-                        "created_at": row["created_at"],
+                        "created_at": int(row["created_at"].timestamp()) if row["created_at"] else None,
                     }
                 ), 201
 
@@ -1266,7 +1264,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": row["submitted_at"].isoformat()
+                        "submitted_at": int(row["submitted_at"].timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
@@ -1327,7 +1325,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": row["submitted_at"].isoformat()
+                        "submitted_at": int(row["submitted_at"].timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
@@ -1420,7 +1418,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["id"],
-                        "submitted_at": row["submitted_at"].isoformat()
+                        "submitted_at": int(row["submitted_at"].timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],

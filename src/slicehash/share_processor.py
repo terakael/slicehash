@@ -255,7 +255,7 @@ class ShareProcessor:
         notification = ShareNotification(
             share_id=share_id,
             user_id=user_id,
-            submitted_at=submitted_at_dt.isoformat(),
+            submitted_at=int(submitted_at_dt.timestamp()),
             level=level,
             is_block=is_block,
             share_hash=share_hash,
