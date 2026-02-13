@@ -223,7 +223,8 @@ class ShareProcessor:
             shares_consumed = calculate_shares_consumed(priority, traffic_level)
 
         # Step 5: Store share event
-        submitted_at_dt = datetime.fromtimestamp(ntime, tz=timezone.utc)
+        # Convert Unix timestamp to UTC datetime, then make it naive for database storage
+        submitted_at_dt = datetime.fromtimestamp(ntime, tz=timezone.utc).replace(tzinfo=None)
         share_id = await db.fetchval(
             """
             INSERT INTO share_events
