@@ -13,7 +13,7 @@ import logging
 import re
 import time
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -631,7 +631,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": int(row["submitted_at"].timestamp())
+                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
@@ -794,7 +794,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["id"],
-                        "submitted_at": int(row["submitted_at"].timestamp())
+                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
@@ -876,7 +876,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             shares = [
                 {
                     "share_id": row["id"],
-                    "submitted_at": int(row["submitted_at"].timestamp())
+                    "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
                     if row["submitted_at"]
                     else None,
                     "level": row["level"],
@@ -967,7 +967,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["id"],
-                        "submitted_at": int(row["submitted_at"].timestamp()),
+                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp()),
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
@@ -993,7 +993,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     shares = [
                         {
                             "share_id": row["id"],
-                            "submitted_at": int(row["submitted_at"].timestamp()),
+                            "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp()),
                             "level": row["level"],
                             "is_block": bool(row["is_block"]),
                             "share_hash": row["share_hash"],
@@ -1048,7 +1048,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     shares = [
                         {
                             "share_id": row["id"],
-                            "submitted_at": int(row["submitted_at"].timestamp()),
+                            "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp()),
                             "level": row["level"],
                             "is_block": bool(row["is_block"]),
                             "share_hash": row["share_hash"],
@@ -1149,7 +1149,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     {
                         "transaction_id": row["transaction_id"],
                         "amount": row["amount"],
-                        "created_at": int(row["created_at"].timestamp()) if row["created_at"] else None,
+                        "created_at": int(row["created_at"].replace(tzinfo=timezone.utc).timestamp()) if row["created_at"] else None,
                     }
                     for row in rows
                 ]
@@ -1222,7 +1222,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     {
                         "transaction_id": row["transaction_id"],
                         "amount": row["amount"],
-                        "created_at": int(row["created_at"].timestamp()) if row["created_at"] else None,
+                        "created_at": int(row["created_at"].replace(tzinfo=timezone.utc).timestamp()) if row["created_at"] else None,
                     }
                 ), 201
 
@@ -1264,7 +1264,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": int(row["submitted_at"].timestamp())
+                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
@@ -1325,7 +1325,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": int(row["submitted_at"].timestamp())
+                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
@@ -1418,7 +1418,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["id"],
-                        "submitted_at": int(row["submitted_at"].timestamp())
+                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
                         if row["submitted_at"]
                         else None,
                         "level": row["level"],
