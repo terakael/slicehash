@@ -14,7 +14,7 @@ function formatTimestamp(timestamp) {
 
     const now = new Date();
     const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
+    const diffMins = Math.round(diffMs / 60000);
 
     let timeStr;
     if (diffMins < 1) {
@@ -181,10 +181,10 @@ function observeCard(card) {
     }
 }
 
-// Start periodic timestamp refresh (every 30 seconds)
+// Start periodic timestamp refresh (every 10 seconds)
 function startTimestampRefresh() {
     setupTimestampObserver();
-    setInterval(refreshTimestamps, 30000);
+    setInterval(refreshTimestamps, 10000);
 }
 
 // Shared SSE connection management
