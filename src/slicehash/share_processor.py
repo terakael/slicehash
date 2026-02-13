@@ -316,10 +316,10 @@ class ShareProcessor:
             success = await pool.update_coinbase(address, next_user_id, tag)
 
         if success:
-            # Update user's last_served_at
+            # Update user's last_served_at (store as naive UTC for consistency)
             await db.execute(
                 "UPDATE users SET last_served_at = $1 WHERE user_id = $2",
-                datetime.now(),
+                datetime.now(timezone.utc).replace(tzinfo=None),
                 next_user_id,
             )
 

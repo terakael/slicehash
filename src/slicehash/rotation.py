@@ -23,7 +23,7 @@ This ensures every user gets a turn while preventing instant rotation on first s
 
 import asyncpg
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from .quota import get_active_users
@@ -227,7 +227,8 @@ async def select_next_user(db: asyncpg.Connection) -> Optional[int]:
         return None
 
     # Use Python datetime (timezone-naive) for consistency with stored timestamps
-    now = datetime.now()
+    # Use UTC for consistency (database stores naive UTC timestamps)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     best_user_id = None
     max_weighted_wait = -1
