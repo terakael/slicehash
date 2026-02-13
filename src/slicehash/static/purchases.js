@@ -98,9 +98,8 @@ function renderPurchaseCards(purchases) {
 
 // Format date
 function formatDate(timestamp) {
-    const date = typeof timestamp === 'number'
-        ? new Date(timestamp * 1000)  // Unix seconds to milliseconds
-        : new Date(timestamp);
+    const ts = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
+    const date = new Date(ts * 1000);
     return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
