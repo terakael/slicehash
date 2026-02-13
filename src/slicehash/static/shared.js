@@ -2,8 +2,15 @@
 
 // Format timestamp as relative time
 function formatTimestamp(timestamp) {
-    // Handle both ISO strings and Date objects
-    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    // Handle Unix timestamps (numbers), ISO strings, and Date objects
+    let date;
+    if (typeof timestamp === 'number') {
+        date = new Date(timestamp * 1000);  // Convert seconds to milliseconds
+    } else if (typeof timestamp === 'string') {
+        date = new Date(timestamp);
+    } else {
+        date = timestamp;
+    }
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
