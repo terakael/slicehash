@@ -80,7 +80,7 @@ class HighscoresCache:
     async def invalidate(self):
         async with self._lock:
             self._cache.clear()
-            logger.info("Highscores cache invalidated")
+            logger.debug("Highscores cache invalidated")
 
 
 highscores_cache: Optional[HighscoresCache] = None
@@ -393,6 +393,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             - connected: Initial connection event
             - authenticated: Auth success with token
         """
+
         async def event_stream():
             queue = None
             try:
@@ -701,19 +702,29 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         yield f"event: heartbeat\ndata: {json.dumps({'timestamp': datetime.now().isoformat()})}\n\n"
                         yield ": ping\n\n"  # SSE comment for keepalive
                     except Exception as e:
-                        logger.error(f"Error in SSE event loop for user {user_id}: {e}", exc_info=True)
+                        logger.error(
+                            f"Error in SSE event loop for user {user_id}: {e}",
+                            exc_info=True,
+                        )
                         raise
             except asyncio.CancelledError:
                 connection_duration = time.time() - connection_start
-                logger.warning(f"SSE connection cancelled for user {user_id} after {connection_duration:.2f}s")
+                logger.warning(
+                    f"SSE connection cancelled for user {user_id} after {connection_duration:.2f}s"
+                )
                 raise
             except Exception as e:
                 connection_duration = time.time() - connection_start
-                logger.error(f"SSE connection error for user {user_id} after {connection_duration:.2f}s: {e}", exc_info=True)
+                logger.error(
+                    f"SSE connection error for user {user_id} after {connection_duration:.2f}s: {e}",
+                    exc_info=True,
+                )
                 raise
             finally:
                 connection_duration = time.time() - connection_start
-                logger.info(f"SSE connection closed for user {user_id} after {connection_duration:.2f}s")
+                logger.info(
+                    f"SSE connection closed for user {user_id} after {connection_duration:.2f}s"
+                )
                 if queue:
                     await sse_manager.unsubscribe(f"user:{user_id}", queue)
 
@@ -829,14 +840,18 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         offset = max(int(request.args.get("offset", 0)), 0)
         limit = min(max(int(request.args.get("limit", 20)), 1), 100)
 
-        logger.info(f"Load shares request: user_id={user_id}, mode={mode}, offset={offset}, limit={limit}")
+        logger.info(
+            f"Load shares request: user_id={user_id}, mode={mode}, offset={offset}, limit={limit}"
+        )
 
         # Configure query based on mode
         if mode == "recent":
             where_clause = "WHERE user_id = $1"
             order_by = "ORDER BY submitted_at DESC"
         elif mode == "best-24h":
-            where_clause = "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+            where_clause = (
+                "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+            )
             order_by = "ORDER BY level DESC, submitted_at DESC"
         elif mode == "best-all-time":
             where_clause = "WHERE user_id = $1"
@@ -863,7 +878,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             shares = [
                 {
                     "share_id": row["id"],
-                    "submitted_at": row["submitted_at"].isoformat() if row["submitted_at"] else None,
+                    "submitted_at": row["submitted_at"].isoformat()
+                    if row["submitted_at"]
+                    else None,
                     "level": row["level"],
                     "is_block": bool(row["is_block"]),
                     "share_hash": row["share_hash"],
@@ -874,12 +891,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 for row in rows
             ]
 
-            logger.info(f"Load shares response: returned {len(shares)} shares, has_more={offset + len(rows) < total}, total={total}")
+            logger.info(
+                f"Load shares response: returned {len(shares)} shares, has_more={offset + len(rows) < total}, total={total}"
+            )
 
-            return jsonify({
-                "shares": shares,
-                "has_more": offset + len(rows) < total
-            }), 200
+            return jsonify(
+                {"shares": shares, "has_more": offset + len(rows) < total}
+            ), 200
 
     @app.get("/api/users/me/shares/refresh")
     @require_auth
@@ -900,7 +918,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         mode = request.args.get("mode", "recent")
         limit = min(max(int(request.args.get("limit", 20)), 1), 100)
 
-        logger.info(f"Refresh shares request: user_id={user_id}, since_id={since_id}, mode={mode}, limit={limit}")
+        logger.info(
+            f"Refresh shares request: user_id={user_id}, since_id={since_id}, mode={mode}, limit={limit}"
+        )
 
         if not since_id:
             logger.warning(f"Refresh shares: missing since_id")
@@ -925,18 +945,26 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             rows = await db.fetch(check_query, user_id, limit)
 
             if not rows:
-                logger.info(f"Refresh shares: no shares found, returning empty full_refresh")
-                return jsonify({"type": "full_refresh", "shares": [], "has_more": False}), 200
+                logger.info(
+                    f"Refresh shares: no shares found, returning empty full_refresh"
+                )
+                return jsonify(
+                    {"type": "full_refresh", "shares": [], "has_more": False}
+                ), 200
 
             share_ids = [row["id"] for row in rows]
-            logger.info(f"Refresh shares: fetched {len(rows)} recent shares, checking if since_id={since_id} is in list")
+            logger.info(
+                f"Refresh shares: fetched {len(rows)} recent shares, checking if since_id={since_id} is in list"
+            )
 
             if since_id in share_ids:
                 # INCREMENTAL: Trim to shares before since_id
                 since_index = share_ids.index(since_id)
                 new_rows = rows[:since_index]
 
-                logger.info(f"Refresh shares: INCREMENTAL - found since_id at index {since_index}, returning {len(new_rows)} new shares")
+                logger.info(
+                    f"Refresh shares: INCREMENTAL - found since_id at index {since_index}, returning {len(new_rows)} new shares"
+                )
 
                 shares = [
                     {
@@ -956,10 +984,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             else:
                 # FULL REFRESH: User is >limit shares stale
-                logger.info(f"Refresh shares: FULL REFRESH - since_id not in recent {limit} shares, user is stale")
+                logger.info(
+                    f"Refresh shares: FULL REFRESH - since_id not in recent {limit} shares, user is stale"
+                )
                 if mode == "recent":
                     # Reuse rows (already DESC by time) - 1 query total
-                    logger.info(f"Refresh shares: FULL REFRESH (recent mode) - reusing fetched rows")
+                    logger.info(
+                        f"Refresh shares: FULL REFRESH (recent mode) - reusing fetched rows"
+                    )
                     shares = [
                         {
                             "share_id": row["id"],
@@ -978,17 +1010,23 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     count_query = "SELECT COUNT(*) FROM share_events WHERE user_id = $1"
                     total = await db.fetchval(count_query, user_id)
 
-                    logger.info(f"Refresh shares: FULL REFRESH response - {len(shares)} shares, has_more={len(rows) < total}, total={total}")
+                    logger.info(
+                        f"Refresh shares: FULL REFRESH response - {len(shares)} shares, has_more={len(rows) < total}, total={total}"
+                    )
 
-                    return jsonify({
-                        "type": "full_refresh",
-                        "shares": shares,
-                        "has_more": len(rows) < total
-                    }), 200
+                    return jsonify(
+                        {
+                            "type": "full_refresh",
+                            "shares": shares,
+                            "has_more": len(rows) < total,
+                        }
+                    ), 200
 
                 else:
                     # Best modes: fetch by level - 2 queries total
-                    logger.info(f"Refresh shares: FULL REFRESH (best mode={mode}) - fetching by level")
+                    logger.info(
+                        f"Refresh shares: FULL REFRESH (best mode={mode}) - fetching by level"
+                    )
                     if mode == "best-24h":
                         where_clause = "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
                     else:  # best-all-time
@@ -1023,13 +1061,17 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         for row in rows
                     ]
 
-                    logger.info(f"Refresh shares: FULL REFRESH response - {len(shares)} shares, has_more={len(rows) < total}, total={total}")
+                    logger.info(
+                        f"Refresh shares: FULL REFRESH response - {len(shares)} shares, has_more={len(rows) < total}, total={total}"
+                    )
 
-                    return jsonify({
-                        "type": "full_refresh",
-                        "shares": shares,
-                        "has_more": len(rows) < total
-                    }), 200
+                    return jsonify(
+                        {
+                            "type": "full_refresh",
+                            "shares": shares,
+                            "has_more": len(rows) < total,
+                        }
+                    ), 200
 
     @app.get("/api/traffic/status")
     async def get_traffic_status():
