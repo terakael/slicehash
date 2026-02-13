@@ -2,10 +2,10 @@
 
 // Format timestamp as relative time
 function formatTimestamp(timestamp) {
-    // Handle Unix timestamps (numbers), ISO strings, and Date objects
+    // Handle Unix timestamps (seconds) and ISO strings
     let date;
     if (typeof timestamp === 'number') {
-        date = new Date(timestamp * 1000);  // Convert seconds to milliseconds
+        date = new Date(timestamp * 1000);  // Unix seconds to milliseconds
     } else if (typeof timestamp === 'string') {
         date = new Date(timestamp);
     } else {
