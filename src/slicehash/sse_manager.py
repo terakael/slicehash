@@ -38,7 +38,7 @@ class ShareNotification(NotificationBase):
     """Share notification sent to SSE clients."""
     share_id: int
     user_id: int
-    submitted_at: str
+    submitted_at: int
     level: float
     is_block: bool
     share_hash: Optional[str]
