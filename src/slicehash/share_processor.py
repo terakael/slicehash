@@ -13,7 +13,7 @@ This module provides the ShareProcessor class which:
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import asyncpg
@@ -223,7 +223,7 @@ class ShareProcessor:
             shares_consumed = calculate_shares_consumed(priority, traffic_level)
 
         # Step 5: Store share event
-        submitted_at_dt = datetime.fromtimestamp(ntime)
+        submitted_at_dt = datetime.fromtimestamp(ntime, tz=timezone.utc)
         share_id = await db.fetchval(
             """
             INSERT INTO share_events
