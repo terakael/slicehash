@@ -6,7 +6,9 @@ and indexes required by the SliceHash mining rotation system.
 Tables:
     - users: User accounts with Bitcoin addresses and priority settings
     - transactions: Share purchase history for quota tracking
-    - share_events: Individual mining share submissions from pool webhooks
+    - share_events: Lean table for listing share submissions (main query table)
+    - share_validation: Detailed mining parameters for hash verification
+    - share_merkle_path: Merkle path hashes for coinbase transaction verification
 """
 
 # Users table - stores user accounts and priority settings
@@ -33,23 +35,48 @@ CREATE TABLE IF NOT EXISTS transactions (
 )
 """
 
-# Share events table - records individual share submissions from pool
+# Share events table - lean table for listing shares
 SHARE_EVENTS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS share_events (
     id SERIAL PRIMARY KEY,
     submitted_at TIMESTAMP NOT NULL,
     user_id INTEGER NOT NULL,
-    nonce BIGINT NOT NULL,
-    ntime INTEGER NOT NULL,
-    version INTEGER NOT NULL,
-    coinbase_address TEXT NOT NULL,
-    coinbase_prefix_tag TEXT NOT NULL,
     share_hash TEXT,
     is_block INTEGER NOT NULL CHECK(is_block IN (0, 1)),
     level REAL NOT NULL,
     billable INTEGER NOT NULL CHECK(billable IN (0, 1)),
     shares_consumed INTEGER NOT NULL CHECK(shares_consumed >= 1 AND shares_consumed <= 5),
+    coinbase_prefix_tag TEXT NOT NULL,
+    block_height TEXT,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
+)
+"""
+
+# Share validation table - detailed mining parameters for hash verification
+SHARE_VALIDATION_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS share_validation (
+    share_id INTEGER PRIMARY KEY,
+    nonce BIGINT NOT NULL,
+    ntime INTEGER NOT NULL,
+    version INTEGER NOT NULL,
+    coinbase_address TEXT NOT NULL,
+    prev_block_hash TEXT,
+    bits TEXT,
+    extranonce TEXT,
+    coinbase_value TEXT,
+    witness_commitment TEXT,
+    FOREIGN KEY (share_id) REFERENCES share_events(id) ON DELETE CASCADE
+)
+"""
+
+# Share merkle path table - merkle path hashes for coinbase transaction verification
+SHARE_MERKLE_PATH_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS share_merkle_path (
+    share_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    merkle_hash TEXT NOT NULL,
+    PRIMARY KEY (share_id, position),
+    FOREIGN KEY (share_id) REFERENCES share_events(id) ON DELETE CASCADE
 )
 """
 
@@ -124,6 +151,8 @@ ALL_TABLES = [
     USERS_TABLE_SQL,
     TRANSACTIONS_TABLE_SQL,
     SHARE_EVENTS_TABLE_SQL,
+    SHARE_VALIDATION_TABLE_SQL,
+    SHARE_MERKLE_PATH_TABLE_SQL,
     GLOBAL_STATE_TABLE_SQL,
     AUTH_CHALLENGES_TABLE_SQL,
 ]

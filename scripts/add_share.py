@@ -77,26 +77,47 @@ async def add_share_event(
     # Generate hash
     share_hash = generate_hash_with_level(level)
 
-    # Insert into database
-    await db.execute(
+    # Dummy block height
+    block_height = str(850000 + random.randint(0, 1000))
+
+    # Insert into share_events (main table)
+    share_id = await db.fetchval(
         """
         INSERT INTO share_events
-        (user_id, nonce, ntime, version, coinbase_address, coinbase_prefix_tag,
-         share_hash, is_block, level, billable, shares_consumed, submitted_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        (user_id, share_hash, is_block, level, billable, shares_consumed,
+         coinbase_prefix_tag, block_height, submitted_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id
         """,
         user_id,
-        nonce,
-        ntime,
-        version,
-        coinbase_address,
-        coinbase_prefix_tag,
         share_hash,
         is_block,
         level,
         billable,
         shares_consumed,
+        coinbase_prefix_tag,
+        block_height,
         submitted_at
+    )
+
+    # Insert into share_validation (detailed parameters)
+    await db.execute(
+        """
+        INSERT INTO share_validation
+        (share_id, nonce, ntime, version, coinbase_address,
+         prev_block_hash, bits, extranonce, coinbase_value, witness_commitment)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        """,
+        share_id,
+        nonce,
+        ntime,
+        version,
+        coinbase_address,
+        None,  # prev_block_hash
+        None,  # bits
+        None,  # extranonce
+        None,  # coinbase_value
+        None,  # witness_commitment
     )
 
 
