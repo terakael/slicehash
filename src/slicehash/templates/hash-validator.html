@@ -26,6 +26,21 @@
         <p>Loading share data...</p>
     </div>
 
+    <!-- Floating result panel -->
+    <div id="floating-result" class="floating-result-panel" style="display: none;">
+        <div class="floating-result-content">
+            <div class="floating-level">
+                <span class="floating-label">Level</span>
+                <div class="floating-level-badge" id="floating-level-badge">-</div>
+            </div>
+            <div class="floating-hash">
+                <span class="floating-label">Block Hash</span>
+                <div class="floating-hash-value" id="floating-hash-value">Calculating...</div>
+            </div>
+            <button class="floating-calculate-btn" id="floating-calculate-btn">🔨 Calculate</button>
+        </div>
+    </div>
+
     <div id="validator-form" style="display: none;">
         <div class="validator-section">
             <h2>Block Header Fields</h2>

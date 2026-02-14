@@ -6,6 +6,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
 });
 
+// Update floating result panel
+function updateFloatingPanel(level, hash, isValid) {
+    const levelBadge = document.getElementById('floating-level-badge');
+    const hashValue = document.getElementById('floating-hash-value');
+    const floatingPanel = document.getElementById('floating-result');
+
+    // Show panel if hidden
+    if (floatingPanel.style.display === 'none') {
+        floatingPanel.style.display = 'block';
+    }
+
+    // Update level with styling
+    if (level !== null && level !== undefined) {
+        const { color, shape, borderStyle } = getLevelStyle(level);
+        levelBadge.textContent = Math.floor(level);
+        levelBadge.style.backgroundColor = color;
+
+        // Apply shape class
+        levelBadge.className = 'floating-level-badge shape-' + shape;
+
+        if (borderStyle) {
+            levelBadge.style.border = borderStyle;
+        } else {
+            levelBadge.style.border = `3px solid ${color}`;
+            levelBadge.style.borderRightColor = adjustBrightness(color, -30);
+            levelBadge.style.borderBottomColor = adjustBrightness(color, -30);
+        }
+    } else {
+        levelBadge.textContent = '-';
+        levelBadge.style.backgroundColor = '#f7931a';
+        levelBadge.style.border = '3px solid #c46700';
+    }
+
+    // Update hash
+    hashValue.textContent = hash || 'Calculating...';
+
+    // Add validation styling to hash
+    if (isValid === true) {
+        hashValue.style.borderColor = '#4ec9b0';
+    } else if (isValid === false) {
+        hashValue.style.borderColor = '#f48771';
+    } else {
+        hashValue.style.borderColor = '#000000';
+    }
+}
+
+// Helper to adjust color brightness
+function adjustBrightness(color, percent) {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const G = (num >> 8 & 0x00FF) + amt;
+    const B = (num & 0x0000FF) + amt;
+    return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+        (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+        (B < 255 ? B < 1 ? 0 : B : 255))
+        .toString(16).slice(1);
+}
+
 // Fetch share data from API
 async function loadShareData() {
     try {
@@ -39,6 +98,9 @@ async function loadShareData() {
         document.getElementById('loading-state').style.display = 'none';
         document.getElementById('validator-form').style.display = 'block';
 
+        // Show floating panel
+        document.getElementById('floating-result').style.display = 'block';
+
         // Auto-calculate on load
         await calculateHash();
 
@@ -53,12 +115,15 @@ async function loadShareData() {
 // Setup event listeners
 function setupEventListeners() {
     document.getElementById('calculate-btn').addEventListener('click', calculateHash);
+    document.getElementById('floating-calculate-btn').addEventListener('click', calculateHash);
 
     // Optional: Auto-recalculate on input change
     document.querySelectorAll('.validator-input').forEach(input => {
         input.addEventListener('change', () => {
             // Clear results when inputs change
             document.getElementById('results').innerHTML = '';
+            // Update floating panel to show pending state
+            updateFloatingPanel(null, 'Pending...', null);
         });
     });
 }
@@ -598,6 +663,10 @@ async function calculateHash() {
 
         document.getElementById('results').innerHTML = summary + output;
 
+        // Update floating panel with results
+        const calculatedLevel = Math.log2(1 / (parseInt(blockHashDisplay, 16) / Math.pow(2, 256))) || 0;
+        updateFloatingPanel(calculatedLevel, blockHashDisplay, hashMatches && isValid);
+
     } catch (error) {
         document.getElementById('results').innerHTML = `
             <div class="validator-summary invalid">
@@ -606,5 +675,8 @@ async function calculateHash() {
             </div>
         `;
         console.error('Hash calculation error:', error);
+
+        // Update floating panel with error state
+        updateFloatingPanel(null, error.message, false);
     }
 }
