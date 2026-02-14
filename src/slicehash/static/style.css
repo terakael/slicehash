@@ -1607,22 +1607,8 @@ footer {
     margin: 0 auto;
     display: grid;
     grid-template-columns: auto 1fr auto;
-    gap: 20px;
+    gap: 16px;
     align-items: center;
-}
-
-.floating-level {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 100px;
-}
-
-.floating-label {
-    font-size: 7px;
-    color: #aaaaaa;
-    text-transform: uppercase;
-    letter-spacing: 1px;
 }
 
 .floating-level-badge {
@@ -1631,12 +1617,12 @@ footer {
     border: 3px solid #c46700;
     border-right-color: #8b4700;
     border-bottom-color: #8b4700;
-    padding: 8px 16px;
-    font-size: 20px;
+    padding: 10px 20px;
+    font-size: 24px;
     font-family: 'Press Start 2P', monospace;
     text-align: center;
     box-shadow: 0 3px 0 #8b4700;
-    min-width: 80px;
+    min-width: 100px;
     transition: all 0.2s;
 }
 
@@ -1656,23 +1642,17 @@ footer {
     clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
 }
 
-.floating-hash {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    overflow: hidden;
-}
-
 .floating-hash-value {
     font-family: 'Courier New', monospace;
-    font-size: 11px;
+    font-size: 12px;
     color: #e0e0e0;
     background-color: #0d0702;
     border: 3px solid #000000;
-    padding: 10px 12px;
+    padding: 14px 16px;
     word-break: break-all;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
-    line-height: 1.4;
+    line-height: 1.5;
+    transition: border-color 0.2s;
 }
 
 .floating-calculate-btn {
@@ -2002,34 +1982,29 @@ textarea.validator-input {
     }
 
     .floating-result-content {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-
-    .floating-level {
-        flex-direction: row;
-        align-items: center;
-        gap: 12px;
+        grid-template-columns: auto 1fr;
+        gap: 10px;
     }
 
     .floating-level-badge {
-        font-size: 16px;
-        padding: 6px 12px;
-        min-width: 60px;
+        font-size: 18px;
+        padding: 8px 16px;
+        min-width: 70px;
     }
 
     .floating-hash-value {
-        font-size: 9px;
-        padding: 8px 10px;
+        font-size: 10px;
+        padding: 10px 12px;
+        grid-column: 1 / -1;
     }
 
     .floating-calculate-btn {
-        width: 100%;
+        grid-column: 1 / -1;
         font-size: 9px;
         padding: 10px 20px;
     }
 
     .hash-validator-container {
-        padding-bottom: 280px; /* More space on mobile */
+        padding-bottom: 220px; /* More space on mobile */
     }
 }
