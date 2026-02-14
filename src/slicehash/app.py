@@ -110,9 +110,9 @@ class UserUpdateRequest(BaseModel):
         """Validate Bitcoin address format.
 
         Accepts:
-        - Bech32: bc1 + 39-87 alphanumeric characters
-        - Legacy P2PKH: 1 + 25-34 base58 characters
-        - Legacy P2SH: 3 + 25-34 base58 characters
+        - Bech32 (SegWit/Taproot): bc1/tb1/bcrt1 + 39-87 alphanumeric
+        - Legacy P2PKH: 1/m/n + 25-34 base58 characters
+        - Legacy P2SH: 3/2 + 25-34 base58 characters
         - Placeholder addresses (bc1_update_in_settings_...)
 
         POC-level validation: format check only (no checksum verification).
@@ -124,9 +124,10 @@ class UserUpdateRequest(BaseModel):
         if v.startswith("bc1_update_in_settings_"):
             return v
 
-        pattern = r"^(bc1[a-z0-9]{39,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$"
+        # Support mainnet, testnet, and regtest addresses
+        pattern = r"^((bc1|tb1|bcrt1)[a-z0-9]{39,87}|[13mn2][a-km-zA-HJ-NP-Z1-9]{25,34})$"
         if not re.match(pattern, v):
-            raise ValueError("Invalid Bitcoin address format")
+            raise ValueError("Invalid Bitcoin address format. Supported: bc1/tb1/bcrt1 (bech32), 1/3/m/n/2 (legacy)")
         return v
 
 

@@ -123,18 +123,127 @@ function encodeBlockHeight(height) {
     }
 }
 
-function addressToScriptPubKey(address) {
-    if (address.startsWith('bc1q')) {
-        const decoded = bech32.bech32.decode(address);
-        const witness = new Uint8Array(bech32.bech32.fromWords(decoded.words.slice(1)));
+// Base58 decoding for legacy addresses
+function base58Decode(address) {
+    const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    const BASE = 58;
 
-        const scriptPubKey = new Uint8Array(22);
-        scriptPubKey[0] = 0x00; // OP_0
-        scriptPubKey[1] = 0x14; // 20 bytes
-        scriptPubKey.set(witness, 2);
-        return scriptPubKey;
+    let decoded = 0n;
+    for (let i = 0; i < address.length; i++) {
+        const char = address[i];
+        const value = ALPHABET.indexOf(char);
+        if (value === -1) throw new Error(`Invalid base58 character: ${char}`);
+        decoded = decoded * BigInt(BASE) + BigInt(value);
+    }
+
+    // Convert to bytes
+    const hex = decoded.toString(16);
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+    }
+
+    // Add leading zeros
+    let leadingZeros = 0;
+    for (let i = 0; i < address.length && address[i] === '1'; i++) {
+        leadingZeros++;
+    }
+
+    if (leadingZeros > 0) {
+        const result = new Uint8Array(leadingZeros + bytes.length);
+        result.set(bytes, leadingZeros);
+        return result;
+    }
+
+    return bytes;
+}
+
+function addressToScriptPubKey(address) {
+    // Bech32 addresses (native SegWit v0/v1): bc1, tb1, bcrt1
+    if (address.startsWith('bc1') || address.startsWith('tb1') || address.startsWith('bcrt1')) {
+        try {
+            const decoded = bech32.bech32.decode(address);
+            const witnessVersion = decoded.words[0];
+            const witnessProgram = new Uint8Array(bech32.bech32.fromWords(decoded.words.slice(1)));
+
+            // P2WPKH (bc1q/tb1q/bcrt1q): OP_0 <20-byte-hash>
+            if (witnessVersion === 0 && witnessProgram.length === 20) {
+                const scriptPubKey = new Uint8Array(22);
+                scriptPubKey[0] = 0x00; // OP_0
+                scriptPubKey[1] = 0x14; // 20 bytes
+                scriptPubKey.set(witnessProgram, 2);
+                return scriptPubKey;
+            }
+            // P2WSH (bc1q with 32 bytes): OP_0 <32-byte-hash>
+            else if (witnessVersion === 0 && witnessProgram.length === 32) {
+                const scriptPubKey = new Uint8Array(34);
+                scriptPubKey[0] = 0x00; // OP_0
+                scriptPubKey[1] = 0x20; // 32 bytes
+                scriptPubKey.set(witnessProgram, 2);
+                return scriptPubKey;
+            }
+            // P2TR (bc1p/tb1p/bcrt1p): OP_1 <32-byte-pubkey>
+            else if (witnessVersion === 1 && witnessProgram.length === 32) {
+                const scriptPubKey = new Uint8Array(34);
+                scriptPubKey[0] = 0x51; // OP_1
+                scriptPubKey[1] = 0x20; // 32 bytes
+                scriptPubKey.set(witnessProgram, 2);
+                return scriptPubKey;
+            } else {
+                throw new Error(`Unsupported witness version ${witnessVersion} or program length ${witnessProgram.length}`);
+            }
+        } catch (e) {
+            throw new Error(`Failed to decode bech32 address: ${e.message}`);
+        }
+    }
+    // P2SH addresses (wrapped SegWit): starts with '3'
+    else if (address.startsWith('3') || address.startsWith('2')) { // '2' for testnet P2SH
+        try {
+            const decoded = base58Decode(address);
+            // decoded = [version_byte, 20_byte_hash, 4_byte_checksum]
+            if (decoded.length !== 25) {
+                throw new Error(`Invalid P2SH address length: ${decoded.length}`);
+            }
+
+            // Extract the 20-byte script hash (skip version byte, exclude checksum)
+            const scriptHash = decoded.slice(1, 21);
+
+            // P2SH scriptPubKey: OP_HASH160 <20-byte-script-hash> OP_EQUAL
+            const scriptPubKey = new Uint8Array(23);
+            scriptPubKey[0] = 0xa9; // OP_HASH160
+            scriptPubKey[1] = 0x14; // 20 bytes
+            scriptPubKey.set(scriptHash, 2);
+            scriptPubKey[22] = 0x87; // OP_EQUAL
+            return scriptPubKey;
+        } catch (e) {
+            throw new Error(`Failed to decode P2SH address: ${e.message}`);
+        }
+    }
+    // P2PKH addresses (legacy): starts with '1' or 'm'/'n' for testnet
+    else if (address.startsWith('1') || address.startsWith('m') || address.startsWith('n')) {
+        try {
+            const decoded = base58Decode(address);
+            if (decoded.length !== 25) {
+                throw new Error(`Invalid P2PKH address length: ${decoded.length}`);
+            }
+
+            // Extract the 20-byte pubkey hash
+            const pubkeyHash = decoded.slice(1, 21);
+
+            // P2PKH scriptPubKey: OP_DUP OP_HASH160 <20-byte-pubkey-hash> OP_EQUALVERIFY OP_CHECKSIG
+            const scriptPubKey = new Uint8Array(25);
+            scriptPubKey[0] = 0x76; // OP_DUP
+            scriptPubKey[1] = 0xa9; // OP_HASH160
+            scriptPubKey[2] = 0x14; // 20 bytes
+            scriptPubKey.set(pubkeyHash, 3);
+            scriptPubKey[23] = 0x88; // OP_EQUALVERIFY
+            scriptPubKey[24] = 0xac; // OP_CHECKSIG
+            return scriptPubKey;
+        } catch (e) {
+            throw new Error(`Failed to decode P2PKH address: ${e.message}`);
+        }
     } else {
-        throw new Error('Only bc1q (P2WPKH) addresses supported');
+        throw new Error(`Unsupported address format: ${address}`);
     }
 }
 

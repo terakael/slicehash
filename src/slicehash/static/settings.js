@@ -1,7 +1,8 @@
 // Settings page JavaScript
 
 // Bitcoin address validation regex
-const BITCOIN_ADDRESS_REGEX = /^(bc1[a-z0-9]{39,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/;
+// Supports: bc1/tb1/bcrt1 (bech32), 1/3 (mainnet legacy), m/n/2 (testnet legacy)
+const BITCOIN_ADDRESS_REGEX = /^((bc1|tb1|bcrt1)[a-z0-9]{39,87}|[13mn2][a-km-zA-HJ-NP-Z1-9]{25,34})$/;
 
 // DOM elements
 let form;
@@ -71,7 +72,7 @@ async function handleFormSubmit(event) {
 
     // Client-side validation
     if (address && !BITCOIN_ADDRESS_REGEX.test(address)) {
-        showError('Invalid Bitcoin address format. Please use bech32 (bc1...) or legacy (1... or 3...) format.');
+        showError('Invalid Bitcoin address format. Supported: bc1/tb1/bcrt1 (bech32), 1/3/m/n/2 (legacy)');
         addressInput.classList.add('error');
         return;
     }
