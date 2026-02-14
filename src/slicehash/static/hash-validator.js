@@ -64,6 +64,100 @@ function setupEventListeners() {
 }
 
 // ============================================================================
+// BECH32 DECODER (Native implementation)
+// ============================================================================
+
+const BECH32_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+
+function bech32Polymod(values) {
+    const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+    let chk = 1;
+    for (const value of values) {
+        const top = chk >> 25;
+        chk = (chk & 0x1ffffff) << 5 ^ value;
+        for (let i = 0; i < 5; i++) {
+            if ((top >> i) & 1) {
+                chk ^= GEN[i];
+            }
+        }
+    }
+    return chk;
+}
+
+function bech32HrpExpand(hrp) {
+    const result = [];
+    for (let i = 0; i < hrp.length; i++) {
+        result.push(hrp.charCodeAt(i) >> 5);
+    }
+    result.push(0);
+    for (let i = 0; i < hrp.length; i++) {
+        result.push(hrp.charCodeAt(i) & 31);
+    }
+    return result;
+}
+
+function bech32VerifyChecksum(hrp, data) {
+    return bech32Polymod([...bech32HrpExpand(hrp), ...data]) === 1;
+}
+
+function bech32Decode(bechString) {
+    if (bechString.length < 8 || bechString.length > 90) {
+        throw new Error('Invalid bech32 string length');
+    }
+
+    const lower = bechString.toLowerCase();
+    const upper = bechString.toUpperCase();
+    if (bechString !== lower && bechString !== upper) {
+        throw new Error('Mixed case bech32 string');
+    }
+
+    const pos = bechString.lastIndexOf('1');
+    if (pos < 1 || pos + 7 > bechString.length) {
+        throw new Error('Invalid bech32 separator position');
+    }
+
+    const hrp = lower.slice(0, pos);
+    const data = [];
+
+    for (let i = pos + 1; i < lower.length; i++) {
+        const d = BECH32_CHARSET.indexOf(lower[i]);
+        if (d === -1) {
+            throw new Error('Invalid bech32 character');
+        }
+        data.push(d);
+    }
+
+    if (!bech32VerifyChecksum(hrp, data)) {
+        throw new Error('Invalid bech32 checksum');
+    }
+
+    return { hrp, data: data.slice(0, -6) };
+}
+
+function bech32FromWords(words) {
+    let value = 0;
+    let bits = 0;
+    const maxV = (1 << 8) - 1;
+    const result = [];
+
+    for (const word of words) {
+        value = (value << 5) | word;
+        bits += 5;
+
+        while (bits >= 8) {
+            bits -= 8;
+            result.push((value >> bits) & maxV);
+        }
+    }
+
+    if (bits >= 5 || ((value << (8 - bits)) & maxV)) {
+        throw new Error('Invalid bech32 padding');
+    }
+
+    return new Uint8Array(result);
+}
+
+// ============================================================================
 // CRYPTO HELPERS (Browser-compatible)
 // ============================================================================
 
@@ -162,9 +256,9 @@ function addressToScriptPubKey(address) {
     // Bech32 addresses (native SegWit v0/v1): bc1, tb1, bcrt1
     if (address.startsWith('bc1') || address.startsWith('tb1') || address.startsWith('bcrt1')) {
         try {
-            const decoded = bech32.bech32.decode(address);
-            const witnessVersion = decoded.words[0];
-            const witnessProgram = new Uint8Array(bech32.bech32.fromWords(decoded.words.slice(1)));
+            const decoded = bech32Decode(address);
+            const witnessVersion = decoded.data[0];
+            const witnessProgram = bech32FromWords(decoded.data.slice(1));
 
             // P2WPKH (bc1q/tb1q/bcrt1q): OP_0 <20-byte-hash>
             if (witnessVersion === 0 && witnessProgram.length === 20) {
