@@ -179,6 +179,7 @@ function renderShareCards(shares, append) {
         const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
 
         card.innerHTML = `
+            <a href="/hash-validator/${share.share_id}" class="share-validator-link" title="Validate this hash">🔍</a>
             <div class="share-card-header">
                 <div class="share-header-top">
                     <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
@@ -282,6 +283,7 @@ function handleNewShare(share) {
     const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
 
     card.innerHTML = `
+        <a href="/hash-validator/${share.share_id}" class="share-validator-link" title="Validate this hash">🔍</a>
         <div class="share-card-header">
             <div class="share-header-top">
                 <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>

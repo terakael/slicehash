@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Hash Validator - MineShare{% endblock %}
+
+{% block header %}
+<!-- Shares remaining display -->
+<div class="shares-remaining-display">
+    <div class="shares-label">Shares Remaining</div>
+    <div class="shares-value" id="shares-remaining">{{ shares_remaining }}</div>
+</div>
+
+<!-- Target level display -->
+<div class="target-level-display">
+    <div class="target-level-value" id="target-level">Block Target: Level {{ block_target_level }}+</div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="hash-validator-container">
+    <div class="validator-header">
+        <h1>⛏️ Hash Validator</h1>
+        <p class="validator-subtitle">Verify your mining share by reconstructing the block hash</p>
+    </div>
+
+    <div id="loading-state" class="loading-state">
+        <p>Loading share data...</p>
+    </div>
+
+    <div id="validator-form" style="display: none;">
+        <div class="validator-section">
+            <h2>Block Header Fields</h2>
+            <div class="validator-grid">
+                <div class="form-group">
+                    <label for="version">Version (hex)</label>
+                    <input type="text" id="version" class="validator-input">
+                </div>
+                <div class="form-group">
+                    <label for="timestamp">Timestamp (Unix)</label>
+                    <input type="number" id="timestamp" class="validator-input">
+                </div>
+                <div class="form-group">
+                    <label for="bits">Bits (hex)</label>
+                    <input type="text" id="bits" class="validator-input">
+                </div>
+                <div class="form-group">
+                    <label for="nonce">Nonce</label>
+                    <input type="number" id="nonce" class="validator-input">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="prevBlockHash">Previous Block Hash (64 hex chars)</label>
+                <input type="text" id="prevBlockHash" class="validator-input">
+            </div>
+        </div>
+
+        <div class="validator-section">
+            <h2>Coinbase Transaction Data</h2>
+            <div class="validator-grid">
+                <div class="form-group">
+                    <label for="blockHeight">Block Height</label>
+                    <input type="number" id="blockHeight" class="validator-input">
+                </div>
+                <div class="form-group">
+                    <label for="poolTag">Pool Tag</label>
+                    <input type="text" id="poolTag" class="validator-input">
+                </div>
+                <div class="form-group">
+                    <label for="minerTag">Miner Tag</label>
+                    <input type="text" id="minerTag" class="validator-input">
+                </div>
+                <div class="form-group">
+                    <label for="extranonce">Extranonce (hex)</label>
+                    <input type="text" id="extranonce" class="validator-input">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="coinbaseAddress">Coinbase Address</label>
+                <input type="text" id="coinbaseAddress" class="validator-input">
+            </div>
+            <div class="form-group">
+                <label for="coinbaseValue">Coinbase Value (satoshis)</label>
+                <input type="number" id="coinbaseValue" class="validator-input">
+            </div>
+            <div class="form-group">
+                <label for="witnessCommitment">Witness Commitment (hex, optional)</label>
+                <input type="text" id="witnessCommitment" class="validator-input">
+            </div>
+        </div>
+
+        <div class="validator-section">
+            <h2>Merkle Path</h2>
+            <div class="form-group">
+                <label for="merklePath">Sibling Hashes (one per line, empty if coinbase only)</label>
+                <textarea id="merklePath" class="validator-input" placeholder="abcd1234567890...&#10;efgh5678901234..."></textarea>
+            </div>
+        </div>
+
+        <button class="validator-btn" id="calculate-btn">🔨 Calculate Hash</button>
+
+        <div id="results"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/bech32@2.0.0/dist/index.min.js"></script>
+<script src="{{ url_for('static', filename='shared.js') }}"></script>
+<script src="{{ url_for('static', filename='hash-validator.js') }}"></script>
+<script>
+    window.shareId = {{ share_id }};
+</script>
+{% endblock %}

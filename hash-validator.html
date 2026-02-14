@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Mining Hash Validator</title>
+    <script src="https://cdn.jsdelivr.net/npm/bech32@2.0.0/dist/index.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .section h2 {
+            color: #444;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .output {
+            margin-top: 25px;
+            padding: 20px;
+            background: #1e1e1e;
+            border-radius: 8px;
+            color: #d4d4d4;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        .output h3 {
+            color: #569cd6;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .output h3:first-child {
+            margin-top: 0;
+        }
+
+        .output .value {
+            color: #ce9178;
+            word-break: break-all;
+        }
+
+        .output .success {
+            color: #4ec9b0;
+            font-weight: bold;
+        }
+
+        .output .error {
+            color: #f48771;
+            font-weight: bold;
+        }
+
+        .output .label {
+            color: #9cdcfe;
+        }
+
+        .summary {
+            margin-top: 25px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            border-radius: 8px;
+        }
+
+        .summary.invalid {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+
+        .summary h3 {
+            color: #2e7d32;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .summary.invalid h3 {
+            color: #c62828;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .summary-value {
+            font-family: 'Courier New', monospace;
+            color: #555;
+            word-break: break-all;
+            text-align: right;
+            max-width: 70%;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .share-link {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+        }
+
+        .share-link h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .share-link input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⛏️ Bitcoin Mining Hash Validator</h1>
+        <p class="subtitle">Verify your mining shares by reconstructing the block hash from pool data</p>
+
+        <div class="section">
+            <h2>Block Header Fields</h2>
+            <div class="grid">
+                <div class="form-group">
+                    <label for="version">Version (hex)</label>
+                    <input type="text" id="version" value="0x20000000">
+                </div>
+                <div class="form-group">
+                    <label for="timestamp">Timestamp (Unix)</label>
+                    <input type="number" id="timestamp" value="1708012345">
+                </div>
+                <div class="form-group">
+                    <label for="bits">Bits (hex)</label>
+                    <input type="text" id="bits" value="0x17034219">
+                </div>
+                <div class="form-group">
+                    <label for="nonce">Nonce</label>
+                    <input type="number" id="nonce" value="1234567890">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="prevBlockHash">Previous Block Hash (64 hex chars)</label>
+                <input type="text" id="prevBlockHash" value="00000000000000000002f6b1e64e3d7f9c7c8b5e4c3d2a1b0f9e8d7c6b5a4938">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Coinbase Transaction Data</h2>
+            <div class="grid">
+                <div class="form-group">
+                    <label for="blockHeight">Block Height</label>
+                    <input type="number" id="blockHeight" value="850000">
+                </div>
+                <div class="form-group">
+                    <label for="poolTag">Pool Tag</label>
+                    <input type="text" id="poolTag" value="Mineshare">
+                </div>
+                <div class="form-group">
+                    <label for="minerTag">Miner Tag</label>
+                    <input type="text" id="minerTag" value="user_miner_123">
+                </div>
+                <div class="form-group">
+                    <label for="extranonce">Extranonce (hex)</label>
+                    <input type="text" id="extranonce" value="0000000000000000">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="coinbaseAddress">Coinbase Address</label>
+                <input type="text" id="coinbaseAddress" value="bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq">
+            </div>
+            <div class="form-group">
+                <label for="coinbaseValue">Coinbase Value (satoshis)</label>
+                <input type="number" id="coinbaseValue" value="625000000">
+            </div>
+            <div class="form-group">
+                <label for="witnessCommitment">Witness Commitment (hex, optional)</label>
+                <input type="text" id="witnessCommitment" value="">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Merkle Path</h2>
+            <div class="form-group">
+                <label for="merklePath">Sibling Hashes (one per line, empty if coinbase only)</label>
+                <textarea id="merklePath" placeholder="abcd1234567890...&#10;efgh5678901234..."></textarea>
+            </div>
+        </div>
+
+        <button class="btn" onclick="calculateHash()">🔨 Calculate Hash</button>
+
+        <div id="results"></div>
+        <div id="shareLink"></div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // CRYPTO HELPERS (Browser-compatible)
+        // ============================================================================
+
+        async function doubleSha256(buffer) {
+            const hash1 = await crypto.subtle.digest('SHA-256', buffer);
+            const hash2 = await crypto.subtle.digest('SHA-256', hash1);
+            return new Uint8Array(hash2);
+        }
+
+        function reverseBuffer(buffer) {
+            return new Uint8Array(buffer).reverse();
+        }
+
+        function uint32LE(value) {
+            const buf = new Uint8Array(4);
+            const view = new DataView(buf.buffer);
+            view.setUint32(0, value, true);
+            return buf;
+        }
+
+        function encodeVarInt(n) {
+            if (n < 0xfd) {
+                return new Uint8Array([n]);
+            } else if (n <= 0xffff) {
+                const buf = new Uint8Array(3);
+                buf[0] = 0xfd;
+                new DataView(buf.buffer).setUint16(1, n, true);
+                return buf;
+            } else if (n <= 0xffffffff) {
+                const buf = new Uint8Array(5);
+                buf[0] = 0xfe;
+                new DataView(buf.buffer).setUint32(1, n, true);
+                return buf;
+            } else {
+                const buf = new Uint8Array(9);
+                buf[0] = 0xff;
+                new DataView(buf.buffer).setBigUint64(1, BigInt(n), true);
+                return buf;
+            }
+        }
+
+        function encodeBlockHeight(height) {
+            if (height <= 0x7f) {
+                return new Uint8Array([0x01, height]);
+            } else if (height <= 0x7fff) {
+                return new Uint8Array([0x02, height & 0xff, (height >> 8) & 0xff]);
+            } else if (height <= 0x7fffff) {
+                return new Uint8Array([0x03, height & 0xff, (height >> 8) & 0xff, (height >> 16) & 0xff]);
+            } else {
+                return new Uint8Array([
+                    0x04,
+                    height & 0xff,
+                    (height >> 8) & 0xff,
+                    (height >> 16) & 0xff,
+                    (height >> 24) & 0xff
+                ]);
+            }
+        }
+
+        function addressToScriptPubKey(address) {
+            if (address.startsWith('bc1q')) {
+                const decoded = bech32.bech32.decode(address);
+                const witness = new Uint8Array(bech32.bech32.fromWords(decoded.words.slice(1)));
+
+                const scriptPubKey = new Uint8Array(22);
+                scriptPubKey[0] = 0x00; // OP_0
+                scriptPubKey[1] = 0x14; // 20 bytes
+                scriptPubKey.set(witness, 2);
+                return scriptPubKey;
+            } else {
+                throw new Error('Only bc1q (P2WPKH) addresses supported');
+            }
+        }
+
+        function hexToBytes(hex) {
+            hex = hex.replace(/^0x/, '');
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+            }
+            return bytes;
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function concatBuffers(...buffers) {
+            const totalLength = buffers.reduce((sum, buf) => sum + buf.length, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const buf of buffers) {
+                result.set(buf, offset);
+                offset += buf.length;
+            }
+            return result;
+        }
+
+        function countLeadingZeroBits(hash) {
+            let count = 0;
+            for (let i = hash.length - 1; i >= 0; i--) {
+                const byte = hash[i];
+                if (byte === 0) {
+                    count += 8;
+                } else {
+                    let mask = 0x80;
+                    while ((byte & mask) === 0 && mask > 0) {
+                        count++;
+                        mask >>= 1;
+                    }
+                    break;
+                }
+            }
+            return count;
+        }
+
+        function bitsToTarget(bits) {
+            const exponent = bits >>> 24;
+            const mantissa = bits & 0x00ffffff;
+
+            const target = new Uint8Array(32);
+            if (exponent <= 3) {
+                const val = mantissa >>> (8 * (3 - exponent));
+                const view = new DataView(target.buffer);
+                for (let i = 0; i < Math.min(exponent, 3); i++) {
+                    view.setUint8(i, (val >>> (8 * i)) & 0xff);
+                }
+            } else {
+                const offset = exponent - 3;
+                target[offset] = mantissa & 0xff;
+                target[offset + 1] = (mantissa >>> 8) & 0xff;
+                target[offset + 2] = (mantissa >>> 16) & 0xff;
+            }
+
+            return target;
+        }
+
+        // ============================================================================
+        // URL PARAMETER HANDLING
+        // ============================================================================
+
+        function loadFromURL() {
+            const params = new URLSearchParams(window.location.search);
+
+            if (params.has('version')) document.getElementById('version').value = params.get('version');
+            if (params.has('prevBlockHash')) document.getElementById('prevBlockHash').value = params.get('prevBlockHash');
+            if (params.has('timestamp')) document.getElementById('timestamp').value = params.get('timestamp');
+            if (params.has('bits')) document.getElementById('bits').value = params.get('bits');
+            if (params.has('nonce')) document.getElementById('nonce').value = params.get('nonce');
+            if (params.has('blockHeight')) document.getElementById('blockHeight').value = params.get('blockHeight');
+            if (params.has('poolTag')) document.getElementById('poolTag').value = params.get('poolTag');
+            if (params.has('minerTag')) document.getElementById('minerTag').value = params.get('minerTag');
+            if (params.has('extranonce')) document.getElementById('extranonce').value = params.get('extranonce');
+            if (params.has('coinbaseAddress')) document.getElementById('coinbaseAddress').value = params.get('coinbaseAddress');
+            if (params.has('coinbaseValue')) document.getElementById('coinbaseValue').value = params.get('coinbaseValue');
+            if (params.has('witnessCommitment')) document.getElementById('witnessCommitment').value = params.get('witnessCommitment');
+            if (params.has('merklePath')) document.getElementById('merklePath').value = decodeURIComponent(params.get('merklePath'));
+        }
+
+        function generateShareLink(inputs) {
+            const params = new URLSearchParams();
+            params.set('version', inputs.version);
+            params.set('prevBlockHash', inputs.prevBlockHash);
+            params.set('timestamp', inputs.timestamp);
+            params.set('bits', inputs.bits);
+            params.set('nonce', inputs.nonce);
+            params.set('blockHeight', inputs.blockHeight);
+            params.set('poolTag', inputs.poolTag);
+            params.set('minerTag', inputs.minerTag);
+            params.set('extranonce', inputs.extranonce);
+            params.set('coinbaseAddress', inputs.coinbaseAddress);
+            params.set('coinbaseValue', inputs.coinbaseValue);
+            if (inputs.witnessCommitment) params.set('witnessCommitment', inputs.witnessCommitment);
+            if (inputs.merklePath.length > 0) params.set('merklePath', inputs.merklePath.join('\n'));
+
+            const url = window.location.origin + window.location.pathname + '?' + params.toString();
+
+            return `
+                <div class="share-link">
+                    <h3>📋 Share Link</h3>
+                    <input type="text" value="${url}" readonly onclick="this.select(); document.execCommand('copy'); alert('Link copied to clipboard!');">
+                </div>
+            `;
+        }
+
+        // ============================================================================
+        // MAIN HASH CALCULATION
+        // ============================================================================
+
+        async function calculateHash() {
+            try {
+                // Read inputs
+                const inputs = {
+                    version: parseInt(document.getElementById('version').value),
+                    prevBlockHash: document.getElementById('prevBlockHash').value.replace(/^0x/, ''),
+                    timestamp: parseInt(document.getElementById('timestamp').value),
+                    bits: parseInt(document.getElementById('bits').value),
+                    nonce: parseInt(document.getElementById('nonce').value),
+                    blockHeight: parseInt(document.getElementById('blockHeight').value),
+                    poolTag: document.getElementById('poolTag').value,
+                    minerTag: document.getElementById('minerTag').value,
+                    extranonce: document.getElementById('extranonce').value.replace(/^0x/, ''),
+                    coinbaseAddress: document.getElementById('coinbaseAddress').value,
+                    coinbaseValue: parseInt(document.getElementById('coinbaseValue').value),
+                    witnessCommitment: document.getElementById('witnessCommitment').value.replace(/^0x/, ''),
+                    merklePath: document.getElementById('merklePath').value.split('\n').filter(s => s.trim()).map(s => s.trim().replace(/^0x/, ''))
+                };
+
+                let output = '<div class="output">';
+
+                // STEP 1: Build Coinbase Transaction
+                output += '<h3>STEP 1: Build Coinbase Transaction</h3>';
+
+                const coinbaseParts = [];
+                coinbaseParts.push(uint32LE(2)); // Version 2
+                coinbaseParts.push(new Uint8Array([0x00, 0x01])); // SegWit marker and flag
+                coinbaseParts.push(encodeVarInt(1)); // Input count
+                coinbaseParts.push(new Uint8Array(32).fill(0)); // Null hash
+                coinbaseParts.push(new Uint8Array([0xff, 0xff, 0xff, 0xff])); // Index 0xffffffff
+
+                // ScriptSig
+                const scriptSigParts = [];
+                scriptSigParts.push(encodeBlockHeight(inputs.blockHeight));
+
+                const tagString = `/${inputs.poolTag}/${inputs.minerTag}//`;
+                const tagBytes = new TextEncoder().encode(tagString);
+                scriptSigParts.push(new Uint8Array([tagBytes.length]));
+                scriptSigParts.push(tagBytes);
+
+                const extranonceBytes = hexToBytes(inputs.extranonce);
+                scriptSigParts.push(new Uint8Array([extranonceBytes.length]));
+                scriptSigParts.push(extranonceBytes);
+
+                const scriptSig = concatBuffers(...scriptSigParts);
+                coinbaseParts.push(encodeVarInt(scriptSig.length));
+                coinbaseParts.push(scriptSig);
+                coinbaseParts.push(new Uint8Array([0xff, 0xff, 0xff, 0xff])); // Sequence
+
+                // Outputs
+                const hasWitness = inputs.witnessCommitment && inputs.witnessCommitment.length > 0;
+                coinbaseParts.push(encodeVarInt(hasWitness ? 2 : 1));
+
+                const valueBuf = new Uint8Array(8);
+                new DataView(valueBuf.buffer).setBigUint64(0, BigInt(inputs.coinbaseValue), true);
+                coinbaseParts.push(valueBuf);
+
+                const scriptPubKey = addressToScriptPubKey(inputs.coinbaseAddress);
+                coinbaseParts.push(encodeVarInt(scriptPubKey.length));
+                coinbaseParts.push(scriptPubKey);
+
+                if (hasWitness) {
+                    const witnessValue = new Uint8Array(8).fill(0);
+                    coinbaseParts.push(witnessValue);
+
+                    const commitmentBytes = hexToBytes(inputs.witnessCommitment);
+                    const witnessScript = concatBuffers(
+                        new Uint8Array([0x6a]), // OP_RETURN
+                        new Uint8Array([0x24]), // 36 bytes
+                        new Uint8Array([0xaa, 0x21, 0xa9, 0xed]),
+                        commitmentBytes
+                    );
+                    coinbaseParts.push(encodeVarInt(witnessScript.length));
+                    coinbaseParts.push(witnessScript);
+                }
+
+                coinbaseParts.push(new Uint8Array([0x00])); // Witness data
+                coinbaseParts.push(uint32LE(0)); // Locktime
+
+                const coinbaseTx = concatBuffers(...coinbaseParts);
+                output += `<div><span class="label">Coinbase TX:</span> <span class="value">${bytesToHex(coinbaseTx)}</span></div>`;
+                output += `<div><span class="label">Size:</span> ${coinbaseTx.length} bytes</div>`;
+
+                // STEP 2: Calculate Coinbase TXID
+                output += '<h3>STEP 2: Calculate Coinbase TXID</h3>';
+
+                const coinbaseTxForTxid = concatBuffers(
+                    coinbaseParts[0],
+                    ...coinbaseParts.slice(3, -2),
+                    coinbaseParts[coinbaseParts.length - 1]
+                );
+
+                const coinbaseTxid = await doubleSha256(coinbaseTxForTxid);
+                output += `<div><span class="label">TXID (display):</span> <span class="value">${bytesToHex(reverseBuffer(coinbaseTxid))}</span></div>`;
+
+                // STEP 3: Calculate Merkle Root
+                output += '<h3>STEP 3: Calculate Merkle Root</h3>';
+
+                let merkleRoot = coinbaseTxid;
+
+                if (inputs.merklePath.length === 0) {
+                    output += '<div>Merkle path is empty - coinbase TXID is the merkle root</div>';
+                } else {
+                    output += `<div>Combining with ${inputs.merklePath.length} sibling hashes:</div>`;
+
+                    for (let i = 0; i < inputs.merklePath.length; i++) {
+                        const siblingHash = hexToBytes(inputs.merklePath[i]);
+                        const combined = concatBuffers(merkleRoot, siblingHash);
+                        merkleRoot = await doubleSha256(combined);
+
+                        output += `<div>Step ${i + 1}: ${bytesToHex(merkleRoot).substring(0, 16)}...</div>`;
+                    }
+                }
+
+                output += `<div><span class="label">Merkle Root (display):</span> <span class="value">${bytesToHex(reverseBuffer(merkleRoot))}</span></div>`;
+
+                // STEP 4: Build Block Header
+                output += '<h3>STEP 4: Build Block Header (80 bytes)</h3>';
+
+                const headerParts = [];
+                headerParts.push(uint32LE(inputs.version));
+
+                const prevHashBuf = hexToBytes(inputs.prevBlockHash);
+                headerParts.push(reverseBuffer(prevHashBuf));
+
+                headerParts.push(merkleRoot);
+                headerParts.push(uint32LE(inputs.timestamp));
+                headerParts.push(uint32LE(inputs.bits));
+                headerParts.push(uint32LE(inputs.nonce));
+
+                const blockHeader = concatBuffers(...headerParts);
+                output += `<div><span class="label">Block Header:</span> <span class="value">${bytesToHex(blockHeader)}</span></div>`;
+
+                // STEP 5: Calculate Block Hash
+                output += '<h3>STEP 5: Calculate Block Hash</h3>';
+
+                const blockHash = await doubleSha256(blockHeader);
+                const blockHashDisplay = bytesToHex(reverseBuffer(blockHash));
+                output += `<div><span class="label">Block Hash:</span> <span class="value">${blockHashDisplay}</span></div>`;
+
+                // STEP 6: Verify Difficulty
+                output += '<h3>STEP 6: Verify Difficulty</h3>';
+
+                const leadingZeros = countLeadingZeroBits(blockHash);
+                const target = bitsToTarget(inputs.bits);
+                const requiredZeros = countLeadingZeroBits(target);
+
+                output += `<div><span class="label">Leading zero bits:</span> ${leadingZeros}</div>`;
+                output += `<div><span class="label">Required zero bits:</span> ${requiredZeros}</div>`;
+
+                const hashBigInt = BigInt('0x' + bytesToHex(blockHash));
+                const targetBigInt = BigInt('0x' + bytesToHex(target));
+                const isValid = hashBigInt <= targetBigInt;
+
+                output += `<div><span class="label">Hash meets target:</span> <span class="${isValid ? 'success' : 'error'}">${isValid ? '✓ YES' : '✗ NO'}</span></div>`;
+
+                output += '</div>';
+
+                // Summary
+                const summary = `
+                    <div class="summary ${isValid ? '' : 'invalid'}">
+                        <h3>${isValid ? '✓ VALID SHARE' : '✗ INVALID SHARE'}</h3>
+                        <div class="summary-item">
+                            <span class="summary-label">Block Height:</span>
+                            <span class="summary-value">${inputs.blockHeight}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Pool Tag:</span>
+                            <span class="summary-value">${inputs.poolTag}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Miner Tag:</span>
+                            <span class="summary-value">${inputs.minerTag}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Coinbase Value:</span>
+                            <span class="summary-value">${inputs.coinbaseValue} satoshis (${inputs.coinbaseValue / 100000000} BTC)</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Block Hash:</span>
+                            <span class="summary-value">${blockHashDisplay}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Leading Zeros:</span>
+                            <span class="summary-value">${leadingZeros} bits</span>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('results').innerHTML = summary + output;
+                document.getElementById('shareLink').innerHTML = generateShareLink(inputs);
+
+            } catch (error) {
+                document.getElementById('results').innerHTML = `
+                    <div class="summary invalid">
+                        <h3>❌ Error</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load values from URL on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadFromURL();
+            // Auto-calculate if URL params are present
+            if (window.location.search) {
+                calculateHash();
+            }
+        });
+    </script>
+</body>
+</html>

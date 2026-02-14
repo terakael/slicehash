@@ -1535,6 +1535,104 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             block_target_level=int(block_target_level),
         )
 
+    @app.get("/hash-validator/<int:share_id>")
+    @require_auth
+    async def hash_validator_page(share_id: int):
+        """Render hash validator page for a specific share.
+
+        Args:
+            share_id: ID of the share to validate
+
+        Returns:
+            HTML template for hash validator page
+        """
+        async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            shares_remaining = await calculate_shares_remaining(db, request.user_id)
+
+        # Get current block target level from cached value (updated by share processor)
+        block_target_level = 0
+        if share_processor and share_processor.current_block_target:
+            block_target_level = calculate_level(share_processor.current_block_target)
+
+        return await render_template(
+            "hash-validator.html",
+            shares_remaining=shares_remaining,
+            block_target_level=int(block_target_level),
+            share_id=share_id,
+        )
+
+    @app.get("/api/shares/<int:share_id>/validator-data")
+    @require_auth
+    async def get_validator_data(share_id: int):
+        """Get all data needed for hash validation.
+
+        Args:
+            share_id: ID of the share
+
+        Returns:
+            JSON with all hash validation fields
+        """
+        try:
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
+                # Fetch share data
+                query = """
+                    SELECT
+                        se.id, se.submitted_at, se.user_id, se.nonce, se.ntime,
+                        se.version, se.coinbase_address, se.coinbase_prefix_tag,
+                        se.share_hash, se.is_block, se.level
+                    FROM share_events se
+                    WHERE se.id = $1 AND se.user_id = $2
+                """
+                row = await db.fetchrow(query, share_id, request.user_id)
+
+                if not row:
+                    return jsonify({"error": "Share not found"}), 404
+
+                # Parse coinbase_prefix_tag to extract pool and miner tags
+                # Format is typically "/poolTag/minerTag//"
+                prefix_tag = row["coinbase_prefix_tag"]
+                pool_tag = "Mineshare"
+                miner_tag = ""
+
+                if prefix_tag:
+                    parts = prefix_tag.strip("/").split("/")
+                    if len(parts) >= 1:
+                        pool_tag = parts[0]
+                    if len(parts) >= 2:
+                        miner_tag = parts[1]
+
+                # Mock missing data (to be replaced with real data later)
+                # Using realistic Bitcoin values for demonstration
+                data = {
+                    # Real data from database
+                    "share_id": row["id"],
+                    "nonce": row["nonce"],
+                    "timestamp": row["ntime"],
+                    "version": hex(row["version"]),
+                    "coinbase_address": row["coinbase_address"],
+                    "pool_tag": pool_tag,
+                    "miner_tag": miner_tag,
+                    "share_hash": row["share_hash"],
+                    "level": row["level"],
+                    "is_block": bool(row["is_block"]),
+                    # Mocked data (TODO: get from pool/job data)
+                    "prev_block_hash": "00000000000000000002f6b1e64e3d7f9c7c8b5e4c3d2a1b0f9e8d7c6b5a4938",
+                    "bits": "0x17034219",
+                    "block_height": 850000,
+                    "extranonce": "0000000000000000",
+                    "coinbase_value": 625000000,
+                    "witness_commitment": "",
+                    "merkle_path": [],
+                }
+
+                return jsonify(data), 200
+
+        except Exception as e:
+            logger.error(f"Failed to fetch validator data: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
     return app
 
 

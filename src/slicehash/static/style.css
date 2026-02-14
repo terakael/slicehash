@@ -489,6 +489,7 @@ footer {
 
 /* Share Card */
 .share-card {
+    position: relative;
     background-color: #2a1a0a;
     border: 4px solid #1a0f05;
     border-right-color: #0d0702;
@@ -1574,4 +1575,316 @@ footer {
 .btn-logout:active {
     transform: translateY(4px);
     box-shadow: 0 0 0 #5a0000, 0 4px 4px rgba(0,0,0,0.8);
+}
+
+/* ============================================================================
+   HASH VALIDATOR STYLES
+   ============================================================================ */
+
+.hash-validator-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-bottom: 100px;
+}
+
+.validator-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.validator-header h1 {
+    font-size: 16px;
+    color: #f7931a;
+    margin-bottom: 12px;
+    text-shadow: 3px 3px 0px #c46700;
+}
+
+.validator-subtitle {
+    font-size: 8px;
+    color: #cccccc;
+    line-height: 1.6;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 10px;
+    color: #f7931a;
+}
+
+.validator-section {
+    background-color: #1a0f05;
+    border: 4px solid #0d0702;
+    border-right-color: #000000;
+    border-bottom-color: #000000;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 0 #000000, 0 8px 8px rgba(0,0,0,0.8);
+}
+
+.validator-section h2 {
+    font-size: 10px;
+    color: #f7931a;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #0d0702;
+}
+
+.validator-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 7px;
+    color: #aaaaaa;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.validator-input {
+    width: 100%;
+    padding: 10px;
+    background-color: #0d0702;
+    border: 3px solid #1a0f05;
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    transition: border-color 0.2s;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+}
+
+.validator-input:focus {
+    outline: none;
+    border-color: #f7931a;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.6), 0 0 8px rgba(247, 147, 26, 0.3);
+}
+
+textarea.validator-input {
+    resize: vertical;
+    min-height: 80px;
+    font-family: 'Courier New', monospace;
+}
+
+.validator-btn {
+    display: block;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto 32px;
+    background-color: #f7931a;
+    color: #000000;
+    border: 4px solid #c46700;
+    border-right-color: #8b4700;
+    border-bottom-color: #8b4700;
+    padding: 16px 32px;
+    font-size: 11px;
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 4px 0 #8b4700, 0 8px 8px rgba(0,0,0,0.8);
+    transition: transform 0.05s;
+    text-transform: uppercase;
+}
+
+.validator-btn:hover {
+    background-color: #ffaa3a;
+}
+
+.validator-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #8b4700, 0 4px 4px rgba(0,0,0,0.8);
+}
+
+.validator-output {
+    background-color: #0d0702;
+    border: 4px solid #000000;
+    padding: 20px;
+    margin-top: 32px;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    line-height: 1.8;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+}
+
+.validator-output h3 {
+    color: #4a9eff;
+    font-size: 10px;
+    margin: 20px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #1a0f05;
+    font-family: 'Press Start 2P', monospace;
+}
+
+.validator-output h3:first-child {
+    margin-top: 0;
+}
+
+.output-item {
+    margin-bottom: 10px;
+    padding: 6px 0;
+}
+
+.output-label {
+    color: #9cdcfe;
+    font-weight: bold;
+}
+
+.output-value {
+    color: #ce9178;
+}
+
+.hash-display {
+    word-break: break-all;
+    font-size: 9px;
+}
+
+.output-success {
+    color: #4ec9b0;
+    font-weight: bold;
+}
+
+.output-error {
+    color: #f48771;
+    font-weight: bold;
+}
+
+.validator-summary {
+    background-color: #1a0f05;
+    border: 4px solid #4ec9b0;
+    border-right-color: #3a9580;
+    border-bottom-color: #3a9580;
+    padding: 20px;
+    margin-bottom: 32px;
+    box-shadow: 0 4px 0 #3a9580, 0 8px 8px rgba(0,0,0,0.8);
+}
+
+.validator-summary.invalid {
+    border-color: #f48771;
+    border-right-color: #c46760;
+    border-bottom-color: #c46760;
+    box-shadow: 0 4px 0 #c46760, 0 8px 8px rgba(0,0,0,0.8);
+}
+
+.validator-summary h3 {
+    font-size: 11px;
+    color: #4ec9b0;
+    margin-bottom: 16px;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+}
+
+.validator-summary.invalid h3 {
+    color: #f48771;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 2px solid #0d0702;
+    font-size: 8px;
+    gap: 16px;
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+.summary-label {
+    color: #aaaaaa;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.summary-value {
+    color: #e0e0e0;
+    text-align: right;
+    word-break: break-all;
+    font-family: 'Courier New', monospace;
+}
+
+.text-success {
+    color: #4ec9b0;
+}
+
+.text-error {
+    color: #f48771;
+}
+
+/* Validator link on share cards */
+.share-validator-link {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background-color: rgba(247, 147, 26, 0.2);
+    border: 2px solid #f7931a;
+    color: #f7931a;
+    padding: 4px 8px;
+    font-size: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.1s;
+    box-shadow: 0 2px 0 rgba(139, 71, 0, 0.8);
+}
+
+.share-validator-link:hover {
+    background-color: rgba(247, 147, 26, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 0 rgba(139, 71, 0, 0.8);
+}
+
+.share-validator-link:active {
+    transform: translateY(0);
+    box-shadow: 0 0 0 rgba(139, 71, 0, 0.8);
+}
+
+@media (max-width: 768px) {
+    .validator-header h1 {
+        font-size: 12px;
+    }
+
+    .validator-subtitle {
+        font-size: 7px;
+    }
+
+    .validator-section {
+        padding: 16px;
+    }
+
+    .validator-section h2 {
+        font-size: 9px;
+    }
+
+    .validator-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .validator-btn {
+        font-size: 9px;
+        padding: 12px 24px;
+    }
+
+    .validator-output {
+        padding: 16px;
+        font-size: 9px;
+    }
+
+    .summary-item {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .summary-value {
+        text-align: left;
+    }
 }
