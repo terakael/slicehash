@@ -196,6 +196,10 @@ class ShareProcessor:
         # Step 2: Calculate level from share hash
         level = calculate_level(share_hash) if share_hash else 0
 
+        # Step 2b: Apply test network logic
+        if self.config.is_test_network:
+            is_block = level >= self.config.test_network_block_level
+
         # Calculate block target level
         block_target_level = (
             calculate_level(self.current_block_target)
@@ -224,7 +228,9 @@ class ShareProcessor:
 
         # Step 5: Store share event
         # Convert Unix timestamp to UTC datetime, then make it naive for database storage
-        submitted_at_dt = datetime.fromtimestamp(ntime, tz=timezone.utc).replace(tzinfo=None)
+        submitted_at_dt = datetime.fromtimestamp(ntime, tz=timezone.utc).replace(
+            tzinfo=None
+        )
         share_id = await db.fetchval(
             """
             INSERT INTO share_events

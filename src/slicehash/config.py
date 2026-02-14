@@ -32,12 +32,9 @@ class Config(BaseModel):
     """
 
     billable_difficulty_threshold: float = Field(
-        gt=0,
-        description="Minimum difficulty for billable shares"
+        gt=0, description="Minimum difficulty for billable shares"
     )
-    pool_url: HttpUrl = Field(
-        description="URL of the SV2 pool"
-    )
+    pool_url: HttpUrl = Field(description="URL of the SV2 pool")
     database_url: str = Field(
         description="PostgreSQL connection URL (e.g., postgresql://user:pass@host:port/db)"
     )
@@ -45,42 +42,33 @@ class Config(BaseModel):
         description="Secret key for JWT token signing (generate with: openssl rand -hex 32)"
     )
     jwt_expiration_seconds: int = Field(
-        default=2592000,
-        gt=0,
-        description="JWT token expiration in seconds"
+        default=2592000, gt=0, description="JWT token expiration in seconds"
     )
     lnurl_callback_url: str = Field(
         description="Public callback URL for LNURL-auth (must be HTTPS in production)"
     )
     auth_challenge_expiration_seconds: int = Field(
-        default=300,
-        gt=0,
-        description="k1 challenge expiration in seconds"
+        default=300, gt=0, description="k1 challenge expiration in seconds"
     )
-    redis_host: str = Field(
-        default="localhost",
-        description="Redis server host"
-    )
-    redis_port: int = Field(
-        default=6379,
-        gt=0,
-        description="Redis server port"
-    )
+    redis_host: str = Field(default="localhost", description="Redis server host")
+    redis_port: int = Field(default=6379, gt=0, description="Redis server port")
     redis_password: str | None = Field(
-        default=None,
-        description="Redis authentication password (optional)"
+        default=None, description="Redis authentication password (optional)"
     )
     redis_stream_key: str = Field(
-        default="slicehash:shares",
-        description="Redis stream key name for shares"
+        default="slicehash:shares", description="Redis stream key name for shares"
     )
     redis_consumer_group: str = Field(
-        default="slicehash-processors",
-        description="Redis consumer group name"
+        default="slicehash-processors", description="Redis consumer group name"
     )
     redis_consumer_name: str = Field(
-        default="processor-1",
-        description="Redis consumer name"
+        default="processor-1", description="Redis consumer name"
+    )
+    is_test_network: bool = Field(
+        default=False, description="Enable test network mode with modified block logic"
+    )
+    test_network_block_level: int = Field(
+        default=60, ge=0, description="Block level threshold for test network mode"
     )
 
 
@@ -123,6 +111,4 @@ def load_config(path: str = "config.yaml") -> Config:
     try:
         return Config(**data)
     except Exception as e:
-        raise ValueError(
-            f"Configuration validation failed for {path}:\n{e}"
-        ) from e
+        raise ValueError(f"Configuration validation failed for {path}:\n{e}") from e
