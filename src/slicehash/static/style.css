@@ -497,6 +497,7 @@ footer {
     padding: 20px;
     transition: transform 0.05s, box-shadow 0.05s, margin-top 0.3s ease, opacity 0.3s ease;
     box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+    cursor: pointer;
 }
 
 .share-card:active {

@@ -125,6 +125,10 @@ function renderShareCards(shares) {
             </div>
         `;
 
+        card.addEventListener('click', () => {
+            window.location.href = `/hash-validator/${share.share_id}`;
+        });
+
         container.appendChild(card);
         observeCard(card);
     });

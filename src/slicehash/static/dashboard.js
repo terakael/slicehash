@@ -179,7 +179,6 @@ function renderShareCards(shares, append) {
         const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
 
         card.innerHTML = `
-            <a href="/hash-validator/${share.share_id}" class="share-validator-link" title="Validate this hash">🔍</a>
             <div class="share-card-header">
                 <div class="share-header-top">
                     <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
@@ -193,6 +192,10 @@ function renderShareCards(shares, append) {
                 <span class="share-hash">${share.share_hash}</span>
             </div>
         `;
+
+        card.addEventListener('click', () => {
+            window.location.href = `/hash-validator/${share.share_id}`;
+        });
 
         container.appendChild(card);
         observeCard(card);
@@ -283,7 +286,6 @@ function handleNewShare(share) {
     const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
 
     card.innerHTML = `
-        <a href="/hash-validator/${share.share_id}" class="share-validator-link" title="Validate this hash">🔍</a>
         <div class="share-card-header">
             <div class="share-header-top">
                 <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
@@ -297,6 +299,10 @@ function handleNewShare(share) {
             <span class="share-hash">${share.share_hash}</span>
         </div>
     `;
+
+    card.addEventListener('click', () => {
+        window.location.href = `/hash-validator/${share.share_id}`;
+    });
 
     // Determine insertion position based on mode
     let insertBefore = null;
