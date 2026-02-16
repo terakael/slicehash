@@ -626,7 +626,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get paginated results (newest first)
                 rows = await db.fetch(
                     """
-                    SELECT submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag, block_height
+                    SELECT submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
                     FROM share_events
                     WHERE user_id = $1
                     ORDER BY submitted_at DESC
@@ -782,7 +782,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             ) as db:
                 if since_id:
                     query = """
-                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag, block_height
+                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
                         FROM share_events
                         WHERE user_id = $1 AND id > $2
                         ORDER BY id ASC
@@ -791,7 +791,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     rows = await db.fetch(query, user_id, since_id, limit)
                 else:
                     query = """
-                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag, block_height
+                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
                         FROM share_events
                         WHERE user_id = $1 AND submitted_at > $2
                         ORDER BY id ASC
@@ -873,7 +873,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Get paginated results
             query = f"""
                 SELECT id, submitted_at, level, is_block, share_hash,
-                       billable, shares_consumed, coinbase_prefix_tag, block_height
+                       billable, shares_consumed, coinbase_prefix_tag
                 FROM share_events
                 {where_clause}
                 {order_by}
@@ -942,7 +942,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Single query: fetch latest N by time
             check_query = """
                 SELECT id, submitted_at, level, is_block, share_hash,
-                       billable, shares_consumed, coinbase_prefix_tag, block_height
+                       billable, shares_consumed, coinbase_prefix_tag
                 FROM share_events
                 WHERE user_id = $1
                 ORDER BY submitted_at DESC
@@ -1045,7 +1045,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     # Get by level
                     best_query = f"""
                         SELECT id, submitted_at, level, is_block, share_hash,
-                               billable, shares_consumed, coinbase_prefix_tag, block_height
+                               billable, shares_consumed, coinbase_prefix_tag
                         FROM share_events
                         {where_clause}
                         ORDER BY level DESC, submitted_at DESC
@@ -1415,7 +1415,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 query = f"""
                     SELECT
                         id, submitted_at, level, is_block, share_hash,
-                        billable, shares_consumed, coinbase_prefix_tag, block_height
+                        billable, shares_consumed, coinbase_prefix_tag
                     FROM share_events
                     {where_clause}
                     {order_by}
@@ -1584,34 +1584,19 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             async with DatabaseManager(
                 app.config["SLICEHASH_CONFIG"].database_url
             ) as db:
-                # Fetch share data with validation details
+                # Fetch share data
                 query = """
                     SELECT
-                        se.id, se.submitted_at, se.user_id, se.coinbase_prefix_tag,
-                        se.share_hash, se.is_block, se.level, se.block_height,
-                        sv.nonce, sv.ntime, sv.version, sv.coinbase_address,
-                        sv.prev_block_hash, sv.bits, sv.extranonce,
-                        sv.coinbase_value, sv.witness_commitment
+                        se.id, se.submitted_at, se.user_id, se.nonce, se.ntime,
+                        se.version, se.coinbase_address, se.coinbase_prefix_tag,
+                        se.share_hash, se.is_block, se.level
                     FROM share_events se
-                    JOIN share_validation sv ON se.id = sv.share_id
                     WHERE se.id = $1 AND se.user_id = $2
                 """
                 row = await db.fetchrow(query, share_id, request.user_id)
 
                 if not row:
                     return jsonify({"error": "Share not found"}), 404
-
-                # Fetch merkle path (ordered by position)
-                merkle_rows = await db.fetch(
-                    """
-                    SELECT merkle_hash
-                    FROM share_merkle_path
-                    WHERE share_id = $1
-                    ORDER BY position
-                    """,
-                    share_id,
-                )
-                merkle_path = [r["merkle_hash"] for r in merkle_rows]
 
                 # Parse coinbase_prefix_tag to extract pool and miner tags
                 # Format is typically "/poolTag/minerTag//"
@@ -1626,29 +1611,28 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     if len(parts) >= 2:
                         miner_tag = parts[1]
 
-                # Build response with real data from database
+                # Mock missing data (to be replaced with real data later)
+                # Using realistic Bitcoin values for demonstration
                 data = {
+                    # Real data from database
                     "share_id": row["id"],
                     "nonce": row["nonce"],
                     "timestamp": row["ntime"],
-                    "version": hex(row["version"]) if row["version"] else None,
+                    "version": hex(row["version"]),
                     "coinbase_address": row["coinbase_address"],
                     "pool_tag": pool_tag,
                     "miner_tag": miner_tag,
                     "share_hash": row["share_hash"],
                     "level": row["level"],
                     "is_block": bool(row["is_block"]),
-                    "prev_block_hash": row["prev_block_hash"],
-                    "bits": row["bits"],
-                    "block_height": (
-                        int(row["block_height"]) if row["block_height"] else None
-                    ),
-                    "extranonce": row["extranonce"],
-                    "coinbase_value": (
-                        int(row["coinbase_value"]) if row["coinbase_value"] else None
-                    ),
-                    "witness_commitment": row["witness_commitment"] or "",
-                    "merkle_path": merkle_path,
+                    # Mocked data (TODO: get from pool/job data)
+                    "prev_block_hash": "00000000000000000002f6b1e64e3d7f9c7c8b5e4c3d2a1b0f9e8d7c6b5a4938",
+                    "bits": "0x17034219",
+                    "block_height": 850000,
+                    "extranonce": "0000000000000000",
+                    "coinbase_value": 625000000,
+                    "witness_commitment": "",
+                    "merkle_path": [],
                 }
 
                 return jsonify(data), 200

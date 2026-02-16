@@ -12,7 +12,6 @@ This module provides the ShareProcessor class which:
 """
 
 import asyncio
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -165,7 +164,7 @@ class ShareProcessor:
         2. Calculate level from share hash
         3. Classify billable based on level or other criteria
         4. Calculate traffic level and shares consumed
-        5. Store share event in database (share_events, share_validation, share_merkle_path)
+        5. Store share event in database
         6. Update rotation state
         7. Check if rotation needed
         8. If yes: select next user and update pool
@@ -182,15 +181,6 @@ class ShareProcessor:
         coinbase_prefix_tag = share_data["coinbase_prefix_tag"]
         share_hash = share_data.get("share_hash")
         is_block = share_data["is_block"]
-
-        # Hash verification fields
-        prev_block_hash = share_data.get("prev_block_hash")
-        bits = share_data.get("bits")
-        merkle_path = share_data.get("merkle_path")  # JSON string or parsed list
-        block_height = share_data.get("block_height")
-        extranonce = share_data.get("extranonce")
-        coinbase_value = share_data.get("coinbase_value")
-        witness_commitment = share_data.get("witness_commitment")
 
         db = self._db_conn
 
@@ -227,77 +217,32 @@ class ShareProcessor:
 
             shares_consumed = calculate_shares_consumed(priority, traffic_level)
 
-        # Step 5: Store share event (normalized across three tables)
+        # Step 5: Store share event
         # Convert Unix timestamp to UTC datetime, then make it naive for database storage
         submitted_at_dt = datetime.fromtimestamp(ntime, tz=timezone.utc).replace(
             tzinfo=None
         )
-
-        # Insert into main share_events table (lean, for listing)
         share_id = await db.fetchval(
             """
             INSERT INTO share_events
-            (user_id, share_hash, is_block, level, billable, shares_consumed,
-             coinbase_prefix_tag, block_height, submitted_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            (user_id, nonce, ntime, version, coinbase_address, coinbase_prefix_tag,
+             share_hash, is_block, level, billable, shares_consumed, submitted_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING id
             """,
             user_id,
+            nonce,
+            ntime,
+            version,
+            coinbase_address,
+            coinbase_prefix_tag,
             share_hash,
             1 if is_block else 0,
             level,
             1 if billable else 0,
             shares_consumed,
-            coinbase_prefix_tag,
-            block_height,
             submitted_at_dt,
         )
-
-        # Insert into share_validation table (detailed mining parameters)
-        await db.execute(
-            """
-            INSERT INTO share_validation
-            (share_id, nonce, ntime, version, coinbase_address,
-             prev_block_hash, bits, extranonce, coinbase_value, witness_commitment)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            """,
-            share_id,
-            nonce,
-            ntime,
-            version,
-            coinbase_address,
-            prev_block_hash,
-            bits,
-            extranonce,
-            coinbase_value,
-            witness_commitment,
-        )
-
-        # Insert merkle path hashes if present
-        if merkle_path:
-            # Parse merkle_path if it's a JSON string
-            if isinstance(merkle_path, str):
-                try:
-                    merkle_hashes = json.loads(merkle_path)
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse merkle_path JSON: {merkle_path}")
-                    merkle_hashes = []
-            else:
-                merkle_hashes = merkle_path
-
-            # Insert each merkle hash with its position
-            if merkle_hashes:
-                for position, merkle_hash in enumerate(merkle_hashes):
-                    await db.execute(
-                        """
-                        INSERT INTO share_merkle_path
-                        (share_id, position, merkle_hash)
-                        VALUES ($1, $2, $3)
-                        """,
-                        share_id,
-                        position,
-                        merkle_hash,
-                    )
 
         logger.info(
             f"Stored share: user={user_id}, level={level}, "
