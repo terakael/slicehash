@@ -50,6 +50,7 @@ from .priority import TrafficLevel, calculate_traffic_level
 from .quota import calculate_shares_remaining, get_active_users
 from .redis_consumer import RedisStreamConsumer
 from .share_processor import ShareProcessor
+from .difficulty_poller import DifficultyPoller
 from .sse_manager import AuthNotification, ShareNotification, SSEManager
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ logger = logging.getLogger(__name__)
 share_queue: Optional[asyncio.Queue] = None
 share_processor: Optional[ShareProcessor] = None
 redis_consumer: Optional[RedisStreamConsumer] = None
+difficulty_poller: Optional[DifficultyPoller] = None
 sse_manager: SSEManager
 
 
@@ -170,7 +172,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     app.config["SLICEHASH_CONFIG"] = config
 
     # Initialize share queue (in-memory, unbounded)
-    global share_queue, share_processor, redis_consumer, sse_manager, highscores_cache
+    global share_queue, share_processor, redis_consumer, difficulty_poller, sse_manager, highscores_cache
     share_queue = asyncio.Queue()
 
     # Initialize SSE manager
@@ -185,6 +187,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     # Initialize Redis stream consumer
     redis_consumer = RedisStreamConsumer(config, share_queue)
 
+    # Initialize difficulty poller (will start background task)
+    difficulty_poller = DifficultyPoller(config, share_processor)
+
     @app.before_serving
     async def startup():
         """Start background share processor and Redis consumer."""
@@ -198,11 +203,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         # Start background services (share processor loads block target on startup)
         await share_processor.start()
         await redis_consumer.start()
+        await difficulty_poller.start()
         logger.info("SliceHash application started")
 
     @app.after_serving
     async def shutdown():
-        """Stop background share processor and Redis consumer."""
+        """Stop background services."""
+        await difficulty_poller.stop()
         await redis_consumer.stop()
         await share_processor.stop()
         logger.info("SliceHash application stopped")

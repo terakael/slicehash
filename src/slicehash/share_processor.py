@@ -8,7 +8,7 @@ This module provides the ShareProcessor class which:
 - Manages rotation state in memory
 - Triggers rotation when conditions met
 - Updates pool coinbase address on rotation
-- Tracks and updates block target changes
+- Tracks current block target for level calculation
 """
 
 import asyncio
@@ -112,6 +112,18 @@ class ShareProcessor:
 
         logger.info("Share processor stopped")
 
+    def update_block_target(self, new_target: str):
+        """Update the current block target.
+
+        This method allows external components (like DifficultyPoller) to update
+        the block target without going through share event processing.
+
+        Args:
+            new_target: New block target hash (64-character hex string)
+        """
+        self.current_block_target = new_target
+        logger.debug(f"Block target updated to: {new_target[:16]}...")
+
     async def _process_loop(self):
         """Main processing loop - runs continuously."""
         while self._running:
@@ -170,7 +182,6 @@ class ShareProcessor:
         coinbase_prefix_tag = share_data["coinbase_prefix_tag"]
         share_hash = share_data.get("share_hash")
         is_block = share_data["is_block"]
-        block_target = share_data.get("block_target")
 
         # Hash verification fields
         prev_block_hash = share_data.get("prev_block_hash")
@@ -183,30 +194,10 @@ class ShareProcessor:
 
         db = self._db_conn
 
-        # Step 1: Check and update block target if changed
-        if block_target and block_target != self.current_block_target:
-            logger.info(
-                f"Block target changed: {self.current_block_target} -> {block_target}"
-            )
-            self.current_block_target = block_target
-
-            # Update database
-            await db.execute(
-                """
-                INSERT INTO global_state (key, value, updated_at)
-                VALUES ($1, $2, NOW())
-                ON CONFLICT (key) DO UPDATE SET
-                    value = EXCLUDED.value,
-                    updated_at = EXCLUDED.updated_at
-                """,
-                "current_block_target",
-                str(block_target),
-            )
-
-        # Step 2: Calculate level from share hash
+        # Step 1: Calculate level from share hash
         level = calculate_level(share_hash) if share_hash else 0
 
-        # Step 2b: Apply test network logic
+        # Step 2: Apply test network logic
         if self.config.is_test_network:
             is_block = level >= self.config.test_network_block_level
 

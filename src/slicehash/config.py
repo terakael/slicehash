@@ -29,6 +29,10 @@ class Config(BaseModel):
         redis_stream_key: Redis stream key name for shares.
         redis_consumer_group: Redis consumer group name.
         redis_consumer_name: Redis consumer name.
+        btc_rpc_host: Bitcoin Core RPC server host.
+        btc_rpc_port: Bitcoin Core RPC server port.
+        btc_rpc_user: Bitcoin Core RPC username.
+        btc_rpc_password: Bitcoin Core RPC password.
     """
 
     billable_difficulty_threshold: float = Field(
@@ -69,6 +73,18 @@ class Config(BaseModel):
     )
     test_network_block_level: int = Field(
         default=60, ge=0, description="Block level threshold for test network mode"
+    )
+    btc_rpc_host: str = Field(
+        default="127.0.0.1", description="Bitcoin Core RPC host"
+    )
+    btc_rpc_port: int = Field(
+        default=8332, gt=0, description="Bitcoin Core RPC port"
+    )
+    btc_rpc_user: str = Field(
+        description="Bitcoin Core RPC username"
+    )
+    btc_rpc_password: str = Field(
+        description="Bitcoin Core RPC password"
     )
 
 
