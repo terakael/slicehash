@@ -912,7 +912,7 @@ footer {
 }
 
 .share-card-new {
-    animation: slideInFromTop 0.6s steps(5) forwards;
+    animation: blockCelebration 0.6s ease-out;
     overflow: hidden;
 }
 
