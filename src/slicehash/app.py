@@ -7,25 +7,20 @@ This module provides the HTTP server with:
 """
 
 import asyncio
-import io
 import json
 import logging
 import re
 import time
 from dataclasses import asdict
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
-import qrcode
-from PIL import Image
 from pydantic import BaseModel, Field, ValidationError, validator
 from quart import (
     Quart,
     Response,
     current_app,
     jsonify,
-    make_response,
     redirect,
     render_template,
     request,
@@ -45,13 +40,15 @@ from .auth import (
 )
 from .config import Config, load_config
 from .db.manager import DatabaseManager, init_database
+from .difficulty_poller import DifficultyPoller
 from .hash_utils import calculate_level
 from .priority import TrafficLevel, calculate_traffic_level
+from .qr_utils import serve_qr_image
 from .quota import calculate_shares_remaining, get_active_users
 from .redis_consumer import RedisStreamConsumer
 from .share_processor import ShareProcessor
-from .difficulty_poller import DifficultyPoller
 from .sse_manager import AuthNotification, ShareNotification, SSEManager
+from .sse_utils import create_sse_endpoint, format_sse_event
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +268,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         try:
             config_obj = app.config["SLICEHASH_CONFIG"]
 
+            # Validate k1 challenge
             async with DatabaseManager(config_obj.database_url) as db:
                 row = await db.fetchrow(
                     "SELECT expires_at FROM auth_challenges WHERE k1 = $1", k1
@@ -279,51 +277,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 if not row or int(time.time()) > row["expires_at"]:
                     return jsonify({"error": "Invalid or expired challenge"}), 404
 
+            # Generate LNURL for callback
             callback_url = (
                 f"{config_obj.lnurl_callback_url}?tag=login&k1={k1}&action=login"
             )
             lnurl_string = lnurl_encode(callback_url)
 
-            qr = qrcode.QRCode(
-                version=None,  # Auto-select version based on data
-                error_correction=qrcode.constants.ERROR_CORRECT_H,  # High error correction for logo overlay
-                box_size=8,
-                border=2,
-            )
-            qr.add_data(lnurl_string)
-            qr.make(fit=True)
+            # Generate and serve QR code with logo
+            return await serve_qr_image(lnurl_string)
 
-            img = qr.make_image(fill_color="black", back_color="white")
-            img = img.convert("RGB")  # Convert to RGB for logo overlay
-
-            # Load and embed logo in center
-            logo_path = Path(current_app.static_folder) / "favicon-32x32.png"
-            if logo_path.exists():
-                logo = Image.open(logo_path)
-
-                # Calculate logo size (20% of QR code size)
-                qr_width, qr_height = img.size
-                logo_size = int(min(qr_width, qr_height) * 0.2)
-                logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-
-                # Add white background to logo if it has transparency
-                if logo.mode in ("RGBA", "LA"):
-                    background = Image.new("RGB", logo.size, (255, 255, 255))
-                    if logo.mode == "RGBA":
-                        background.paste(logo, mask=logo.split()[3])
-                    else:
-                        background.paste(logo, mask=logo.split()[1])
-                    logo = background
-
-                # Calculate center position and paste logo
-                logo_pos = ((qr_width - logo_size) // 2, (qr_height - logo_size) // 2)
-                img.paste(logo, logo_pos)
-
-            img_io = io.BytesIO()
-            img.save(img_io, "PNG")
-            img_io.seek(0)
-
-            return await send_file(img_io, mimetype="image/png")
         except Exception as e:
             logger.error(f"QR code generation error: {e}")
             return jsonify({"error": "Internal error"}), 500
@@ -407,30 +369,22 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             try:
                 # Subscribe using k1 as channel identifier
                 queue = await sse_manager.subscribe(f"auth:{k1}")
-                yield f"event: connected\ndata: {json.dumps({'k1': k1})}\n\n"
+
+                # Send connected event
+                yield format_sse_event("connected", {"k1": k1})
 
                 # Wait for auth success notification (no timeout, browser will handle)
                 notification = await queue.get()  # Receives AuthNotification object
-                yield f"event: authenticated\ndata: {json.dumps(asdict(notification))}\n\n"
+                yield format_sse_event("authenticated", asdict(notification))
 
             except Exception as e:
                 logger.error(f"Auth SSE error: {e}")
-                yield f"event: error\ndata: {json.dumps({'error': 'Internal error'})}\n\n"
+                yield format_sse_event("error", {"error": "Internal error"})
             finally:
                 if queue:
                     await sse_manager.unsubscribe(f"auth:{k1}", queue)
 
-        response = await make_response(
-            event_stream(),
-            {
-                "Content-Type": "text/event-stream",
-                "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no",
-                "Connection": "keep-alive",
-            },
-        )
-        response.timeout = None  # Disable timeout for SSE
-        return response
+        return await create_sse_endpoint(event_stream())
 
     @app.get("/api/auth/logout")
     async def logout():
