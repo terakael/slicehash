@@ -38,6 +38,7 @@ from .auth import (
     require_auth,
     verify_lnurl_signature,
 )
+from .coinbase_parser import parse_coinbase_transaction
 from .config import Config, load_config
 from .db.manager import DatabaseManager, init_database
 from .difficulty_poller import DifficultyPoller
@@ -410,7 +411,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             ) as db:
                 # Fetch user record
                 row = await db.fetchrow(
-                    "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = $1",
+                    "SELECT id as user_id, address, tag, priority_multiplier FROM users WHERE id = $1",
                     user_id,
                 )
 
@@ -491,13 +492,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Execute update
                 params.append(user_id)
                 await db.execute(
-                    f"UPDATE users SET {', '.join(updates)} WHERE user_id = ${param_num}",
+                    f"UPDATE users SET {', '.join(updates)} WHERE id = ${param_num}",
                     *params,
                 )
 
                 # Return updated user data (reuse GET logic)
                 row = await db.fetchrow(
-                    "SELECT user_id, address, tag, priority_multiplier FROM users WHERE user_id = $1",
+                    "SELECT id as user_id, address, tag, priority_multiplier FROM users WHERE id = $1",
                     user_id,
                 )
                 if not row:
@@ -580,10 +581,10 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get paginated results (newest first)
                 rows = await db.fetch(
                     """
-                    SELECT submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
+                    SELECT id as share_id, ntime, level, is_block, share_hash, billable, shares_consumed, miner_tag
                     FROM share_events
                     WHERE user_id = $1
-                    ORDER BY submitted_at DESC
+                    ORDER BY ntime DESC
                     LIMIT $2 OFFSET $3
                     """,
                     user_id,
@@ -593,15 +594,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
-                        if row["submitted_at"]
-                        else None,
+                        "share_id": row["share_id"],
+                        "submitted_at": row["ntime"],
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
                         "billable": bool(row["billable"]),
                         "shares_consumed": row["shares_consumed"],
-                        "tag": row["coinbase_prefix_tag"],
+                        "tag": row["miner_tag"],
                     }
                     for row in rows
                 ]
@@ -736,7 +736,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             ) as db:
                 if since_id:
                     query = """
-                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
+                        SELECT id as share_id, ntime, level, is_block, share_hash, billable, shares_consumed, miner_tag
                         FROM share_events
                         WHERE user_id = $1 AND id > $2
                         ORDER BY id ASC
@@ -745,26 +745,24 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     rows = await db.fetch(query, user_id, since_id, limit)
                 else:
                     query = """
-                        SELECT id, submitted_at, level, is_block, share_hash, billable, shares_consumed, coinbase_prefix_tag
+                        SELECT id as share_id, ntime, level, is_block, share_hash, billable, shares_consumed, miner_tag
                         FROM share_events
-                        WHERE user_id = $1 AND submitted_at > $2
+                        WHERE user_id = $1 AND ntime > $2
                         ORDER BY id ASC
                         LIMIT $3
                     """
-                    rows = await db.fetch(query, user_id, since_time, limit)
+                    rows = await db.fetch(query, user_id, int(since_time), limit)
 
                 shares = [
                     {
-                        "share_id": row["id"],
-                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
-                        if row["submitted_at"]
-                        else None,
+                        "share_id": row["share_id"],
+                        "submitted_at": row["ntime"],
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
                         "billable": bool(row["billable"]),
                         "shares_consumed": row["shares_consumed"],
-                        "tag": row["coinbase_prefix_tag"],
+                        "tag": row["miner_tag"],
                         "block_target_level": int(block_target_level),
                     }
                     for row in rows
@@ -807,15 +805,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         # Configure query based on mode
         if mode == "recent":
             where_clause = "WHERE user_id = $1"
-            order_by = "ORDER BY submitted_at DESC"
+            order_by = "ORDER BY ntime DESC"
         elif mode == "best-24h":
             where_clause = (
-                "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+                "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
             )
-            order_by = "ORDER BY level DESC, submitted_at DESC"
+            order_by = "ORDER BY level DESC, ntime DESC"
         elif mode == "best-all-time":
             where_clause = "WHERE user_id = $1"
-            order_by = "ORDER BY level DESC, submitted_at DESC"
+            order_by = "ORDER BY level DESC, ntime DESC"
         else:
             return jsonify({"error": "Invalid mode"}), 400
 
@@ -826,8 +824,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             # Get paginated results
             query = f"""
-                SELECT id, submitted_at, level, is_block, share_hash,
-                       billable, shares_consumed, coinbase_prefix_tag
+                SELECT id as share_id, ntime, level, is_block, share_hash,
+                       billable, shares_consumed, miner_tag
                 FROM share_events
                 {where_clause}
                 {order_by}
@@ -837,16 +835,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             shares = [
                 {
-                    "share_id": row["id"],
-                    "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
-                    if row["submitted_at"]
-                    else None,
+                    "share_id": row["share_id"],
+                    "submitted_at": row["ntime"],
                     "level": row["level"],
                     "is_block": bool(row["is_block"]),
                     "share_hash": row["share_hash"],
                     "billable": bool(row["billable"]),
                     "shares_consumed": row["shares_consumed"],
-                    "tag": row["coinbase_prefix_tag"],
+                    "tag": row["miner_tag"],
                 }
                 for row in rows
             ]
@@ -895,11 +891,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             # Single query: fetch latest N by time
             check_query = """
-                SELECT id, submitted_at, level, is_block, share_hash,
-                       billable, shares_consumed, coinbase_prefix_tag
+                SELECT id as share_id, ntime, level, is_block, share_hash,
+                       billable, shares_consumed, miner_tag
                 FROM share_events
                 WHERE user_id = $1
-                ORDER BY submitted_at DESC
+                ORDER BY ntime DESC
                 LIMIT $2
             """
             rows = await db.fetch(check_query, user_id, limit)
@@ -912,7 +908,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     {"type": "full_refresh", "shares": [], "has_more": False}
                 ), 200
 
-            share_ids = [row["id"] for row in rows]
+            share_ids = [row["share_id"] for row in rows]
             logger.info(
                 f"Refresh shares: fetched {len(rows)} recent shares, checking if since_id={since_id} is in list"
             )
@@ -928,14 +924,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "share_id": row["id"],
-                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp()),
+                        "share_id": row["share_id"],
+                        "submitted_at": row["ntime"],
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
                         "billable": bool(row["billable"]),
                         "shares_consumed": row["shares_consumed"],
-                        "tag": row["coinbase_prefix_tag"],
+                        "tag": row["miner_tag"],
                     }
                     for row in new_rows
                 ]
@@ -954,14 +950,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     )
                     shares = [
                         {
-                            "share_id": row["id"],
-                            "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp()),
+                            "share_id": row["share_id"],
+                            "submitted_at": row["ntime"],
                             "level": row["level"],
                             "is_block": bool(row["is_block"]),
                             "share_hash": row["share_hash"],
                             "billable": bool(row["billable"]),
                             "shares_consumed": row["shares_consumed"],
-                            "tag": row["coinbase_prefix_tag"],
+                            "tag": row["miner_tag"],
                         }
                         for row in rows
                     ]
@@ -988,7 +984,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         f"Refresh shares: FULL REFRESH (best mode={mode}) - fetching by level"
                     )
                     if mode == "best-24h":
-                        where_clause = "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+                        where_clause = "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
                     else:  # best-all-time
                         where_clause = "WHERE user_id = $1"
 
@@ -998,25 +994,25 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                     # Get by level
                     best_query = f"""
-                        SELECT id, submitted_at, level, is_block, share_hash,
-                               billable, shares_consumed, coinbase_prefix_tag
+                        SELECT id as share_id, ntime, level, is_block, share_hash,
+                               billable, shares_consumed, miner_tag
                         FROM share_events
                         {where_clause}
-                        ORDER BY level DESC, submitted_at DESC
+                        ORDER BY level DESC, ntime DESC
                         LIMIT $2
                     """
                     rows = await db.fetch(best_query, user_id, limit)
 
                     shares = [
                         {
-                            "share_id": row["id"],
-                            "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp()),
+                            "share_id": row["share_id"],
+                            "submitted_at": row["ntime"],
                             "level": row["level"],
                             "is_block": bool(row["is_block"]),
                             "share_hash": row["share_hash"],
                             "billable": bool(row["billable"]),
                             "shares_consumed": row["shares_consumed"],
-                            "tag": row["coinbase_prefix_tag"],
+                            "tag": row["miner_tag"],
                         }
                         for row in rows
                     ]
@@ -1099,7 +1095,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get all transactions for user (newest first)
                 rows = await db.fetch(
                     """
-                    SELECT transaction_id, amount, created_at
+                    SELECT id as transaction_id, amount, created_at
                     FROM transactions
                     WHERE user_id = $1
                     ORDER BY created_at DESC
@@ -1155,7 +1151,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 app.config["SLICEHASH_CONFIG"].database_url
             ) as db:
                 user = await db.fetchrow(
-                    "SELECT address FROM users WHERE user_id = $1", user_id
+                    "SELECT address FROM users WHERE id = $1", user_id
                 )
 
                 if not user:
@@ -1174,7 +1170,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     """
                     INSERT INTO transactions (user_id, amount, created_at)
                     VALUES ($1, $2, NOW())
-                    RETURNING transaction_id, amount, created_at
+                    RETURNING id as transaction_id, amount, created_at
                     """,
                     user_id,
                     amount,
@@ -1213,29 +1209,29 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 rows = await db.fetch(
                     """
                     SELECT
-                        se.submitted_at, se.level, se.is_block, se.share_hash,
+                        se.ntime, se.level, se.is_block, se.share_hash,
                         se.billable, se.shares_consumed, se.user_id,
-                        se.coinbase_prefix_tag, se.coinbase_address,
-                        COALESCE(se.coinbase_prefix_tag, se.coinbase_address) as username
+                        se.miner_tag,
+                        u.address as coinbase_address,
+                        COALESCE(se.miner_tag, u.address) as username
                     FROM share_events se
-                    WHERE se.submitted_at >= NOW() - INTERVAL '24 hours'
-                    ORDER BY se.level DESC, se.submitted_at DESC
+                    LEFT JOIN users u ON se.user_id = u.id
+                    WHERE se.ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER
+                    ORDER BY se.level DESC, se.ntime DESC
                     LIMIT 5
                     """
                 )
 
                 shares = [
                     {
-                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
-                        if row["submitted_at"]
-                        else None,
+                        "submitted_at": row["ntime"],
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
                         "billable": bool(row["billable"]),
                         "shares_consumed": row["shares_consumed"],
                         "user_id": row["user_id"],
-                        "tag": row["coinbase_prefix_tag"],
+                        "tag": row["miner_tag"],
                         "address": row["coinbase_address"],
                         "username": row["username"],
                     }
@@ -1275,28 +1271,28 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 rows = await db.fetch(
                     """
                     SELECT
-                        se.submitted_at, se.level, se.is_block, se.share_hash,
+                        se.ntime, se.level, se.is_block, se.share_hash,
                         se.billable, se.shares_consumed, se.user_id,
-                        se.coinbase_prefix_tag, se.coinbase_address,
-                        COALESCE(se.coinbase_prefix_tag, se.coinbase_address) as username
+                        se.miner_tag,
+                        u.address as coinbase_address,
+                        COALESCE(se.miner_tag, u.address) as username
                     FROM share_events se
-                    ORDER BY se.level DESC, se.submitted_at DESC
+                    LEFT JOIN users u ON se.user_id = u.id
+                    ORDER BY se.level DESC, se.ntime DESC
                     LIMIT 5
                     """
                 )
 
                 shares = [
                     {
-                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
-                        if row["submitted_at"]
-                        else None,
+                        "submitted_at": row["ntime"],
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
                         "billable": bool(row["billable"]),
                         "shares_consumed": row["shares_consumed"],
                         "user_id": row["user_id"],
-                        "tag": row["coinbase_prefix_tag"],
+                        "tag": row["miner_tag"],
                         "address": row["coinbase_address"],
                         "username": row["username"],
                     }
@@ -1342,15 +1338,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Configure query based on mode
             if mode == "recent":
                 where_clause = "WHERE user_id = $1"
-                order_by = "ORDER BY submitted_at DESC"
+                order_by = "ORDER BY ntime DESC"
             elif mode == "best-24h":
                 where_clause = (
-                    "WHERE user_id = $1 AND submitted_at >= NOW() - INTERVAL '24 hours'"
+                    "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
                 )
-                order_by = "ORDER BY level DESC, submitted_at DESC"
+                order_by = "ORDER BY level DESC, ntime DESC"
             elif mode == "best-all-time":
                 where_clause = "WHERE user_id = $1"
-                order_by = "ORDER BY level DESC, submitted_at DESC"
+                order_by = "ORDER BY level DESC, ntime DESC"
             else:
                 return jsonify(
                     {
@@ -1368,8 +1364,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get paginated results
                 query = f"""
                     SELECT
-                        id, submitted_at, level, is_block, share_hash,
-                        billable, shares_consumed, coinbase_prefix_tag
+                        share_id, ntime, level, is_block, share_hash,
+                        billable, shares_consumed, miner_tag
                     FROM share_events
                     {where_clause}
                     {order_by}
@@ -1379,16 +1375,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "share_id": row["id"],
-                        "submitted_at": int(row["submitted_at"].replace(tzinfo=timezone.utc).timestamp())
-                        if row["submitted_at"]
-                        else None,
+                        "share_id": row["share_id"],
+                        "submitted_at": row["ntime"],
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
                         "billable": bool(row["billable"]),
                         "shares_consumed": row["shares_consumed"],
-                        "tag": row["coinbase_prefix_tag"],
+                        "tag": row["miner_tag"],
                     }
                     for row in rows
                 ]
@@ -1538,13 +1532,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             async with DatabaseManager(
                 app.config["SLICEHASH_CONFIG"].database_url
             ) as db:
-                # Fetch share data
+                # Fetch share data from both tables with a JOIN
                 query = """
                     SELECT
-                        se.id, se.submitted_at, se.user_id, se.nonce, se.ntime,
-                        se.version, se.coinbase_address, se.coinbase_prefix_tag,
-                        se.share_hash, se.is_block, se.level
+                        se.id as share_id, se.user_id, se.share_hash, se.ntime,
+                        se.level, se.is_block, se.miner_tag, se.block_height,
+                        sv.coinbase_tx, sv.prev_block_hash, sv.bits, sv.nonce,
+                        sv.version, sv.merkle_path
                     FROM share_events se
+                    JOIN share_verification sv ON se.id = sv.share_id
                     WHERE se.id = $1 AND se.user_id = $2
                 """
                 row = await db.fetchrow(query, share_id, request.user_id)
@@ -1552,47 +1548,44 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 if not row:
                     return jsonify({"error": "Share not found"}), 404
 
-                # Parse coinbase_prefix_tag to extract pool and miner tags
-                # Format is typically "/poolTag/minerTag//"
-                prefix_tag = row["coinbase_prefix_tag"]
-                pool_tag = "Mineshare"
-                miner_tag = ""
+                # Parse coinbase transaction to extract all fields
+                coinbase_data = parse_coinbase_transaction(row["coinbase_tx"])
 
-                if prefix_tag:
-                    parts = prefix_tag.strip("/").split("/")
-                    if len(parts) >= 1:
-                        pool_tag = parts[0]
-                    if len(parts) >= 2:
-                        miner_tag = parts[1]
+                # Parse merkle_path from JSONB
+                merkle_path = []
+                if row["merkle_path"]:
+                    import json
+                    merkle_path = json.loads(row["merkle_path"])
 
-                # Mock missing data (to be replaced with real data later)
-                # Using realistic Bitcoin values for demonstration
+                # Prepare response data
                 data = {
-                    # Real data from database
-                    "share_id": row["id"],
-                    "nonce": row["nonce"],
-                    "timestamp": row["ntime"],
-                    "version": hex(row["version"]),
-                    "coinbase_address": row["coinbase_address"],
-                    "pool_tag": pool_tag,
-                    "miner_tag": miner_tag,
+                    # Share metadata
+                    "share_id": row["share_id"],
                     "share_hash": row["share_hash"],
                     "level": row["level"],
                     "is_block": bool(row["is_block"]),
-                    # Mocked data (TODO: get from pool/job data)
-                    "prev_block_hash": "00000000000000000002f6b1e64e3d7f9c7c8b5e4c3d2a1b0f9e8d7c6b5a4938",
-                    "bits": "0x17034219",
-                    "block_height": 850000,
-                    "extranonce": "0000000000000000",
-                    "coinbase_value": 625000000,
-                    "witness_commitment": "",
-                    "merkle_path": [],
+                    # Block header fields
+                    "version": hex(row["version"]),
+                    "timestamp": row["ntime"],
+                    "bits": row["bits"],
+                    "nonce": row["nonce"],
+                    "prev_block_hash": row["prev_block_hash"],
+                    # Coinbase transaction fields (parsed)
+                    "coinbase_address": coinbase_data.get("coinbase_address", ""),
+                    "pool_tag": coinbase_data.get("pool_tag", "Mineshare"),
+                    "miner_tag": coinbase_data.get("miner_tag", row["miner_tag"] or ""),
+                    "extranonce": coinbase_data.get("extranonce", ""),
+                    "coinbase_value": coinbase_data.get("coinbase_value", 0),
+                    "witness_commitment": coinbase_data.get("witness_commitment", ""),
+                    # Other fields
+                    "block_height": row["block_height"],
+                    "merkle_path": merkle_path,
                 }
 
                 return jsonify(data), 200
 
         except Exception as e:
-            logger.error(f"Failed to fetch validator data: {e}")
+            logger.error(f"Failed to fetch validator data: {e}", exc_info=True)
             return jsonify({"error": "Internal error"}), 500
 
     return app

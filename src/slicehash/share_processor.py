@@ -18,9 +18,10 @@ from typing import Optional
 
 import asyncpg
 
+from .coinbase_parser import extract_miner_tag, parse_coinbase_transaction
 from .config import Config
 from .db.manager import DatabaseManager
-from .hash_utils import calculate_level
+from .hash_utils import calculate_level, is_valid_block
 from .pool_client import PoolClient
 from .priority import calculate_shares_consumed, calculate_traffic_level
 from .quota import calculate_shares_remaining, classify_share_billable, get_active_users
@@ -160,36 +161,46 @@ class ShareProcessor:
         """Process single share event.
 
         Steps:
-        1. Check and update block target if changed
+        1. Parse coinbase transaction to extract miner tag and block height
         2. Calculate level from share hash
-        3. Classify billable based on level or other criteria
-        4. Calculate traffic level and shares consumed
-        5. Store share event in database
-        6. Update rotation state
-        7. Check if rotation needed
-        8. If yes: select next user and update pool
+        3. Calculate is_block from bits
+        4. Classify billable based on level
+        5. Calculate traffic level and shares consumed
+        6. Store share event in both tables (share_events and share_verification)
+        7. Update rotation state
+        8. Check if rotation needed
+        9. If yes: select next user and update pool
 
         Args:
-            share_data: Share event from webhook
+            share_data: Share event from Redis consumer
         """
-        # Convert string fields to integers for PostgreSQL strict typing
-        user_id = int(share_data["user_id"])
-        nonce = int(share_data["nonce"])
-        ntime = int(share_data["ntime"])
-        version = int(share_data["version"])
-        coinbase_address = share_data["coinbase_address"]
-        coinbase_prefix_tag = share_data["coinbase_prefix_tag"]
-        share_hash = share_data.get("share_hash")
-        is_block = share_data["is_block"]
+        # Extract required fields
+        user_id = share_data["user_id"]
+        nonce = share_data["nonce"]
+        ntime = share_data["ntime"]
+        version = share_data["version"]
+        share_hash = share_data["share_hash"]
+        coinbase_tx = share_data["coinbase_tx"]
+        prev_block_hash = share_data["prev_block_hash"]
+        bits = share_data["bits"]
+        merkle_path = share_data.get("merkle_path", [])
 
         db = self._db_conn
 
-        # Step 1: Calculate level from share hash
+        # Step 1: Parse coinbase transaction to extract miner tag and block height
+        coinbase_data = parse_coinbase_transaction(coinbase_tx)
+        miner_tag = coinbase_data.get("miner_tag", "")
+        block_height = coinbase_data.get("block_height", 0)
+
+        # Step 2: Calculate level from share hash
         level = calculate_level(share_hash) if share_hash else 0
 
-        # Step 2: Apply test network logic
+        # Step 3: Calculate is_block from bits
+        is_block_result = is_valid_block(share_hash, bits)
+
+        # Apply test network logic (override is_block calculation)
         if self.config.is_test_network:
-            is_block = level >= self.config.test_network_block_level
+            is_block_result = level >= self.config.test_network_block_level
 
         # Calculate block target level
         block_target_level = (
@@ -198,11 +209,10 @@ class ShareProcessor:
             else 0
         )
 
-        # Step 3: Classify billable (for now, use level >= 10 as billable)
-        # TODO: Replace with proper difficulty threshold when available
+        # Step 4: Classify billable (level >= 10)
         billable = level >= 10
 
-        # Step 4: Calculate shares consumed (if billable)
+        # Step 5: Calculate shares consumed (if billable)
         shares_consumed = 1  # Default for non-billable
         if billable:
             # Get traffic level
@@ -211,56 +221,69 @@ class ShareProcessor:
 
             # Get user's priority multiplier
             row = await db.fetchrow(
-                "SELECT priority_multiplier FROM users WHERE user_id = $1", user_id
+                "SELECT priority_multiplier FROM users WHERE id = $1", user_id
             )
             priority = row["priority_multiplier"] if row else 1
 
             shares_consumed = calculate_shares_consumed(priority, traffic_level)
 
-        # Step 5: Store share event
-        # Convert Unix timestamp to UTC datetime, then make it naive for database storage
-        submitted_at_dt = datetime.fromtimestamp(ntime, tz=timezone.utc).replace(
-            tzinfo=None
-        )
-        share_id = await db.fetchval(
-            """
-            INSERT INTO share_events
-            (user_id, nonce, ntime, version, coinbase_address, coinbase_prefix_tag,
-             share_hash, is_block, level, billable, shares_consumed, submitted_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING id
-            """,
-            user_id,
-            nonce,
-            ntime,
-            version,
-            coinbase_address,
-            coinbase_prefix_tag,
-            share_hash,
-            1 if is_block else 0,
-            level,
-            1 if billable else 0,
-            shares_consumed,
-            submitted_at_dt,
-        )
+        # Step 6: Store share event in both tables
+        # Use a transaction to insert into both tables atomically
+        async with db.transaction():
+            # Insert into share_events (list view data)
+            share_id = await db.fetchval(
+                """
+                INSERT INTO share_events
+                (user_id, share_hash, ntime, level, is_block, miner_tag, block_height,
+                 billable, shares_consumed)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                RETURNING id
+                """,
+                user_id,
+                share_hash,
+                ntime,
+                level,
+                1 if is_block_result else 0,
+                miner_tag,
+                block_height,
+                1 if billable else 0,
+                shares_consumed,
+            )
+
+            # Insert into share_verification (verification data)
+            import json
+            await db.execute(
+                """
+                INSERT INTO share_verification
+                (share_id, coinbase_tx, prev_block_hash, bits, nonce, version, merkle_path)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                """,
+                share_id,
+                coinbase_tx,
+                prev_block_hash,
+                bits,
+                nonce,
+                version,
+                json.dumps(merkle_path),
+            )
 
         logger.info(
-            f"Stored share: user={user_id}, level={level}, "
-            f"is_block={is_block}, billable={billable}, consumed={shares_consumed}"
+            f"Stored share: share_id={share_id}, user={user_id}, level={level}, "
+            f"is_block={is_block_result}, billable={billable}, consumed={shares_consumed}"
         )
 
         # Notify SSE subscribers
         notification = ShareNotification(
             share_id=share_id,
             user_id=user_id,
-            submitted_at=int(submitted_at_dt.timestamp()),
+            submitted_at=ntime,
             level=level,
-            is_block=is_block,
+            is_block=is_block_result,
             share_hash=share_hash,
             billable=billable,
             shares_consumed=shares_consumed,
             block_target_level=block_target_level,
-            tag=coinbase_prefix_tag,
+            tag=miner_tag,
         )
         await self.sse_manager.notify(notification)
 
@@ -300,7 +323,7 @@ class ShareProcessor:
 
         # Get user details
         row = await db.fetchrow(
-            "SELECT address, tag FROM users WHERE user_id = $1", next_user_id
+            "SELECT address, tag FROM users WHERE id = $1", next_user_id
         )
         if not row:
             logger.error(f"User {next_user_id} not found")
@@ -315,7 +338,7 @@ class ShareProcessor:
         if success:
             # Update user's last_served_at (store as naive UTC for consistency)
             await db.execute(
-                "UPDATE users SET last_served_at = $1 WHERE user_id = $2",
+                "UPDATE users SET last_served_at = $1 WHERE id = $2",
                 datetime.now(timezone.utc).replace(tzinfo=None),
                 next_user_id,
             )

@@ -160,7 +160,7 @@ async def get_or_create_user_by_pubkey(db, pubkey: str) -> int:
         User ID
     """
     row = await db.fetchrow(
-        "SELECT user_id FROM users WHERE lightning_pubkey = $1",
+        "SELECT id as user_id FROM users WHERE lightning_pubkey = $1",
         pubkey
     )
 
@@ -171,7 +171,7 @@ async def get_or_create_user_by_pubkey(db, pubkey: str) -> int:
     placeholder_address = f"bc1_update_in_settings_{pubkey[:8]}"
 
     user_id = await db.fetchval(
-        "INSERT INTO users (address, lightning_pubkey) VALUES ($1, $2) RETURNING user_id",
+        "INSERT INTO users (address, lightning_pubkey) VALUES ($1, $2) RETURNING id",
         placeholder_address, pubkey
     )
 

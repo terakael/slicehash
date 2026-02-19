@@ -116,7 +116,7 @@ async def get_or_create_user(
     """
     # Check if user exists
     row = await db.fetchrow(
-        "SELECT user_id FROM users WHERE address = $1",
+        "SELECT id as user_id FROM users WHERE address = $1",
         address
     )
 
@@ -125,7 +125,7 @@ async def get_or_create_user(
 
     # Create new user
     user_id = await db.fetchval(
-        "INSERT INTO users (address, tag) VALUES ($1, $2) RETURNING user_id",
+        "INSERT INTO users (address, tag) VALUES ($1, $2) RETURNING id",
         address, tag
     )
 
@@ -155,7 +155,7 @@ async def add_transaction(
         raise ValueError(f"Transaction amount must be positive, got {amount}")
 
     transaction_id = await db.fetchval(
-        "INSERT INTO transactions (user_id, amount) VALUES ($1, $2) RETURNING transaction_id",
+        "INSERT INTO transactions (user_id, amount) VALUES ($1, $2) RETURNING id",
         user_id, amount
     )
 

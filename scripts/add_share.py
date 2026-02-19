@@ -19,9 +19,10 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from slicehash.coinbase_parser import parse_coinbase_transaction
 from slicehash.config import load_config
 from slicehash.db.manager import DatabaseManager
-from slicehash.hash_utils import calculate_level
+from slicehash.hash_utils import calculate_level, is_valid_block
 
 
 def generate_hash_with_level(level: int) -> str:
@@ -41,11 +42,75 @@ def generate_hash_with_level(level: int) -> str:
     return hash_str
 
 
+def generate_mock_coinbase_tx(user_id: str, block_height: int) -> str:
+    """Generate a mock coinbase transaction hex.
+
+    This creates a simplified coinbase transaction with embedded miner tag and block height.
+
+    Args:
+        user_id: User identifier to embed in coinbase script
+        block_height: Block height to embed (BIP34)
+
+    Returns:
+        Hexadecimal coinbase transaction
+    """
+    # Simplified coinbase transaction structure
+    # Version (4 bytes)
+    version = "02000000"
+
+    # Marker and flag (witness transaction)
+    marker_flag = "0001"
+
+    # Input count (1)
+    input_count = "01"
+
+    # Previous output (null for coinbase - 32 zero bytes + 0xffffffff)
+    prev_output = "0" * 64 + "ffffffff"
+
+    # Coinbase script
+    # Format: [block_height_len][block_height_bytes] + "/Mineshare/" + user tag + "/" + extranonce
+    # Encode block height as little-endian (BIP34)
+    height_bytes = block_height.to_bytes((block_height.bit_length() + 7) // 8 or 1, byteorder='little')
+    height_len = len(height_bytes)
+    block_height_bytes = f"{height_len:02x}" + height_bytes.hex()
+
+    pool_tag = "2f4d696e6573686172652f"  # "/Mineshare/"
+    miner_tag_hex = f"757365722d{user_id}".encode('ascii').hex()  # "user-{id}"
+    miner_tag_len = len(bytes.fromhex(miner_tag_hex))
+    extranonce = "0000000000000000"
+
+    script = block_height_bytes + pool_tag + f"{miner_tag_len:02x}" + miner_tag_hex + "2f" + extranonce
+    script_len = len(bytes.fromhex(script))
+    coinbase_script = f"{script_len:02x}" + script
+
+    # Sequence
+    sequence = "ffffffff"
+
+    # Output count (1 for now, simplified)
+    output_count = "01"
+
+    # Output value (6.25 BTC = 625000000 sats)
+    value = "00f2052a01000000"
+
+    # Output script (P2WPKH: OP_0 <20-byte-hash>)
+    pubkey_hash = ''.join(random.choice('0123456789abcdef') for _ in range(40))
+    output_script = "0014" + pubkey_hash
+    output_script_len = len(bytes.fromhex(output_script))
+    output = value + f"{output_script_len:02x}" + output_script
+
+    # Witness (empty for this mock)
+    witness = "0100"
+
+    # Locktime
+    locktime = "00000000"
+
+    return version + marker_flag + input_count + prev_output + coinbase_script + sequence + output_count + output + witness + locktime
+
+
 async def add_share_event(
     db,
     user_id: str,
     level: int,
-    is_block: bool = False,
     billable: bool = True,
     shares_consumed: int = 1,
     timestamp_offset_minutes: int = 0
@@ -56,7 +121,6 @@ async def add_share_event(
         db: Database connection
         user_id: User identifier string
         level: Share level (leading zeros - 5)
-        is_block: Whether this share found a block
         billable: Whether this share is billable
         shares_consumed: Number of shares consumed
         timestamp_offset_minutes: Minutes to subtract from current time
@@ -68,35 +132,59 @@ async def add_share_event(
     # Calculate timestamp
     submitted_time = datetime.now() - timedelta(minutes=timestamp_offset_minutes)
     ntime = int(submitted_time.timestamp())
-    submitted_at = submitted_time.isoformat()
 
-    # Generate addresses
-    coinbase_address = f"bc1q{''.join(random.choice('023456789acdefghjklmnpqrstuvwxyz') for _ in range(39))}"
-    coinbase_prefix_tag = f"user-{user_id}"
-
-    # Generate hash
+    # Generate share hash
     share_hash = generate_hash_with_level(level)
 
-    # Insert into database
-    await db.execute(
+    # Generate mock verification data
+    prev_block_hash = ''.join(random.choice('0123456789abcdef') for _ in range(64))
+    bits = "0x17034219"  # Typical mainnet difficulty representation
+    block_height = 850000 + random.randint(0, 1000)
+    coinbase_tx = generate_mock_coinbase_tx(user_id, block_height)
+    merkle_path = []  # Empty merkle path (solo coinbase)
+
+    # Parse coinbase transaction to extract miner_tag and block_height (verify our mock)
+    coinbase_data = parse_coinbase_transaction(coinbase_tx)
+    miner_tag = coinbase_data.get("miner_tag", f"user-{user_id}")
+    block_height = coinbase_data.get("block_height", block_height)
+
+    # Calculate is_block from bits and share_hash
+    is_block_result = is_valid_block(share_hash, bits)
+
+    # Insert into both tables
+    share_id = await db.fetchval(
         """
         INSERT INTO share_events
-        (user_id, nonce, ntime, version, coinbase_address, coinbase_prefix_tag,
-         share_hash, is_block, level, billable, shares_consumed, submitted_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        (user_id, share_hash, ntime, level, is_block, miner_tag, block_height,
+         billable, shares_consumed)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id
         """,
-        user_id,
-        nonce,
-        ntime,
-        version,
-        coinbase_address,
-        coinbase_prefix_tag,
+        int(user_id),
         share_hash,
-        is_block,
+        ntime,
         level,
-        billable,
+        1 if is_block_result else 0,
+        miner_tag,
+        block_height,
+        1 if billable else 0,
         shares_consumed,
-        submitted_at
+    )
+
+    import json
+    await db.execute(
+        """
+        INSERT INTO share_verification
+        (share_id, coinbase_tx, prev_block_hash, bits, nonce, version, merkle_path)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        """,
+        share_id,
+        coinbase_tx,
+        prev_block_hash,
+        bits,
+        nonce,
+        version,
+        json.dumps(merkle_path),
     )
 
 
@@ -132,7 +220,6 @@ async def add_batch_shares(db, user_id: str, count: int, priority: int = 1):
             db,
             user_id,
             level,
-            is_block=False,
             billable=billable,
             shares_consumed=shares_consumed,
             timestamp_offset_minutes=offset
@@ -152,8 +239,8 @@ Examples:
   # Add a single level 30 share
   python scripts/add_share.py --user-id "1" --level 30
 
-  # Add a block share (level 100)
-  python scripts/add_share.py --user-id "1" --level 100 --is-block
+  # Add a high-level share (level 100)
+  python scripts/add_share.py --user-id "1" --level 100
 
   # Generate 50 random shares
   python scripts/add_share.py --user-id "1" --batch 50
@@ -172,11 +259,6 @@ Examples:
         "--level",
         type=int,
         help="Share level ((leading zeros - 5) * 10), typically 10-640"
-    )
-    parser.add_argument(
-        "--is-block",
-        action="store_true",
-        help="Mark this share as a found block"
     )
     parser.add_argument(
         "--batch",
@@ -226,18 +308,17 @@ Examples:
                     db,
                     args.user_id,
                     args.level,
-                    is_block=args.is_block,
                     billable=True,
                     shares_consumed=args.priority
                 )
 
                 # Display confirmation
+                share_hash = generate_hash_with_level(args.level)
                 print("✓ Share event added successfully")
                 print()
                 print(f"User ID:    {args.user_id}")
                 print(f"Level:      {args.level}")
-                print(f"Is Block:   {args.is_block}")
-                print(f"Hash:       {generate_hash_with_level(args.level)[:20]}...")
+                print(f"Hash:       {share_hash[:20]}...")
 
         return 0
 

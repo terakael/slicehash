@@ -195,15 +195,16 @@ class RedisStreamConsumer:
         Raises:
             ValueError: If required fields are missing or invalid.
         """
-        # Validate required fields
+        # Validate required fields for new schema
         required = [
             "user_id",
+            "share_hash",
+            "coinbase_tx",
+            "prev_block_hash",
+            "bits",
             "nonce",
             "ntime",
             "version",
-            "coinbase_address",
-            "coinbase_prefix_tag",
-            "is_block",
         ]
         missing = [field for field in required if field not in message_data]
         if missing:
@@ -212,24 +213,30 @@ class RedisStreamConsumer:
         # Convert types (Redis stores everything as strings)
         try:
             processed_data = {
-                "user_id": message_data["user_id"],
+                "user_id": int(message_data["user_id"]),
+                "share_hash": message_data["share_hash"],
+                "coinbase_tx": message_data["coinbase_tx"],
+                "prev_block_hash": message_data["prev_block_hash"],
+                "bits": message_data["bits"],
                 "nonce": int(message_data["nonce"]),
                 "ntime": int(message_data["ntime"]),
                 "version": int(message_data["version"]),
-                "coinbase_address": message_data["coinbase_address"],
-                "coinbase_prefix_tag": message_data["coinbase_prefix_tag"],
-                "is_block": message_data["is_block"].lower() in ("true", "1", "yes"),
             }
 
             # Optional fields
-            if "share_hash" in message_data:
-                processed_data["share_hash"] = message_data["share_hash"]
-            if "block_target" in message_data:
-                processed_data["block_target"] = message_data["block_target"]
-            if "job_id" in message_data:
-                processed_data["job_id"] = int(message_data["job_id"])
-            if "timestamp_secs" in message_data:
-                processed_data["timestamp_secs"] = int(message_data["timestamp_secs"])
+            if "merkle_path" in message_data:
+                # merkle_path can be JSON string or empty
+                merkle_str = message_data["merkle_path"]
+                if merkle_str and merkle_str != "[]":
+                    try:
+                        processed_data["merkle_path"] = json.loads(merkle_str)
+                    except json.JSONDecodeError:
+                        # If not JSON, treat as comma-separated hex strings
+                        processed_data["merkle_path"] = [h.strip() for h in merkle_str.split(",") if h.strip()]
+                else:
+                    processed_data["merkle_path"] = []
+            else:
+                processed_data["merkle_path"] = []
 
         except (ValueError, KeyError) as e:
             raise ValueError(f"Invalid message data: {e}") from e

@@ -124,21 +124,21 @@ async def get_active_users(db: asyncpg.Connection) -> list[int]:
     # - active = purchased > consumed
     rows = await db.fetch(
         """
-        SELECT u.user_id
+        SELECT u.id as user_id
         FROM users u
         LEFT JOIN (
             SELECT user_id, COALESCE(SUM(amount), 0) AS purchased
             FROM transactions
             GROUP BY user_id
-        ) t ON u.user_id = t.user_id
+        ) t ON u.id = t.user_id
         LEFT JOIN (
             SELECT user_id, COALESCE(SUM(shares_consumed), 0) AS consumed
             FROM share_events
             WHERE billable = 1
             GROUP BY user_id
-        ) se ON u.user_id = se.user_id
+        ) se ON u.id = se.user_id
         WHERE COALESCE(t.purchased, 0) > COALESCE(se.consumed, 0)
-        ORDER BY u.user_id
+        ORDER BY u.id
         """
     )
     result = [row['user_id'] for row in rows]

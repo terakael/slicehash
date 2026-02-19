@@ -12,7 +12,7 @@ Tables:
 # Users table - stores user accounts and priority settings
 USERS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS users (
-    user_id SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     address TEXT NOT NULL UNIQUE,
     tag TEXT,
     priority_multiplier INTEGER DEFAULT 1 CHECK(priority_multiplier >= 1 AND priority_multiplier <= 5),
@@ -25,31 +25,42 @@ CREATE TABLE IF NOT EXISTS users (
 # Transactions table - tracks share purchases for quota calculation
 TRANSACTIONS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS transactions (
-    transaction_id SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     amount INTEGER NOT NULL CHECK(amount > 0),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    FOREIGN KEY (user_id) REFERENCES users(id)
 )
 """
 
-# Share events table - records individual share submissions from pool
+# Share events table - list view for shares with pre-calculated display fields
 SHARE_EVENTS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS share_events (
     id SERIAL PRIMARY KEY,
-    submitted_at TIMESTAMP NOT NULL,
     user_id INTEGER NOT NULL,
-    nonce BIGINT NOT NULL,
-    ntime INTEGER NOT NULL,
-    version INTEGER NOT NULL,
-    coinbase_address TEXT NOT NULL,
-    coinbase_prefix_tag TEXT NOT NULL,
     share_hash TEXT,
-    is_block INTEGER NOT NULL CHECK(is_block IN (0, 1)),
+    ntime INTEGER NOT NULL,
     level REAL NOT NULL,
+    is_block INTEGER NOT NULL CHECK(is_block IN (0, 1)),
+    miner_tag TEXT,
+    block_height INTEGER NOT NULL,
     billable INTEGER NOT NULL CHECK(billable IN (0, 1)),
     shares_consumed INTEGER NOT NULL CHECK(shares_consumed >= 1 AND shares_consumed <= 5),
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    FOREIGN KEY (user_id) REFERENCES users(id)
+)
+"""
+
+# Share verification table - full verification data for share reconstruction
+SHARE_VERIFICATION_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS share_verification (
+    share_id INTEGER PRIMARY KEY,
+    coinbase_tx TEXT NOT NULL,
+    prev_block_hash TEXT NOT NULL,
+    bits TEXT NOT NULL,
+    nonce BIGINT NOT NULL,
+    version INTEGER NOT NULL,
+    merkle_path JSONB,
+    FOREIGN KEY (share_id) REFERENCES share_events(id) ON DELETE CASCADE
 )
 """
 
@@ -62,28 +73,28 @@ CREATE TABLE IF NOT EXISTS global_state (
 )
 """
 
-# Index for user share history queries
-USER_SHARE_HISTORY_INDEX_SQL = """
-CREATE INDEX IF NOT EXISTS idx_share_events_user_time
-ON share_events(user_id, submitted_at)
+# Index for user's recent shares (most common query pattern)
+USER_RECENT_SHARES_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_share_events_user_ntime
+ON share_events(user_id, ntime DESC)
+"""
+
+# Index for share hash uniqueness and lookups
+SHARE_HASH_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_share_events_share_hash
+ON share_events(share_hash)
+"""
+
+# Index for level-based leaderboard queries
+LEVEL_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_share_events_level
+ON share_events(level DESC)
 """
 
 # Index for billable share quota calculations
 BILLABLE_SHARES_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_share_events_billable
 ON share_events(billable)
-"""
-
-# Index for highscore queries (level-based ranking)
-HIGHSCORE_INDEX_SQL = """
-CREATE INDEX IF NOT EXISTS idx_share_events_level_time
-ON share_events(level DESC, submitted_at DESC)
-"""
-
-# Index for recent shares queries (time-based ordering)
-RECENT_SHARES_INDEX_SQL = """
-CREATE INDEX IF NOT EXISTS idx_share_events_submitted_at
-ON share_events(submitted_at DESC)
 """
 
 # Index for SSE recovery queries (faster missed share lookups)
@@ -124,16 +135,17 @@ ALL_TABLES = [
     USERS_TABLE_SQL,
     TRANSACTIONS_TABLE_SQL,
     SHARE_EVENTS_TABLE_SQL,
+    SHARE_VERIFICATION_TABLE_SQL,
     GLOBAL_STATE_TABLE_SQL,
     AUTH_CHALLENGES_TABLE_SQL,
 ]
 
 # All index creation statements
 ALL_INDEXES = [
-    USER_SHARE_HISTORY_INDEX_SQL,
+    USER_RECENT_SHARES_INDEX_SQL,
+    SHARE_HASH_INDEX_SQL,
+    LEVEL_INDEX_SQL,
     BILLABLE_SHARES_INDEX_SQL,
-    HIGHSCORE_INDEX_SQL,
-    RECENT_SHARES_INDEX_SQL,
     RECOVERY_INDEX_SQL,
     TRANSACTIONS_USER_INDEX_SQL,
     AUTH_CHALLENGES_INDEX_SQL,

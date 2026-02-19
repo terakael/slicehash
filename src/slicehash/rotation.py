@@ -193,9 +193,9 @@ async def select_next_user(db: asyncpg.Connection) -> Optional[int]:
     # Query: last_served_at and priority_multiplier for all active users
     user_data = await db.fetch(
         """
-        SELECT user_id, last_served_at, priority_multiplier
+        SELECT id as user_id, last_served_at, priority_multiplier
         FROM users
-        WHERE user_id = ANY($1::int[])
+        WHERE id = ANY($1::int[])
         """,
         active_users
     )

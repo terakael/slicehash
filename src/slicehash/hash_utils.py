@@ -7,6 +7,62 @@ with fractional precision for accurate ranking.
 import math
 
 
+def bits_to_target(bits_hex: str) -> int:
+    """Convert compact bits representation to target value.
+
+    The bits field in Bitcoin uses a compact representation where:
+    - First byte: exponent (number of bytes)
+    - Next 3 bytes: mantissa (coefficient)
+
+    Formula: target = mantissa * 256^(exponent - 3)
+
+    Args:
+        bits_hex: Compact bits representation (e.g., "0x17034219")
+
+    Returns:
+        Target value as integer
+    """
+    # Remove 0x prefix if present
+    if bits_hex.startswith("0x") or bits_hex.startswith("0X"):
+        bits_hex = bits_hex[2:]
+
+    # Parse as big-endian integer
+    bits_int = int(bits_hex, 16)
+
+    # Extract exponent and mantissa
+    exponent = bits_int >> 24
+    mantissa = bits_int & 0xFFFFFF
+
+    # Calculate target
+    if exponent <= 3:
+        target = mantissa >> (8 * (3 - exponent))
+    else:
+        target = mantissa << (8 * (exponent - 3))
+
+    return target
+
+
+def is_valid_block(share_hash: str, bits: str) -> bool:
+    """Check if a share hash meets the block difficulty target.
+
+    Args:
+        share_hash: Hexadecimal hash string
+        bits: Compact bits representation (e.g., "0x17034219")
+
+    Returns:
+        True if share_hash <= target, False otherwise
+    """
+    if not share_hash or not bits:
+        return False
+
+    try:
+        target = bits_to_target(bits)
+        hash_int = int(share_hash, 16)
+        return hash_int <= target
+    except (ValueError, ZeroDivisionError):
+        return False
+
+
 def calculate_level(hash_str: str) -> float:
     """Calculate the level of a hash with fractional precision.
 
