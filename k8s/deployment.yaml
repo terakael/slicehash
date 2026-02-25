@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slicehash
+  namespace: default
+  labels:
+    app: slicehash
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: slicehash
+  template:
+    metadata:
+      labels:
+        app: slicehash
+    spec:
+      containers:
+        - name: slicehash
+          image: your-registry/slicehash:latest
+          ports:
+            - name: http
+              containerPort: 5000
+          command:
+            - hypercorn
+            - slicehash.app:app
+            - --bind
+            - "0.0.0.0:5000"
+          env:
+            - name: CONFIG_PATH
+              value: /etc/slicehash/config.yaml
+            # Sensitive fields injected from Secret
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: slicehash-secrets
+                  key: DATABASE_USER
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: slicehash-secrets
+                  key: DATABASE_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: slicehash-secrets
+                  key: JWT_SECRET
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: slicehash-secrets
+                  key: REDIS_PASSWORD
+            - name: BTC_RPC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: slicehash-secrets
+                  key: BTC_RPC_USER
+            - name: BTC_RPC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: slicehash-secrets
+                  key: BTC_RPC_PASSWORD
+          volumeMounts:
+            - name: config
+              mountPath: /etc/slicehash
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: slicehash-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slicehash
+  namespace: default
+spec:
+  selector:
+    app: slicehash
+  ports:
+    - name: http
+      port: 80
+      targetPort: 5000
+  type: ClusterIP

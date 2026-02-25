@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: slicehash-config
+  namespace: default
+data:
+  config.yaml: |
+    # SliceHash non-sensitive configuration.
+    # Sensitive fields (database credentials, JWT secret, Redis/BTC RPC passwords)
+    # are injected from the slicehash-secrets Secret as environment variables.
+
+    billable_difficulty_threshold: 1000000.0
+
+    pool_url: "http://sv2-pool-service:8080"
+
+    # PostgreSQL — credentials come from env vars DATABASE_USER / DATABASE_PASSWORD
+    database_host: "postgres-service"
+    database_port: 5432
+    database_name: "slicehash"
+
+    jwt_expiration_seconds: 2592000
+
+    lnurl_callback_url: "https://your-domain.example.com/api/auth/lnurl/callback"
+    auth_challenge_expiration_seconds: 300
+
+    # Redis — password comes from env var REDIS_PASSWORD
+    redis_host: "redis-service"
+    redis_port: 6379
+    redis_stream_key: "slicehash:shares"
+    redis_consumer_group: "slicehash-processors"
+    redis_consumer_name: "processor-1"
+
+    # Bitcoin Core RPC — credentials come from env vars BTC_RPC_USER / BTC_RPC_PASSWORD
+    btc_rpc_host: "bitcoind-service"
+    btc_rpc_port: 8332

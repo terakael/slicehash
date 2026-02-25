@@ -9,6 +9,7 @@ This module provides the HTTP server with:
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 from dataclasses import asdict
@@ -191,12 +192,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     @app.before_serving
     async def startup():
         """Start background share processor and Redis consumer."""
-        # Initialize database if it doesn't exist
-        db_path = Path(config.database_url)
-        if not db_path.exists():
-            logger.info(f"Database not found at {config.database_url}. Initializing...")
-            await init_database(config.database_url)
-            logger.info("Database initialized successfully")
+        # Ensure schema exists (init_database uses CREATE TABLE/INDEX IF NOT EXISTS)
+        await init_database(config.database_url)
 
         # Start background services (share processor loads block target on startup)
         await share_processor.start()
@@ -1592,4 +1589,4 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
 
 # For running with hypercorn/uvicorn
-app = create_app()
+app = create_app(config_path=os.environ.get("CONFIG_PATH", "config.yaml"))
