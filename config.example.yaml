@@ -1,52 +1,65 @@
 # SliceHash Mining Backend Configuration
-# Copy this file to config.yaml and customize for your deployment
+# Copy this file to config.yaml and customise for your deployment.
+#
+# Sensitive fields can be supplied via environment variables instead of this
+# file. Environment variables take precedence over values set here.
+#
+# Sensitive env var overrides:
+#   DATABASE_USER      -> database_user
+#   DATABASE_PASSWORD  -> database_password
+#   JWT_SECRET         -> jwt_secret
+#   REDIS_PASSWORD     -> redis_password
+#   BTC_RPC_USER       -> btc_rpc_user
+#   BTC_RPC_PASSWORD   -> btc_rpc_password
 
-# Difficulty threshold for classifying shares as billable
-# Shares with difficulty >= this value count toward quota
+# Difficulty threshold for classifying shares as billable.
+# Shares with difficulty >= this value count toward quota.
 # Default: 1000000.0 (1M difficulty)
-# Adjust based on your mining pool's difficulty requirements
 billable_difficulty_threshold: 1000000.0
 
-# URL of the SV2 pool for coinbase address updates
-# This endpoint receives rotation updates when the active miner changes
-# Example: "http://localhost:8080" for local testing
-# Example: "https://pool.example.com" for production
+# URL of the SV2 pool for coinbase address updates.
+# This endpoint receives rotation updates when the active miner changes.
 pool_url: "http://localhost:8080"
 
-# Path to SQLite database file
-# Stores user quotas, shares, and rotation state
-# Will be created automatically if it doesn't exist
-# Default: "slicehash.db" (in working directory)
-database_path: "slicehash.db"
+# PostgreSQL database settings
+# The connection URL is assembled from these components at runtime.
+# Prefer setting database_user and database_password via environment variables
+# (DATABASE_USER / DATABASE_PASSWORD) in production.
+database_host: "localhost"
+database_port: 5432
+database_name: "slicehash"
+database_user: "slicehash"
+database_password: "change_me"
 
-# Redis Configuration
-# Redis is used to ingest share events from the mining pool
+# JWT authentication settings
+# Generate a secret with: openssl rand -hex 32
+# In production, omit this field and set JWT_SECRET instead.
+jwt_secret: "change_me"
+jwt_expiration_seconds: 2592000  # 30 days
 
-# Redis server host
-# Default: "localhost" for local development
-# Example: "redis.example.com" for production
+# LNURL-auth settings
+# lnurl_callback_url must be reachable from the client's wallet.
+# Use an ngrok tunnel or a real domain in production.
+lnurl_callback_url: "https://your-domain.example.com/api/auth/lnurl/callback"
+auth_challenge_expiration_seconds: 300  # 5 minutes
+
+# Redis configuration
+# Redis is used to ingest share events published by the mining pool.
+# Set REDIS_PASSWORD to supply the password without storing it here.
 redis_host: "localhost"
-
-# Redis server port
-# Default: 6379 (standard Redis port)
 redis_port: 6379
+# redis_password: "change_me"  # or set REDIS_PASSWORD
 
-# Redis authentication password (optional)
-# Leave commented out if Redis has no authentication
-# redis_password: "your-redis-password"
-
-# Redis stream key name
-# The stream where share events are published by the mining pool
-# Default: "slicehash:shares"
+# Redis stream / consumer settings
 redis_stream_key: "slicehash:shares"
-
-# Redis consumer group name
-# Used for distributed processing and at-least-once delivery
-# Default: "slicehash-processors"
 redis_consumer_group: "slicehash-processors"
-
-# Redis consumer name
-# Unique identifier for this SliceHash instance
-# Default: "processor-1"
-# For multiple instances, use "processor-2", "processor-3", etc.
+# For multiple instances use unique names: "processor-1", "processor-2", etc.
 redis_consumer_name: "processor-1"
+
+# Bitcoin Core RPC settings
+# Set BTC_RPC_USER / BTC_RPC_PASSWORD to supply
+# credentials without storing them here.
+btc_rpc_host: "127.0.0.1"
+btc_rpc_port: 8332
+btc_rpc_user: "your_rpc_username"
+btc_rpc_password: "your_rpc_password"

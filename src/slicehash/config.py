@@ -2,13 +2,28 @@
 
 This module provides configuration loading and validation using Pydantic models.
 Configuration is loaded from YAML files and validated against a schema.
+Sensitive fields can be overridden at runtime via environment variables.
 """
 
+import os
 from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field, HttpUrl
+
+
+# Sensitive fields that can be overridden with environment variables.
+# Set these in your shell or k8s Secret manifests instead of storing them in
+# the config file.
+_ENV_OVERRIDES: dict[str, str] = {
+    "DATABASE_USER": "database_user",
+    "DATABASE_PASSWORD": "database_password",
+    "JWT_SECRET": "jwt_secret",
+    "REDIS_PASSWORD": "redis_password",
+    "BTC_RPC_USER": "btc_rpc_user",
+    "BTC_RPC_PASSWORD": "btc_rpc_password",
+}
 
 
 class Config(BaseModel):
@@ -18,30 +33,41 @@ class Config(BaseModel):
         billable_difficulty_threshold: Minimum difficulty for shares to count toward quota.
             Shares with difficulty >= this value are considered billable.
         pool_url: HTTP URL of the SV2 pool for coinbase address updates.
-        database_url: PostgreSQL connection URL for storing mining state.
-        jwt_secret: Secret key for JWT token signing.
+        database_host: PostgreSQL server host.
+        database_port: PostgreSQL server port.
+        database_name: PostgreSQL database name.
+        database_user: PostgreSQL username. Override with DATABASE_USER.
+        database_password: PostgreSQL password. Override with DATABASE_PASSWORD.
+        jwt_secret: Secret key for JWT token signing. Override with JWT_SECRET.
         jwt_expiration_seconds: JWT token expiration in seconds.
         lnurl_callback_url: Public callback URL for LNURL-auth.
         auth_challenge_expiration_seconds: k1 challenge expiration in seconds.
         redis_host: Redis server host.
         redis_port: Redis server port.
-        redis_password: Redis authentication password (optional).
+        redis_password: Redis authentication password. Override with REDIS_PASSWORD.
         redis_stream_key: Redis stream key name for shares.
         redis_consumer_group: Redis consumer group name.
         redis_consumer_name: Redis consumer name.
         btc_rpc_host: Bitcoin Core RPC server host.
         btc_rpc_port: Bitcoin Core RPC server port.
-        btc_rpc_user: Bitcoin Core RPC username.
-        btc_rpc_password: Bitcoin Core RPC password.
+        btc_rpc_user: Bitcoin Core RPC username. Override with BTC_RPC_USER.
+        btc_rpc_password: Bitcoin Core RPC password. Override with BTC_RPC_PASSWORD.
     """
 
     billable_difficulty_threshold: float = Field(
         gt=0, description="Minimum difficulty for billable shares"
     )
     pool_url: HttpUrl = Field(description="URL of the SV2 pool")
-    database_url: str = Field(
-        description="PostgreSQL connection URL (e.g., postgresql://user:pass@host:port/db)"
+
+    # PostgreSQL database connection components
+    database_host: str = Field(default="localhost", description="PostgreSQL host")
+    database_port: int = Field(default=5432, gt=0, description="PostgreSQL port")
+    database_name: str = Field(
+        default="slicehash", description="PostgreSQL database name"
     )
+    database_user: str = Field(description="PostgreSQL username")
+    database_password: str = Field(description="PostgreSQL password")
+
     jwt_secret: str = Field(
         description="Secret key for JWT token signing (generate with: openssl rand -hex 32)"
     )
@@ -74,22 +100,27 @@ class Config(BaseModel):
     test_network_block_level: int = Field(
         default=60, ge=0, description="Block level threshold for test network mode"
     )
-    btc_rpc_host: str = Field(
-        default="127.0.0.1", description="Bitcoin Core RPC host"
-    )
-    btc_rpc_port: int = Field(
-        default=8332, gt=0, description="Bitcoin Core RPC port"
-    )
-    btc_rpc_user: str = Field(
-        description="Bitcoin Core RPC username"
-    )
-    btc_rpc_password: str = Field(
-        description="Bitcoin Core RPC password"
-    )
+    btc_rpc_host: str = Field(default="127.0.0.1", description="Bitcoin Core RPC host")
+    btc_rpc_port: int = Field(default=8332, gt=0, description="Bitcoin Core RPC port")
+    btc_rpc_user: str = Field(description="Bitcoin Core RPC username")
+    btc_rpc_password: str = Field(description="Bitcoin Core RPC password")
+
+    @property
+    def database_url(self) -> str:
+        """Construct PostgreSQL connection URL from component fields."""
+        return (
+            f"postgresql://{self.database_user}:{self.database_password}"
+            f"@{self.database_host}:{self.database_port}/{self.database_name}"
+        )
 
 
 def load_config(path: str = "config.yaml") -> Config:
     """Load and validate configuration from a YAML file.
+
+    Sensitive fields (database_password, jwt_secret, redis_password,
+    btc_rpc_user, btc_rpc_password, database_user) can be overridden by
+    environment variables — see _ENV_OVERRIDES for the full mapping.
+    Environment variables take precedence over values in the YAML file.
 
     Args:
         path: Path to the YAML configuration file. Defaults to "config.yaml".
@@ -123,6 +154,12 @@ def load_config(path: str = "config.yaml") -> Config:
 
     if data is None:
         raise ValueError(f"Configuration file {path} is empty")
+
+    # Environment variable overrides — take precedence over the YAML file.
+    for env_var, config_key in _ENV_OVERRIDES.items():
+        value = os.environ.get(env_var)
+        if value is not None:
+            data[config_key] = value
 
     try:
         return Config(**data)
