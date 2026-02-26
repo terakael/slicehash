@@ -162,7 +162,8 @@ function bech32HrpExpand(hrp) {
 }
 
 function bech32VerifyChecksum(hrp, data) {
-    return bech32Polymod([...bech32HrpExpand(hrp), ...data]) === 1;
+    const polymod = bech32Polymod([...bech32HrpExpand(hrp), ...data]);
+    return polymod === 1 || polymod === 0x2bc830a3;
 }
 
 function bech32Decode(bechString) {
