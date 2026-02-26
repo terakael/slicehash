@@ -87,13 +87,14 @@ async function loadShareData() {
         document.getElementById('extranonce').value = data.extranonce;
         document.getElementById('coinbaseAddress').value = data.coinbase_address;
         document.getElementById('coinbaseValue').value = data.coinbase_value;
+        document.getElementById('sequence').value = data.sequence;
+        document.getElementById('locktime').value = data.locktime;
         document.getElementById('witnessCommitment').value = data.witness_commitment || '';
         document.getElementById('merklePath').value = data.merkle_path.join('\n');
 
-        // Store expected hash and raw coinbase tx for computation
+        // Store expected hash for comparison
         window.expectedHash = data.share_hash;
         window.expectedLevel = data.level;
-        window.coinbaseTxHex = data.coinbase_tx;
 
         // Hide loading state and show form
         document.getElementById('loading-state').style.display = 'none';
@@ -472,6 +473,41 @@ function bitsToTarget(bits) {
 }
 
 // ============================================================================
+// LEVEL CALCULATION (matches Python hash_utils.calculate_level)
+// ============================================================================
+
+function calculateLevel(hashHex) {
+    // Normalize to 64 hex chars (display/reversed format with leading zeros)
+    const hex = hashHex.toLowerCase().padStart(64, '0');
+    const hashInt = BigInt('0x' + hex);
+
+    if (hashInt === 0n) return 590.0;
+
+    // Count leading zero hex digits
+    let leadingZeroHex = 0;
+    for (let i = 0; i < 64; i++) {
+        if (hex[i] === '0') leadingZeroHex++;
+        else break;
+    }
+
+    const sigHexLen = 64 - leadingZeroHex;
+    if (sigHexLen === 0) return 590.0;
+
+    // logFloor = sigHexLen - 1 => leadingZerosInt = 63 - logFloor = 64 - sigHexLen = leadingZeroHex
+    const levelInt = Math.max(0, leadingZeroHex - 5);
+
+    // frac = 1 - hash_int / 16^sigHexLen
+    // Approximate with top 13 significant hex digits (52 bits, safe for double)
+    const TOP = 13;
+    const topHex = hex.slice(leadingZeroHex, leadingZeroHex + TOP).padEnd(TOP, '0');
+    const topInt = Number(BigInt('0x' + topHex)); // safe: max 2^52 - 1 < 2^53
+    const mantissa = topInt / Math.pow(16, TOP);
+    const frac = 1 - mantissa;
+
+    return (levelInt + frac) * 10;
+}
+
+// ============================================================================
 // COINBASE TX WITNESS STRIPPING (for correct TXID computation)
 // ============================================================================
 
@@ -531,20 +567,71 @@ async function calculateHash() {
             extranonce: document.getElementById('extranonce').value.replace(/^0x/, ''),
             coinbaseAddress: document.getElementById('coinbaseAddress').value,
             coinbaseValue: parseInt(document.getElementById('coinbaseValue').value),
+            sequence: parseInt(document.getElementById('sequence').value),
+            locktime: parseInt(document.getElementById('locktime').value),
             witnessCommitment: document.getElementById('witnessCommitment').value.replace(/^0x/, ''),
             merklePath: document.getElementById('merklePath').value.split('\n').filter(s => s.trim()).map(s => s.trim().replace(/^0x/, ''))
         };
 
         let output = '<div class="validator-output">';
 
-        // STEP 1: Coinbase Transaction
-        output += '<h3>STEP 1: Coinbase Transaction</h3>';
+        // STEP 1: Build Coinbase Transaction from form fields
+        output += '<h3>STEP 1: Build Coinbase Transaction</h3>';
 
-        if (!window.coinbaseTxHex) {
-            throw new Error('Raw coinbase transaction not available');
-        }
-        const coinbaseTxBytes = hexToBytes(window.coinbaseTxHex);
-        output += `<div class="output-item"><span class="output-label">Coinbase TX:</span> <span class="output-value hash-display">${window.coinbaseTxHex}</span></div>`;
+        // ScriptSig: BIP34 height + OP_0 + [tagLen] + "/pool/miner/" + [extranonceLen] + extranonce
+        const heightBytes = encodeBlockHeight(inputs.blockHeight);
+        const tag = `/${inputs.poolTag}/${inputs.minerTag}/`;
+        const tagBytes = new TextEncoder().encode(tag);
+        const extranonceBytes = hexToBytes(inputs.extranonce);
+
+        const scriptSig = concatBuffers(
+            heightBytes,
+            new Uint8Array([0x00]),                    // OP_0 from coinbase_prefix
+            new Uint8Array([tagBytes.length]),          // push tag
+            tagBytes,
+            new Uint8Array([extranonceBytes.length]),   // push extranonce
+            extranonceBytes
+        );
+        output += `<div class="output-item"><span class="output-label">ScriptSig:</span> <span class="output-value hash-display">${bytesToHex(scriptSig)}</span></div>`;
+        output += `<div class="output-item"><span class="output-label">ScriptSig length:</span> ${scriptSig.length} bytes</div>`;
+
+        // Output 1: coinbase payout
+        const scriptPubKey = addressToScriptPubKey(inputs.coinbaseAddress);
+        const valueBuf = new Uint8Array(8);
+        new DataView(valueBuf.buffer).setBigUint64(0, BigInt(inputs.coinbaseValue), true);
+
+        // Output 2: OP_RETURN witness commitment
+        const magic = hexToBytes('aa21a9ed');
+        const commitment = hexToBytes(inputs.witnessCommitment);
+        const opReturnData = concatBuffers(magic, commitment);
+        const opReturnScript = concatBuffers(
+            new Uint8Array([0x6a]),
+            new Uint8Array([opReturnData.length]),
+            opReturnData
+        );
+
+        // Full segwit coinbase TX
+        const coinbaseTxBytes = concatBuffers(
+            uint32LE(2),                                        // version = 2 (coinbase tx)
+            new Uint8Array([0x00, 0x01]),                       // segwit marker + flag
+            new Uint8Array([0x01]),                             // input count
+            new Uint8Array(32),                                 // prev hash (all zeros)
+            new Uint8Array([0xff, 0xff, 0xff, 0xff]),           // prev index
+            encodeVarInt(scriptSig.length),                     // scriptSig length
+            scriptSig,                                          // scriptSig
+            uint32LE(inputs.sequence),                          // sequence
+            new Uint8Array([0x02]),                             // output count
+            valueBuf,                                           // output 1 value
+            encodeVarInt(scriptPubKey.length),                  // output 1 script len
+            scriptPubKey,                                       // output 1 script
+            new Uint8Array(8),                                  // output 2 value (0)
+            encodeVarInt(opReturnScript.length),                // output 2 script len
+            opReturnScript,                                     // output 2 script
+            new Uint8Array([0x01, 0x20]),                       // witness: 1 item, 32 bytes
+            new Uint8Array(32),                                 // witness: 32 zero bytes
+            uint32LE(inputs.locktime)                           // locktime
+        );
+        output += `<div class="output-item"><span class="output-label">Coinbase TX:</span> <span class="output-value hash-display">${bytesToHex(coinbaseTxBytes)}</span></div>`;
         output += `<div class="output-item"><span class="output-label">Size:</span> ${coinbaseTxBytes.length} bytes</div>`;
 
         // STEP 2: Calculate Coinbase TXID
@@ -652,7 +739,7 @@ async function calculateHash() {
         document.getElementById('results').innerHTML = summary + output;
 
         // Update floating panel with results
-        const calculatedLevel = Math.log2(1 / (parseInt(blockHashDisplay, 16) / Math.pow(2, 256))) || 0;
+        const calculatedLevel = calculateLevel(blockHashDisplay);
         updateFloatingPanel(calculatedLevel, blockHashDisplay, hashMatches && isValid);
 
     } catch (error) {

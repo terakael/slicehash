@@ -1583,15 +1583,15 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     "bits": row["bits"],
                     "nonce": row["nonce"],
                     "prev_block_hash": row["prev_block_hash"],
-                    # Raw coinbase transaction (for TXID computation)
-                    "coinbase_tx": row["coinbase_tx"],
                     # Coinbase transaction fields (parsed)
                     "coinbase_address": coinbase_data.get("coinbase_address", ""),
-                    "pool_tag": coinbase_data.get("pool_tag", "Mineshare"),
+                    "pool_tag": coinbase_data.get("pool_tag", "SliceHash"),
                     "miner_tag": coinbase_data.get("miner_tag", row["miner_tag"] or ""),
                     "extranonce": coinbase_data.get("extranonce", ""),
                     "coinbase_value": coinbase_data.get("coinbase_value", 0),
                     "witness_commitment": coinbase_data.get("witness_commitment", ""),
+                    "sequence": coinbase_data.get("sequence", 0xffffffff),
+                    "locktime": coinbase_data.get("locktime", 0),
                     # Other fields
                     "block_height": row["block_height"],
                     "merkle_path": merkle_path,

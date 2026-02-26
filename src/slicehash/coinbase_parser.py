@@ -88,13 +88,13 @@ def _base58check_encode(payload: bytes) -> str:
 
 
 def parse_coinbase_script(script_hex: str) -> dict:
-    """Parse coinbase script to extract embedded data.
+    """Parse SV2 coinbase scriptSig to extract embedded data.
 
-    Coinbase scriptSig format (simplified):
-    - Block height (BIP34): variable length integer
-    - Extra data: arbitrary data including pool tags, miner tags, extranonce
-
-    This is a best-effort parser that extracts common fields.
+    SV2 coinbase scriptSig format:
+    - BIP34 block height: [len_byte] + height_bytes (little-endian)
+    - OP_0 (0x00): pushed by coinbase_prefix
+    - Pool/miner tag: [len_byte] + b"/pool/miner/"
+    - Extranonce: [len_byte] + extranonce_bytes
 
     Args:
         script_hex: Hexadecimal coinbase script
@@ -110,57 +110,48 @@ def parse_coinbase_script(script_hex: str) -> dict:
     }
 
     try:
-        # Convert hex to bytes
         script_bytes = bytes.fromhex(script_hex)
+        offset = 0
 
-        # Parse block height (BIP34) - first byte is length, then the height
+        # BIP34 block height: first byte is push length, then height LE
         if len(script_bytes) < 1:
             return result
-
         height_len = script_bytes[0]
-        if height_len > 4:  # Height shouldn't be more than 4 bytes for now
-            height_len = 0
-            offset = 1
-        else:
-            # Extract block height as little-endian integer
+        if 1 <= height_len <= 4:
             height_bytes = script_bytes[1:1 + height_len]
             if height_bytes:
                 result["block_height"] = int.from_bytes(height_bytes, byteorder='little')
             offset = 1 + height_len
+        else:
+            offset = 1
 
-        # Remaining bytes contain arbitrary data
-        # Try to extract ASCII strings (pool/miner tags are usually ASCII)
-        remaining = script_bytes[offset:]
+        # OP_0 (0x00) byte appended to coinbase_prefix in SV2
+        if offset < len(script_bytes) and script_bytes[offset] == 0x00:
+            offset += 1
 
-        # Look for patterns like /poolTag/minerTag/
-        ascii_parts = []
-        current = bytearray()
+        # Pool/miner tag: [len_byte] + "/pool/miner/"
+        if offset < len(script_bytes):
+            tag_len = script_bytes[offset]
+            offset += 1
+            if offset + tag_len <= len(script_bytes):
+                tag_bytes = script_bytes[offset:offset + tag_len]
+                offset += tag_len
+                try:
+                    tag_str = tag_bytes.decode('ascii')
+                    parts = tag_str.strip('/').split('/')
+                    if len(parts) >= 1 and parts[0]:
+                        result["pool_tag"] = parts[0]
+                    if len(parts) >= 2 and parts[1]:
+                        result["miner_tag"] = parts[1]
+                except Exception:
+                    pass
 
-        for byte in remaining:
-            if 32 <= byte <= 126:  # Printable ASCII
-                current.append(byte)
-            else:
-                if len(current) > 0:
-                    ascii_parts.append(current.decode('ascii'))
-                    current = bytearray()
-
-        if len(current) > 0:
-            ascii_parts.append(current.decode('ascii'))
-
-        # Parse tags from ASCII parts (look for /tag/ patterns)
-        for part in ascii_parts:
-            if part.startswith('/') and part.endswith('/'):
-                # Remove leading/trailing slashes and split
-                tags = part.strip('/').split('/')
-                if len(tags) >= 1 and tags[0]:
-                    result["pool_tag"] = tags[0]
-                if len(tags) >= 2 and tags[1]:
-                    result["miner_tag"] = tags[1]
-                break
-
-        # Extranonce is typically at the end (last 8-16 bytes as hex)
-        if len(remaining) >= 8:
-            result["extranonce"] = remaining[-8:].hex()
+        # Extranonce: [len_byte] + extranonce_bytes
+        if offset < len(script_bytes):
+            extranonce_len = script_bytes[offset]
+            offset += 1
+            if offset + extranonce_len <= len(script_bytes):
+                result["extranonce"] = script_bytes[offset:offset + extranonce_len].hex()
 
     except Exception as e:
         logger.warning(f"Failed to parse coinbase script: {e}")
@@ -192,6 +183,8 @@ def parse_coinbase_transaction(coinbase_tx_hex: str) -> dict:
         "extranonce": "",
         "witness_commitment": "",
         "coinbase_value": 0,
+        "sequence": 0xffffffff,
+        "locktime": 0,
     }
 
     try:
@@ -241,6 +234,7 @@ def parse_coinbase_transaction(coinbase_tx_hex: str) -> dict:
         # Sequence (4 bytes)
         if len(tx_bytes) < offset + 4:
             return result
+        result["sequence"] = int.from_bytes(tx_bytes[offset:offset + 4], 'little')
         offset += 4
 
         # Output count (varint)
@@ -324,6 +318,10 @@ def parse_coinbase_transaction(coinbase_tx_hex: str) -> dict:
                     result["witness_commitment"] = out_script[6:38].hex()
 
             offset += out_script_len
+
+        # Locktime: last 4 bytes of the transaction
+        if len(tx_bytes) >= 4:
+            result["locktime"] = int.from_bytes(tx_bytes[-4:], 'little')
 
     except Exception as e:
         logger.error(f"Failed to parse coinbase transaction: {e}", exc_info=True)
