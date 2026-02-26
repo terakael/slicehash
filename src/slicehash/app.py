@@ -1583,6 +1583,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     "bits": row["bits"],
                     "nonce": row["nonce"],
                     "prev_block_hash": row["prev_block_hash"],
+                    # Raw coinbase transaction (for TXID computation)
+                    "coinbase_tx": row["coinbase_tx"],
                     # Coinbase transaction fields (parsed)
                     "coinbase_address": coinbase_data.get("coinbase_address", ""),
                     "pool_tag": coinbase_data.get("pool_tag", "Mineshare"),

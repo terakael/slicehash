@@ -90,9 +90,10 @@ async function loadShareData() {
         document.getElementById('witnessCommitment').value = data.witness_commitment || '';
         document.getElementById('merklePath').value = data.merkle_path.join('\n');
 
-        // Store expected hash for comparison
+        // Store expected hash and raw coinbase tx for computation
         window.expectedHash = data.share_hash;
         window.expectedLevel = data.level;
+        window.coinbaseTxHex = data.coinbase_tx;
 
         // Hide loading state and show form
         document.getElementById('loading-state').style.display = 'none';
@@ -471,6 +472,47 @@ function bitsToTarget(bits) {
 }
 
 // ============================================================================
+// COINBASE TX WITNESS STRIPPING (for correct TXID computation)
+// ============================================================================
+
+function readVarInt(bytes, offset) {
+    const first = bytes[offset];
+    if (first < 0xfd) return { value: first, size: 1 };
+    if (first === 0xfd) return { value: bytes[offset + 1] | (bytes[offset + 2] << 8), size: 3 };
+    const view = new DataView(bytes.buffer, bytes.byteOffset);
+    return { value: view.getUint32(offset + 1, true), size: 5 };
+}
+
+// Strip segwit marker/flag and witness data to get non-witness tx for TXID
+function stripWitnessForTxid(txBytes) {
+    if (txBytes[4] !== 0x00) return txBytes; // not segwit
+
+    let offset = 6; // skip version(4) + marker(1) + flag(1)
+
+    const inputCountVi = readVarInt(txBytes, offset); offset += inputCountVi.size;
+    for (let i = 0; i < inputCountVi.value; i++) {
+        offset += 36; // prev hash(32) + index(4)
+        const scriptLenVi = readVarInt(txBytes, offset); offset += scriptLenVi.size;
+        offset += scriptLenVi.value; // scriptSig
+        offset += 4; // sequence
+    }
+
+    const outputCountVi = readVarInt(txBytes, offset); offset += outputCountVi.size;
+    for (let i = 0; i < outputCountVi.value; i++) {
+        offset += 8; // value
+        const scriptLenVi = readVarInt(txBytes, offset); offset += scriptLenVi.size;
+        offset += scriptLenVi.value; // scriptPubKey
+    }
+
+    // offset now points to witness data; everything after is witness + locktime(4)
+    return concatBuffers(
+        txBytes.slice(0, 4),                    // version
+        txBytes.slice(6, offset),               // inputs + outputs (skip marker+flag)
+        txBytes.slice(txBytes.length - 4)       // locktime
+    );
+}
+
+// ============================================================================
 // MAIN HASH CALCULATION
 // ============================================================================
 
@@ -481,7 +523,7 @@ async function calculateHash() {
             version: parseInt(document.getElementById('version').value),
             prevBlockHash: document.getElementById('prevBlockHash').value.replace(/^0x/, ''),
             timestamp: parseInt(document.getElementById('timestamp').value),
-            bits: parseInt(document.getElementById('bits').value),
+            bits: parseInt(document.getElementById('bits').value, 16),
             nonce: parseInt(document.getElementById('nonce').value),
             blockHeight: parseInt(document.getElementById('blockHeight').value),
             poolTag: document.getElementById('poolTag').value,
@@ -495,78 +537,23 @@ async function calculateHash() {
 
         let output = '<div class="validator-output">';
 
-        // STEP 1: Build Coinbase Transaction
-        output += '<h3>STEP 1: Build Coinbase Transaction</h3>';
+        // STEP 1: Coinbase Transaction
+        output += '<h3>STEP 1: Coinbase Transaction</h3>';
 
-        const coinbaseParts = [];
-        coinbaseParts.push(uint32LE(2)); // Version 2
-        coinbaseParts.push(new Uint8Array([0x00, 0x01])); // SegWit marker and flag
-        coinbaseParts.push(encodeVarInt(1)); // Input count
-        coinbaseParts.push(new Uint8Array(32).fill(0)); // Null hash
-        coinbaseParts.push(new Uint8Array([0xff, 0xff, 0xff, 0xff])); // Index 0xffffffff
-
-        // ScriptSig
-        const scriptSigParts = [];
-        scriptSigParts.push(encodeBlockHeight(inputs.blockHeight));
-
-        const tagString = `/${inputs.poolTag}/${inputs.minerTag}//`;
-        const tagBytes = new TextEncoder().encode(tagString);
-        scriptSigParts.push(new Uint8Array([tagBytes.length]));
-        scriptSigParts.push(tagBytes);
-
-        const extranonceBytes = hexToBytes(inputs.extranonce);
-        scriptSigParts.push(new Uint8Array([extranonceBytes.length]));
-        scriptSigParts.push(extranonceBytes);
-
-        const scriptSig = concatBuffers(...scriptSigParts);
-        coinbaseParts.push(encodeVarInt(scriptSig.length));
-        coinbaseParts.push(scriptSig);
-        coinbaseParts.push(new Uint8Array([0xff, 0xff, 0xff, 0xff])); // Sequence
-
-        // Outputs
-        const hasWitness = inputs.witnessCommitment && inputs.witnessCommitment.length > 0;
-        coinbaseParts.push(encodeVarInt(hasWitness ? 2 : 1));
-
-        const valueBuf = new Uint8Array(8);
-        new DataView(valueBuf.buffer).setBigUint64(0, BigInt(inputs.coinbaseValue), true);
-        coinbaseParts.push(valueBuf);
-
-        const scriptPubKey = addressToScriptPubKey(inputs.coinbaseAddress);
-        coinbaseParts.push(encodeVarInt(scriptPubKey.length));
-        coinbaseParts.push(scriptPubKey);
-
-        if (hasWitness) {
-            const witnessValue = new Uint8Array(8).fill(0);
-            coinbaseParts.push(witnessValue);
-
-            const commitmentBytes = hexToBytes(inputs.witnessCommitment);
-            const witnessScript = concatBuffers(
-                new Uint8Array([0x6a]), // OP_RETURN
-                new Uint8Array([0x24]), // 36 bytes
-                new Uint8Array([0xaa, 0x21, 0xa9, 0xed]),
-                commitmentBytes
-            );
-            coinbaseParts.push(encodeVarInt(witnessScript.length));
-            coinbaseParts.push(witnessScript);
+        if (!window.coinbaseTxHex) {
+            throw new Error('Raw coinbase transaction not available');
         }
-
-        coinbaseParts.push(new Uint8Array([0x00])); // Witness data
-        coinbaseParts.push(uint32LE(0)); // Locktime
-
-        const coinbaseTx = concatBuffers(...coinbaseParts);
-        output += `<div class="output-item"><span class="output-label">Coinbase TX:</span> <span class="output-value hash-display">${bytesToHex(coinbaseTx)}</span></div>`;
-        output += `<div class="output-item"><span class="output-label">Size:</span> ${coinbaseTx.length} bytes</div>`;
+        const coinbaseTxBytes = hexToBytes(window.coinbaseTxHex);
+        output += `<div class="output-item"><span class="output-label">Coinbase TX:</span> <span class="output-value hash-display">${window.coinbaseTxHex}</span></div>`;
+        output += `<div class="output-item"><span class="output-label">Size:</span> ${coinbaseTxBytes.length} bytes</div>`;
 
         // STEP 2: Calculate Coinbase TXID
         output += '<h3>STEP 2: Calculate Coinbase TXID</h3>';
 
-        const coinbaseTxForTxid = concatBuffers(
-            coinbaseParts[0],
-            ...coinbaseParts.slice(3, -2),
-            coinbaseParts[coinbaseParts.length - 1]
-        );
+        const nonWitnessTx = stripWitnessForTxid(coinbaseTxBytes);
+        output += `<div class="output-item"><span class="output-label">Non-witness TX:</span> <span class="output-value hash-display">${bytesToHex(nonWitnessTx)}</span></div>`;
 
-        const coinbaseTxid = await doubleSha256(coinbaseTxForTxid);
+        const coinbaseTxid = await doubleSha256(nonWitnessTx);
         output += `<div class="output-item"><span class="output-label">TXID (display):</span> <span class="output-value hash-display">${bytesToHex(reverseBuffer(coinbaseTxid))}</span></div>`;
 
         // STEP 3: Calculate Merkle Root
