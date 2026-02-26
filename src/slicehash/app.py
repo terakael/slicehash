@@ -22,6 +22,7 @@ from quart import (
     Response,
     current_app,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -126,9 +127,13 @@ class UserUpdateRequest(BaseModel):
             return v
 
         # Support mainnet, testnet, and regtest addresses
-        pattern = r"^((bc1|tb1|bcrt1)[a-z0-9]{39,87}|[13mn2][a-km-zA-HJ-NP-Z1-9]{25,34})$"
+        pattern = (
+            r"^((bc1|tb1|bcrt1)[a-z0-9]{39,87}|[13mn2][a-km-zA-HJ-NP-Z1-9]{25,34})$"
+        )
         if not re.match(pattern, v):
-            raise ValueError("Invalid Bitcoin address format. Supported: bc1/tb1/bcrt1 (bech32), 1/3/m/n/2 (legacy)")
+            raise ValueError(
+                "Invalid Bitcoin address format. Supported: bc1/tb1/bcrt1 (bech32), 1/3/m/n/2 (legacy)"
+            )
         return v
 
 
@@ -171,7 +176,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     app.config["SLICEHASH_CONFIG"] = config
 
     # Initialize share queue (in-memory, unbounded)
-    global share_queue, share_processor, redis_consumer, difficulty_poller, sse_manager, highscores_cache
+    global \
+        share_queue, \
+        share_processor, \
+        redis_consumer, \
+        difficulty_poller, \
+        sse_manager, \
+        highscores_cache
     share_queue = asyncio.Queue()
 
     # Initialize SSE manager
@@ -804,9 +815,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             where_clause = "WHERE user_id = $1"
             order_by = "ORDER BY ntime DESC"
         elif mode == "best-24h":
-            where_clause = (
-                "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
-            )
+            where_clause = "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
             order_by = "ORDER BY level DESC, ntime DESC"
         elif mode == "best-all-time":
             where_clause = "WHERE user_id = $1"
@@ -1104,7 +1113,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     {
                         "transaction_id": row["transaction_id"],
                         "amount": row["amount"],
-                        "created_at": int(row["created_at"].replace(tzinfo=timezone.utc).timestamp()) if row["created_at"] else None,
+                        "created_at": int(
+                            row["created_at"].replace(tzinfo=timezone.utc).timestamp()
+                        )
+                        if row["created_at"]
+                        else None,
                     }
                     for row in rows
                 ]
@@ -1177,7 +1190,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     {
                         "transaction_id": row["transaction_id"],
                         "amount": row["amount"],
-                        "created_at": int(row["created_at"].replace(tzinfo=timezone.utc).timestamp()) if row["created_at"] else None,
+                        "created_at": int(
+                            row["created_at"].replace(tzinfo=timezone.utc).timestamp()
+                        )
+                        if row["created_at"]
+                        else None,
                     }
                 ), 201
 
@@ -1337,9 +1354,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 where_clause = "WHERE user_id = $1"
                 order_by = "ORDER BY ntime DESC"
             elif mode == "best-24h":
-                where_clause = (
-                    "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
-                )
+                where_clause = "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
                 order_by = "ORDER BY level DESC, ntime DESC"
             elif mode == "best-all-time":
                 where_clause = "WHERE user_id = $1"
@@ -1552,6 +1567,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 merkle_path = []
                 if row["merkle_path"]:
                     import json
+
                     merkle_path = json.loads(row["merkle_path"])
 
                 # Prepare response data
