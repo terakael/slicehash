@@ -292,8 +292,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             )
             lnurl_string = lnurl_encode(callback_url)
 
-            # Generate and serve QR code with logo
-            return await serve_qr_image(lnurl_string)
+            # Generate and serve QR code (no logo - keeps QR version lower for better scannability)
+            return await serve_qr_image(lnurl_string, logo_filename=None)
 
         except Exception as e:
             logger.error(f"QR code generation error: {e}")

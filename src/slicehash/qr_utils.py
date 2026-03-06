@@ -17,7 +17,7 @@ async def generate_qr_with_logo(
     logo_path: Optional[Path] = None,
     logo_size_ratio: float = 0.2,
     box_size: int = 8,
-    border: int = 2,
+    border: int = 4,
 ) -> io.BytesIO:
     """Generate QR code image with optional logo overlay.
 
@@ -31,10 +31,15 @@ async def generate_qr_with_logo(
     Returns:
         BytesIO buffer containing PNG image data
     """
+    # Use high error correction only when a logo will be overlaid (logo covers ~20% of QR)
+    error_correction = (
+        qrcode.constants.ERROR_CORRECT_H if logo_path else qrcode.constants.ERROR_CORRECT_M
+    )
+
     # Generate QR code
     qr = qrcode.QRCode(
         version=None,  # Auto-select version based on data
-        error_correction=qrcode.constants.ERROR_CORRECT_H,  # High error correction for logo overlay
+        error_correction=error_correction,
         box_size=box_size,
         border=border,
     )
