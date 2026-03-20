@@ -1429,7 +1429,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     invoice.bolt11,
                     amount,
                     amount_sats,
-                    invoice.expires_at,
+                    invoice.expires_at.replace(tzinfo=None),  # store as naive UTC (matches existing TIMESTAMP columns)
                 )
 
             invoice_id = row["id"]
