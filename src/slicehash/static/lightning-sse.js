@@ -10,13 +10,15 @@ export class LightningSSEClient {
      * @param {Object} handlers - Event handlers
      * @param {Function} handlers.onConnected - Called when SSE connects (optional)
      * @param {Function} handlers.onSuccess - Called on success event (authenticated/paid)
-     * @param {Function} handlers.onError - Called on error (optional)
+     * @param {Function} handlers.onExpired - Called when invoice expires (optional)
+     * @param {Function} handlers.onError - Called on connection error (optional)
      */
     constructor(endpoint, handlers) {
         this.endpoint = endpoint;
         this.handlers = {
             onConnected: handlers.onConnected || (() => {}),
             onSuccess: handlers.onSuccess || (() => {}),
+            onExpired: handlers.onExpired || null,
             onError: handlers.onError || ((error) => console.error('SSE error:', error)),
         };
         this.eventSource = null;
@@ -54,7 +56,21 @@ export class LightningSSEClient {
             this._handleSuccess(e);
         });
 
-        // Error event
+        // Expired event (invoice not paid before expiry)
+        this.eventSource.addEventListener('expired', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                this.disconnect();
+                if (this.handlers.onExpired) {
+                    this.handlers.onExpired(data);
+                }
+            } catch (err) {
+                console.error('Error parsing expired event:', err);
+                this.handlers.onError(err);
+            }
+        });
+
+        // Connection-level error event
         this.eventSource.addEventListener('error', (e) => {
             console.error('Lightning SSE error:', e);
             this.handlers.onError(e);

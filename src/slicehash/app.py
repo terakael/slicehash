@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import time
+import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Optional
@@ -40,6 +41,7 @@ from .auth import (
     require_auth,
     verify_lnurl_signature,
 )
+from .cln_client import CLNClient
 from .coinbase_parser import parse_coinbase_transaction
 from .config import Config, load_config
 from .db.manager import DatabaseManager, init_database
@@ -50,7 +52,7 @@ from .qr_utils import serve_qr_image
 from .quota import calculate_shares_remaining, get_active_users
 from .redis_consumer import RedisStreamConsumer
 from .share_processor import ShareProcessor
-from .sse_manager import AuthNotification, ShareNotification, SSEManager
+from .sse_manager import AuthNotification, InvoiceNotification, ShareNotification, SSEManager
 from .sse_utils import create_sse_endpoint, format_sse_event
 
 logger = logging.getLogger(__name__)
@@ -61,6 +63,7 @@ share_processor: Optional[ShareProcessor] = None
 redis_consumer: Optional[RedisStreamConsumer] = None
 difficulty_poller: Optional[DifficultyPoller] = None
 sse_manager: SSEManager
+cln_client: Optional[CLNClient] = None
 
 
 # Highscores cache
@@ -154,6 +157,139 @@ class TrafficStatusResponse(BaseModel):
     active_user_count: int
 
 
+async def _await_payment_task(
+    invoice_id: int,
+    user_id: int,
+    amount_shares: int,
+    label: str,
+    expires_at: datetime,
+    client: CLNClient,
+    db_url: str,
+    sse_mgr: SSEManager,
+) -> None:
+    """Background task: wait for a CLN invoice to be paid or expire.
+
+    Calls CLN's waitinvoice (blocking) then updates the DB and emits an SSE
+    notification to any browser tabs waiting on this invoice.
+    """
+    try:
+        now = datetime.now(tz=timezone.utc)
+        timeout = max((expires_at - now).total_seconds() + 60.0, 120.0)
+        result = await client.wait_invoice(label, timeout=timeout)
+
+        if result.status == "paid":
+            async with DatabaseManager(db_url) as db:
+                await db.execute(
+                    "UPDATE lightning_invoices SET status = 'paid', paid_at = $1 WHERE id = $2",
+                    result.paid_at,
+                    invoice_id,
+                )
+                await db.execute(
+                    "INSERT INTO transactions (user_id, amount, created_at) VALUES ($1, $2, NOW())",
+                    user_id,
+                    amount_shares,
+                )
+            logger.info(
+                f"Invoice {invoice_id} paid — {amount_shares} shares added for user {user_id}"
+            )
+            await sse_mgr.notify(InvoiceNotification(invoice_id=invoice_id, status="paid"))
+        else:
+            async with DatabaseManager(db_url) as db:
+                await db.execute(
+                    "UPDATE lightning_invoices SET status = 'expired' WHERE id = $1",
+                    invoice_id,
+                )
+            logger.info(f"Invoice {invoice_id} expired")
+            await sse_mgr.notify(InvoiceNotification(invoice_id=invoice_id, status="expired"))
+
+    except Exception as e:
+        logger.error(f"Error waiting for invoice {invoice_id}: {e}")
+        # Mark expired so the user can retry
+        try:
+            async with DatabaseManager(db_url) as db:
+                await db.execute(
+                    "UPDATE lightning_invoices SET status = 'expired' WHERE id = $1 AND status = 'pending'",
+                    invoice_id,
+                )
+            await sse_mgr.notify(InvoiceNotification(invoice_id=invoice_id, status="expired"))
+        except Exception:
+            pass
+
+
+async def _recover_pending_invoices(
+    config: Config, client: CLNClient, sse_mgr: SSEManager
+) -> None:
+    """On startup, resolve any invoices that were pending when the app last shut down.
+
+    For each pending invoice:
+    - If already paid on the node: create the transaction and mark paid.
+    - If already expired on the node: mark expired.
+    - If still pending and not yet expired: restart the wait task.
+    - If expired by timestamp but unknown to node: mark expired.
+    """
+    try:
+        async with DatabaseManager(config.database_url) as db:
+            rows = await db.fetch(
+                """
+                SELECT id, user_id, amount_shares, label, payment_hash, expires_at
+                FROM lightning_invoices
+                WHERE status = 'pending'
+                """
+            )
+
+        if not rows:
+            return
+
+        logger.info(f"Recovering {len(rows)} pending invoices")
+
+        for row in rows:
+            invoice_id = row["id"]
+            try:
+                status = await client.get_invoice_status(row["payment_hash"])
+                now = datetime.now(tz=timezone.utc)
+                expires_at = row["expires_at"].replace(tzinfo=timezone.utc)
+
+                if status and status.status == "paid":
+                    async with DatabaseManager(config.database_url) as db:
+                        await db.execute(
+                            "UPDATE lightning_invoices SET status='paid', paid_at=$1 WHERE id=$2",
+                            status.paid_at,
+                            invoice_id,
+                        )
+                        await db.execute(
+                            "INSERT INTO transactions (user_id, amount, created_at) VALUES ($1, $2, NOW())",
+                            row["user_id"],
+                            row["amount_shares"],
+                        )
+                    logger.info(f"Recovery: invoice {invoice_id} was already paid")
+                elif status is None or status.status == "expired" or now >= expires_at:
+                    async with DatabaseManager(config.database_url) as db:
+                        await db.execute(
+                            "UPDATE lightning_invoices SET status='expired' WHERE id=$1",
+                            invoice_id,
+                        )
+                    logger.info(f"Recovery: invoice {invoice_id} marked expired")
+                else:
+                    # Still pending — restart the wait task
+                    asyncio.create_task(
+                        _await_payment_task(
+                            invoice_id=invoice_id,
+                            user_id=row["user_id"],
+                            amount_shares=row["amount_shares"],
+                            label=row["label"],
+                            expires_at=expires_at,
+                            client=client,
+                            db_url=config.database_url,
+                            sse_mgr=sse_mgr,
+                        )
+                    )
+                    logger.info(f"Recovery: restarted wait task for invoice {invoice_id}")
+            except Exception as e:
+                logger.error(f"Recovery failed for invoice {invoice_id}: {e}")
+    except Exception as e:
+        logger.error(f"Invoice recovery failed: {e}")
+
+
 def create_app(config_path: str = "config.yaml") -> Quart:
     """Create and configure Quart application.
 
@@ -182,7 +318,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         redis_consumer, \
         difficulty_poller, \
         sse_manager, \
-        highscores_cache
+        highscores_cache, \
+        cln_client
     share_queue = asyncio.Queue()
 
     # Initialize SSE manager
@@ -200,6 +337,18 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     # Initialize difficulty poller (will start background task)
     difficulty_poller = DifficultyPoller(config, share_processor)
 
+    # Initialize CLN client if configured
+    if config.lightning_node_url and config.lightning_rune:
+        cln_client = CLNClient(
+            base_url=config.lightning_node_url,
+            rune=config.lightning_rune,
+            ca_cert=config.lightning_ca_cert,
+        )
+        logger.info(f"CLN client initialized: {config.lightning_node_url}")
+    else:
+        cln_client = None
+        logger.info("CLN not configured — Lightning payments disabled")
+
     @app.before_serving
     async def startup():
         """Start background share processor and Redis consumer."""
@@ -210,6 +359,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         await share_processor.start()
         await redis_consumer.start()
         await difficulty_poller.start()
+
+        # Recover any pending Lightning invoices from before last shutdown
+        if cln_client:
+            await _recover_pending_invoices(config, cln_client, sse_manager)
+
         logger.info("SliceHash application started")
 
     @app.after_serving
@@ -1201,6 +1355,204 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         except Exception as e:
             logger.error(f"Failed to create purchase: {e}")
             return jsonify({"error": "Internal error"}), 500
+
+    @app.post("/api/users/me/purchases/invoice")
+    @require_auth
+    async def create_invoice():
+        """Create a Lightning invoice for a share purchase.
+
+        Request body:
+            {
+                "amount": int  # Number of shares to purchase (must be positive)
+            }
+
+        Returns:
+            201: Invoice created — {invoice_id, bolt11, amount_sats, expires_at}
+            400: Invalid request or BTC address not set
+            503: Lightning payments not configured
+            500: Internal error
+        """
+        if not cln_client:
+            return jsonify({"error": "Lightning payments are not configured"}), 503
+
+        try:
+            user_id = request.user_id
+            data = await request.get_json()
+
+            if not data or "amount" not in data:
+                return jsonify({"error": "Missing 'amount' field"}), 400
+
+            amount = data["amount"]
+            if not isinstance(amount, int) or amount <= 0:
+                return jsonify({"error": "Amount must be a positive integer"}), 400
+
+            cfg = app.config["SLICEHASH_CONFIG"]
+
+            async with DatabaseManager(cfg.database_url) as db:
+                user = await db.fetchrow(
+                    "SELECT address FROM users WHERE id = $1", user_id
+                )
+
+                if not user:
+                    return jsonify({"error": "User not found"}), 404
+
+                if user["address"].startswith("bc1_update_in_settings_"):
+                    return jsonify(
+                        {
+                            "error": "Please set your Bitcoin address in Settings before purchasing shares"
+                        }
+                    ), 400
+
+            amount_sats = amount * cfg.sats_per_share
+            amount_msat = amount_sats * 1000
+            label = f"slicehash_{user_id}_{uuid.uuid4().hex}"
+            description = f"SliceHash: {amount} share{'s' if amount != 1 else ''}"
+
+            invoice = await cln_client.create_invoice(
+                amount_msat=amount_msat,
+                label=label,
+                description=description,
+                expiry=cfg.invoice_expiry_seconds,
+            )
+
+            async with DatabaseManager(cfg.database_url) as db:
+                row = await db.fetchrow(
+                    """
+                    INSERT INTO lightning_invoices
+                        (user_id, payment_hash, label, payment_request, amount_shares, amount_sats, expires_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING id
+                    """,
+                    user_id,
+                    invoice.payment_hash,
+                    label,
+                    invoice.bolt11,
+                    amount,
+                    amount_sats,
+                    invoice.expires_at,
+                )
+
+            invoice_id = row["id"]
+
+            asyncio.create_task(
+                _await_payment_task(
+                    invoice_id=invoice_id,
+                    user_id=user_id,
+                    amount_shares=amount,
+                    label=label,
+                    expires_at=invoice.expires_at,
+                    client=cln_client,
+                    db_url=cfg.database_url,
+                    sse_mgr=sse_manager,
+                )
+            )
+
+            return jsonify(
+                {
+                    "invoice_id": invoice_id,
+                    "bolt11": invoice.bolt11,
+                    "amount_sats": amount_sats,
+                    "expires_at": int(invoice.expires_at.timestamp()),
+                }
+            ), 201
+
+        except Exception as e:
+            logger.error(f"Failed to create invoice: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/users/me/purchases/invoice/<int:invoice_id>/qr")
+    @require_auth
+    async def get_invoice_qr(invoice_id: int):
+        """Generate QR code image for a Lightning invoice.
+
+        Returns:
+            200: PNG QR code image
+            404: Invoice not found or doesn't belong to current user
+            500: Internal error
+        """
+        try:
+            user_id = request.user_id
+            cfg = app.config["SLICEHASH_CONFIG"]
+
+            async with DatabaseManager(cfg.database_url) as db:
+                row = await db.fetchrow(
+                    "SELECT payment_request FROM lightning_invoices WHERE id = $1 AND user_id = $2",
+                    invoice_id,
+                    user_id,
+                )
+
+            if not row:
+                return jsonify({"error": "Invoice not found"}), 404
+
+            # Uppercase BOLT11 for alphanumeric QR encoding (smaller, faster to scan)
+            bolt11_upper = row["payment_request"].upper()
+            return await serve_qr_image(bolt11_upper, logo_filename=None)
+
+        except Exception as e:
+            logger.error(f"Failed to generate invoice QR: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+    @app.get("/api/users/me/purchases/invoice/<int:invoice_id>/stream")
+    @require_auth
+    async def invoice_payment_stream(invoice_id: int):
+        """SSE stream for Lightning invoice payment status.
+
+        Emits:
+            connected: Initial connection event
+            paid:      Invoice was paid, shares have been added
+            expired:   Invoice expired without payment
+        """
+        try:
+            user_id = request.user_id
+            cfg = app.config["SLICEHASH_CONFIG"]
+
+            # Verify invoice belongs to current user
+            async with DatabaseManager(cfg.database_url) as db:
+                row = await db.fetchrow(
+                    "SELECT status FROM lightning_invoices WHERE id = $1 AND user_id = $2",
+                    invoice_id,
+                    user_id,
+                )
+
+            if not row:
+                return jsonify({"error": "Invoice not found"}), 404
+
+            # If already resolved, respond immediately without subscribing
+            if row["status"] == "paid":
+                async def immediate_paid():
+                    yield format_sse_event("connected", {"invoice_id": invoice_id})
+                    yield format_sse_event("paid", {"invoice_id": invoice_id})
+                return await create_sse_endpoint(immediate_paid())
+
+            if row["status"] == "expired":
+                async def immediate_expired():
+                    yield format_sse_event("connected", {"invoice_id": invoice_id})
+                    yield format_sse_event("expired", {"invoice_id": invoice_id})
+                return await create_sse_endpoint(immediate_expired())
+
+        except Exception as e:
+            logger.error(f"Invoice stream setup failed: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
+        channel = f"invoice:{invoice_id}"
+
+        async def event_stream():
+            queue = None
+            try:
+                queue = await sse_manager.subscribe(channel)
+                yield format_sse_event("connected", {"invoice_id": invoice_id})
+
+                notification = await queue.get()  # Receives InvoiceNotification
+                yield format_sse_event(notification.status, {"invoice_id": invoice_id})
+
+            except Exception as e:
+                logger.error(f"Invoice SSE stream error: {e}")
+                yield format_sse_event("error", {"error": "Internal error"})
+            finally:
+                if queue:
+                    await sse_manager.unsubscribe(channel, queue)
+
+        return await create_sse_endpoint(event_stream())
 
     @app.get("/api/highscores/24h")
     async def get_highscores_24h():

@@ -1505,6 +1505,40 @@ footer {
     line-height: 1.8;
 }
 
+.invoice-amount {
+    color: #f7931a;
+    font-size: 9px;
+    font-family: 'Press Start 2P', monospace;
+    margin-bottom: 8px;
+}
+
+.invoice-countdown {
+    color: #cccccc;
+    font-size: 8px;
+    font-family: 'Press Start 2P', monospace;
+    margin-bottom: 12px;
+}
+
+.btn-open-wallet {
+    display: block;
+    width: 100%;
+    background-color: #f7931a;
+    color: #000000;
+    border: 4px solid #c47200;
+    border-right-color: #7a4700;
+    border-bottom-color: #7a4700;
+    padding: 12px 20px;
+    font-size: 10px;
+    font-family: 'Press Start 2P', monospace;
+    cursor: pointer;
+    margin-top: 12px;
+    text-align: center;
+}
+
+.btn-open-wallet:hover {
+    background-color: #ffaa33;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .floating-login-btn {

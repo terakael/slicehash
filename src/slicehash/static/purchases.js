@@ -1,33 +1,81 @@
-// Purchases JavaScript - Purchase history and purchase actions
+// Purchases page — Lightning invoice payment flow
 
-// State management
+import { LightningQRModal } from './lightning-qr-modal.js';
+import { LightningSSEClient } from './lightning-sse.js';
+import { isMobileDevice, buildLightningDeepLink, openLightningWallet } from './lightning-utils.js';
+
+// State
 let isLoading = false;
 let isPurchasing = false;
+let invoiceModal = null;
+let invoiceSSEClient = null;
+let countdownInterval = null;
+let currentBolt11 = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
     await loadUserData();
     await loadPurchases();
     setupPurchaseForm();
-    initSharedSSE();
+    window.initSharedSSE();
+
+    invoiceModal = new LightningQRModal({
+        title: 'Pay with Lightning',
+        instructions: 'Scan with your Lightning wallet',
+        onClose: () => cleanupInvoice(),
+    });
+    invoiceModal.init();
+    addInvoiceExtras();
 });
 
-// Fetch and display user data
+// Inject amount, countdown, and wallet-button elements into the modal
+function addInvoiceExtras() {
+    const content = document.querySelector('.qr-overlay-content');
+    if (!content) return;
+
+    const instructions = content.querySelector('.qr-overlay-instructions');
+    if (!instructions) return;
+
+    // Amount line (e.g. "1,000 sats · 1 share")
+    const amountEl = document.createElement('p');
+    amountEl.id = 'invoice-amount';
+    amountEl.className = 'invoice-amount';
+    amountEl.style.display = 'none';
+    instructions.insertAdjacentElement('afterend', amountEl);
+
+    // Countdown timer
+    const countdownEl = document.createElement('p');
+    countdownEl.id = 'invoice-countdown';
+    countdownEl.className = 'invoice-countdown';
+    countdownEl.style.display = 'none';
+    amountEl.insertAdjacentElement('afterend', countdownEl);
+
+    // Open-in-wallet button (shown on mobile)
+    const walletBtn = document.createElement('button');
+    walletBtn.id = 'open-wallet-btn';
+    walletBtn.className = 'btn-open-wallet';
+    walletBtn.textContent = 'Open in Wallet';
+    walletBtn.style.display = 'none';
+    walletBtn.addEventListener('click', () => {
+        if (currentBolt11) {
+            openLightningWallet(buildLightningDeepLink(currentBolt11));
+        }
+    });
+    countdownEl.insertAdjacentElement('afterend', walletBtn);
+}
+
+// Fetch and display user data (shares remaining, BTC address warning)
 async function loadUserData() {
     try {
         const response = await fetch('/api/users/me');
         if (!response.ok) throw new Error('Failed to fetch user data');
-
         const data = await response.json();
 
-        // Update shares remaining display
         document.getElementById('shares-remaining').textContent = data.shares_remaining;
 
-        // Check if user needs to set Bitcoin address
         if (data.address && data.address.startsWith('bc1_update_in_settings_')) {
             showBtcAddressWarning();
         }
-
     } catch (error) {
         console.error('Error loading user data:', error);
         document.getElementById('shares-remaining').textContent = 'Error';
@@ -37,7 +85,6 @@ async function loadUserData() {
 // Load purchase history
 async function loadPurchases() {
     if (isLoading) return;
-
     isLoading = true;
     showLoading(true);
 
@@ -46,17 +93,12 @@ async function loadPurchases() {
         if (!response.ok) throw new Error('Failed to fetch purchases');
         const data = await response.json();
 
-        console.log('Loaded purchases:', data);
-
         if (data.purchases.length === 0) {
-            console.log('No purchases, showing empty state');
             showEmptyState(true);
         } else {
-            console.log('Found', data.purchases.length, 'purchases');
             showEmptyState(false);
             renderPurchaseCards(data.purchases);
         }
-
     } catch (error) {
         console.error('Error loading purchases:', error);
         showError('Failed to load purchases');
@@ -70,61 +112,44 @@ async function loadPurchases() {
 // Render purchase cards
 function renderPurchaseCards(purchases) {
     const container = document.getElementById('purchase-cards-container');
-    if (!container) {
-        console.error('purchase-cards-container not found');
-        return;
-    }
+    if (!container) return;
 
     container.innerHTML = '';
-    console.log('Rendering', purchases.length, 'purchases');
-
     purchases.forEach(purchase => {
         const card = document.createElement('div');
         card.className = 'purchase-card';
-
-        const date = formatDate(purchase.created_at);
-
         card.innerHTML = `
             <div class="purchase-card-header">
-                <span class="purchase-date">${date}</span>
+                <span class="purchase-date">${formatDate(purchase.created_at)}</span>
                 <span class="purchase-amount">${purchase.amount}</span>
             </div>
             <div class="purchase-amount-label">Shares Purchased</div>
         `;
-
         container.appendChild(card);
     });
 }
 
-// Format date
 function formatDate(timestamp) {
     const ts = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
-    const date = new Date(ts * 1000);
-    return date.toLocaleDateString('en-US', {
+    return new Date(ts * 1000).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        year: 'numeric'
+        year: 'numeric',
     });
 }
 
 // Setup purchase form
 function setupPurchaseForm() {
-    const form = document.querySelector('.purchase-form');
     const input = document.getElementById('purchase-amount');
     const button = document.getElementById('purchase-submit-btn');
 
-    button.addEventListener('click', async () => {
-        await handlePurchase();
-    });
-
+    button.addEventListener('click', async () => { await handlePurchase(); });
     input.addEventListener('keypress', async (e) => {
-        if (e.key === 'Enter') {
-            await handlePurchase();
-        }
+        if (e.key === 'Enter') await handlePurchase();
     });
 }
 
-// Handle purchase submission
+// Handle purchase: create invoice then show payment modal
 async function handlePurchase() {
     if (isPurchasing) return;
 
@@ -132,7 +157,6 @@ async function handlePurchase() {
     const button = document.getElementById('purchase-submit-btn');
     const amount = parseInt(input.value);
 
-    // Validate input
     if (!amount || amount <= 0) {
         showError('Please enter a valid amount');
         return;
@@ -140,40 +164,31 @@ async function handlePurchase() {
 
     isPurchasing = true;
     button.disabled = true;
-    button.textContent = 'Purchasing...';
+    button.textContent = 'Generating invoice...';
 
     try {
-        const response = await fetch('/api/users/me/purchases', {
+        const response = await fetch('/api/users/me/purchases/invoice', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ amount })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount }),
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to create purchase');
+            const err = await response.json();
+            throw new Error(err.error || 'Failed to create invoice');
         }
 
-        // Clear input
+        const data = await response.json();
         input.value = '';
-
-        // Reload data
-        await loadUserData();
-        await loadPurchases();
-
-        console.log('Purchase successful');
+        showInvoiceModal(data, amount);
 
     } catch (error) {
-        console.error('Error creating purchase:', error);
-        const errorMsg = error.message || 'Failed to create purchase';
-
-        // Check if error is about BTC address not being set
-        if (errorMsg.includes('Bitcoin address')) {
-            showError(errorMsg + ' <a href="/settings" style="color: #007bff; text-decoration: underline;">Go to Settings</a>');
+        console.error('Error creating invoice:', error);
+        const msg = error.message || 'Failed to create invoice';
+        if (msg.includes('Bitcoin address')) {
+            showError(msg + ' <a href="/settings" style="color: #007bff; text-decoration: underline;">Go to Settings</a>');
         } else {
-            showError(errorMsg);
+            showError(msg);
         }
     } finally {
         isPurchasing = false;
@@ -182,38 +197,125 @@ async function handlePurchase() {
     }
 }
 
-// Show/hide loading indicator
-function showLoading(show) {
-    const indicator = document.getElementById('loading-indicator');
-    indicator.style.display = show ? 'block' : 'none';
+// Show invoice modal and start SSE listener
+function showInvoiceModal({ invoice_id, bolt11, amount_sats, expires_at }, numShares) {
+    currentBolt11 = bolt11;
+
+    // Show QR (server generates QR from stored BOLT11)
+    invoiceModal.show(`/api/users/me/purchases/invoice/${invoice_id}/qr`);
+
+    // Update amount line
+    const amountEl = document.getElementById('invoice-amount');
+    if (amountEl) {
+        amountEl.textContent = `${amount_sats.toLocaleString()} sats · ${numShares} share${numShares !== 1 ? 's' : ''}`;
+        amountEl.style.display = 'block';
+    }
+
+    // Mobile: show "Open in Wallet" button
+    const walletBtn = document.getElementById('open-wallet-btn');
+    if (walletBtn) {
+        walletBtn.style.display = isMobileDevice() ? 'block' : 'none';
+    }
+
+    // Start countdown
+    startCountdown(expires_at);
+
+    // Connect SSE stream for payment confirmation
+    cleanupInvoiceSSE();
+    invoiceSSEClient = new LightningSSEClient(
+        `/api/users/me/purchases/invoice/${invoice_id}/stream`,
+        {
+            onSuccess: () => {
+                stopCountdown();
+                invoiceModal.showSuccess('Payment received! Shares added to your account.');
+                setTimeout(async () => {
+                    invoiceModal.hide();
+                    await loadUserData();
+                    await loadPurchases();
+                }, 2000);
+            },
+            onExpired: () => {
+                stopCountdown();
+                invoiceModal.showError('Invoice expired. Please close and try again.');
+            },
+            onError: (e) => {
+                console.error('Invoice SSE error:', e);
+            },
+        }
+    );
+    invoiceSSEClient.connect();
 }
 
-// Show/hide empty state
-function showEmptyState(show) {
-    const emptyState = document.getElementById('empty-state');
-    const container = document.getElementById('purchase-cards-container');
+// Countdown timer
+function startCountdown(expiresAt) {
+    const el = document.getElementById('invoice-countdown');
+    if (!el) return;
 
-    if (show) {
-        emptyState.style.display = 'block';
-        container.style.display = 'none';
-    } else {
-        emptyState.style.display = 'none';
-        container.style.display = 'flex';
+    el.style.display = 'block';
+    stopCountdown();
+
+    countdownInterval = setInterval(() => {
+        const remaining = Math.max(0, expiresAt - Math.floor(Date.now() / 1000));
+        const mins = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        el.textContent = `Expires in ${mins}:${secs.toString().padStart(2, '0')}`;
+
+        if (remaining === 0) {
+            stopCountdown();
+            el.textContent = 'Expired';
+        }
+    }, 1000);
+}
+
+function stopCountdown() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
     }
 }
 
-// Show error message
-function showError(message) {
-    console.error(message);
+// Cleanup SSE connection (called on modal close)
+function cleanupInvoiceSSE() {
+    if (invoiceSSEClient) {
+        invoiceSSEClient.disconnect();
+        invoiceSSEClient = null;
+    }
+}
 
-    // Create or update error alert
+function cleanupInvoice() {
+    cleanupInvoiceSSE();
+    stopCountdown();
+    currentBolt11 = null;
+
+    const amountEl = document.getElementById('invoice-amount');
+    if (amountEl) amountEl.style.display = 'none';
+
+    const countdownEl = document.getElementById('invoice-countdown');
+    if (countdownEl) countdownEl.style.display = 'none';
+
+    const walletBtn = document.getElementById('open-wallet-btn');
+    if (walletBtn) walletBtn.style.display = 'none';
+}
+
+// UI helpers
+function showLoading(show) {
+    document.getElementById('loading-indicator').style.display = show ? 'block' : 'none';
+}
+
+function showEmptyState(show) {
+    const emptyState = document.getElementById('empty-state');
+    const container = document.getElementById('purchase-cards-container');
+    emptyState.style.display = show ? 'block' : 'none';
+    container.style.display = show ? 'none' : 'flex';
+}
+
+function showError(message) {
     let errorAlert = document.getElementById('purchase-error-alert');
     if (!errorAlert) {
         errorAlert = document.createElement('div');
         errorAlert.id = 'purchase-error-alert';
         errorAlert.className = 'alert alert-danger';
         errorAlert.style.marginTop = '1rem';
-
         const form = document.querySelector('.purchase-form');
         form.parentNode.insertBefore(errorAlert, form.nextSibling);
     }
@@ -221,17 +323,12 @@ function showError(message) {
     errorAlert.innerHTML = message;
     errorAlert.style.display = 'block';
 
-    // Auto-hide after 5 seconds (unless it contains a link)
     if (!message.includes('<a')) {
-        setTimeout(() => {
-            errorAlert.style.display = 'none';
-        }, 5000);
+        setTimeout(() => { errorAlert.style.display = 'none'; }, 5000);
     }
 }
 
-// Show Bitcoin address warning banner
 function showBtcAddressWarning() {
-    // Check if warning already exists
     if (document.getElementById('btc-address-warning')) return;
 
     const warning = document.createElement('div');
@@ -243,7 +340,6 @@ function showBtcAddressWarning() {
         <a href="/settings" style="color: #856404; text-decoration: underline; font-weight: bold;">Go to Settings →</a>
     `;
 
-    // Insert at the top of the main content
     const mainContent = document.querySelector('main') || document.querySelector('.container');
     if (mainContent && mainContent.firstChild) {
         mainContent.insertBefore(warning, mainContent.firstChild);

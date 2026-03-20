@@ -63,6 +63,17 @@ class AuthNotification(NotificationBase):
         return f"auth:{self.k1}"
 
 
+@dataclass
+class InvoiceNotification(NotificationBase):
+    """Lightning invoice payment notification sent to SSE clients."""
+    invoice_id: int
+    status: str  # "paid" or "expired"
+
+    def get_channel(self) -> str:
+        """Get the routing channel for this notification."""
+        return f"invoice:{self.invoice_id}"
+
+
 class SSEManager:
     """Manages SSE connections and dispatches typed notifications.
 

@@ -23,6 +23,7 @@ _ENV_OVERRIDES: dict[str, str] = {
     "REDIS_PASSWORD": "redis_password",
     "BTC_RPC_USER": "btc_rpc_user",
     "BTC_RPC_PASSWORD": "btc_rpc_password",
+    "LIGHTNING_RUNE": "lightning_rune",
 }
 
 
@@ -104,6 +105,23 @@ class Config(BaseModel):
     btc_rpc_port: int = Field(default=8332, gt=0, description="Bitcoin Core RPC port")
     btc_rpc_user: str = Field(description="Bitcoin Core RPC username")
     btc_rpc_password: str = Field(description="Bitcoin Core RPC password")
+
+    # Core Lightning (CLN) payment settings — optional, payments disabled if not set
+    lightning_node_url: str | None = Field(
+        default=None, description="CLN clnrest base URL (e.g. https://127.0.0.1:3010)"
+    )
+    lightning_rune: str | None = Field(
+        default=None, description="CLN rune for authentication. Override with LIGHTNING_RUNE."
+    )
+    lightning_ca_cert: str | None = Field(
+        default=None, description="Path to CLN CA certificate for TLS verification"
+    )
+    sats_per_share: int = Field(
+        default=1000, gt=0, description="Price per share in satoshis"
+    )
+    invoice_expiry_seconds: int = Field(
+        default=600, gt=0, description="Lightning invoice expiry in seconds"
+    )
 
     @property
     def database_url(self) -> str:

@@ -37,5 +37,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='shared.js') }}"></script>
-<script src="{{ url_for('static', filename='purchases.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='purchases.js') }}"></script>
 {% endblock %}

@@ -124,6 +124,34 @@ CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires
 ON auth_challenges(expires_at)
 """
 
+# Lightning invoices table - tracks payment requests for share purchases
+LIGHTNING_INVOICES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS lightning_invoices (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    payment_hash TEXT UNIQUE NOT NULL,
+    label TEXT UNIQUE NOT NULL,
+    payment_request TEXT NOT NULL,
+    amount_shares INTEGER NOT NULL CHECK(amount_shares > 0),
+    amount_sats INTEGER NOT NULL CHECK(amount_sats > 0),
+    status TEXT DEFAULT 'pending' NOT NULL CHECK(status IN ('pending', 'paid', 'expired')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    paid_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+)
+"""
+
+LIGHTNING_INVOICES_USER_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_lightning_invoices_user_id
+ON lightning_invoices(user_id)
+"""
+
+LIGHTNING_INVOICES_STATUS_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_lightning_invoices_status
+ON lightning_invoices(status)
+"""
+
 # Unique index on lightning_pubkey for LNURL-auth lookups
 USERS_LIGHTNING_PUBKEY_INDEX_SQL = """
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_lightning_pubkey
@@ -138,6 +166,7 @@ ALL_TABLES = [
     SHARE_VERIFICATION_TABLE_SQL,
     GLOBAL_STATE_TABLE_SQL,
     AUTH_CHALLENGES_TABLE_SQL,
+    LIGHTNING_INVOICES_TABLE_SQL,
 ]
 
 # All index creation statements
@@ -150,4 +179,6 @@ ALL_INDEXES = [
     TRANSACTIONS_USER_INDEX_SQL,
     AUTH_CHALLENGES_INDEX_SQL,
     USERS_LIGHTNING_PUBKEY_INDEX_SQL,
+    LIGHTNING_INVOICES_USER_INDEX_SQL,
+    LIGHTNING_INVOICES_STATUS_INDEX_SQL,
 ]
