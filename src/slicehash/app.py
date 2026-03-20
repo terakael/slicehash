@@ -181,7 +181,7 @@ async def _await_payment_task(
             async with DatabaseManager(db_url) as db:
                 await db.execute(
                     "UPDATE lightning_invoices SET status = 'paid', paid_at = $1 WHERE id = $2",
-                    result.paid_at,
+                    result.paid_at.replace(tzinfo=None) if result.paid_at else None,
                     invoice_id,
                 )
                 await db.execute(
@@ -253,7 +253,7 @@ async def _recover_pending_invoices(
                     async with DatabaseManager(config.database_url) as db:
                         await db.execute(
                             "UPDATE lightning_invoices SET status='paid', paid_at=$1 WHERE id=$2",
-                            status.paid_at,
+                            status.paid_at.replace(tzinfo=None) if status.paid_at else None,
                             invoice_id,
                         )
                         await db.execute(
