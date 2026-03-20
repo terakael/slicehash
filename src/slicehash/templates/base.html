@@ -13,18 +13,30 @@
 <body>
     <!-- Top header - persistent across all pages -->
     <div class="top-header">
-        {% block header %}
-        <!-- Large shares remaining display -->
-        <div class="shares-remaining-display">
-            <div class="shares-label">Shares Remaining</div>
-            <div class="shares-value" id="shares-remaining">{{ shares_remaining }}</div>
-        </div>
+        <div class="top-header-inner">
+            <div class="header-info">
+                {% block header %}
+                <!-- Large shares remaining display -->
+                <div class="shares-remaining-display">
+                    <div class="shares-label">Shares Remaining</div>
+                    <div class="shares-value" id="shares-remaining">{{ shares_remaining }}</div>
+                </div>
 
-        <!-- Target level display -->
-        <div class="target-level-display">
-            <div class="target-level-value" id="target-level">Block Target: Level {{ block_target_level }}+</div>
+                <!-- Target level display -->
+                <div class="target-level-display">
+                    <div class="target-level-value" id="target-level">Block Target: Level {{ block_target_level }}+</div>
+                </div>
+                {% endblock %}
+            </div>
+
+            <!-- Desktop navigation (shown via CSS on desktop, hidden on mobile) -->
+            <nav class="top-nav">
+                <a href="/dashboard" class="top-nav-item {% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+                <a href="/highscores" class="top-nav-item {% if request.path == '/highscores' %}active{% endif %}">Highscore</a>
+                <a href="/purchases" class="top-nav-item {% if request.path == '/purchases' %}active{% endif %}">Purchases</a>
+                <a href="/settings" class="top-nav-item {% if request.path == '/settings' %}active{% endif %}">Settings</a>
+            </nav>
         </div>
-        {% endblock %}
     </div>
 
     {% block content %}{% endblock %}
