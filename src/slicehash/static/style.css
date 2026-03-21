@@ -2569,15 +2569,20 @@ textarea.validator-input {
     /* ── Achievements section ── */
     .achievements-section {
         border-top: 2px solid #3d2612;
-        padding: 12px 14px;
+        padding: 10px 14px;
         flex-shrink: 0;
+        height: 132px;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
     }
 
     .achievements-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
+        flex-shrink: 0;
     }
 
     .achievements-title { font-size: 8px; color: #f7931a; }
@@ -2585,16 +2590,26 @@ textarea.validator-input {
 
     .achievements-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
-        gap: 6px;
+        grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+        gap: 4px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex: 1;
+        min-height: 0;
+        scrollbar-width: thin;
+        scrollbar-color: #3d2612 transparent;
     }
+
+    .achievements-grid::-webkit-scrollbar { width: 4px; }
+    .achievements-grid::-webkit-scrollbar-track { background: transparent; }
+    .achievements-grid::-webkit-scrollbar-thumb { background: #3d2612; border-radius: 2px; }
 
     .achievement-badge {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
-        padding: 6px 4px;
+        gap: 3px;
+        padding: 4px 3px;
         cursor: default;
         position: relative;
     }
