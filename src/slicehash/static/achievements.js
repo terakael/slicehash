@@ -160,8 +160,50 @@ function renderAchievementBadge(def, isUnlocked) {
 
     badge.appendChild(icon);
     badge.appendChild(name);
+
+    badge.addEventListener('click', () => showAchievementPopup(def, isUnlocked));
+
     return badge;
 }
+
+// ── Tap-to-info popup ─────────────────────────────────────────────────────────
+
+function getOrCreatePopup() {
+    let popup = document.getElementById('achievement-popup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'achievement-popup';
+        popup.className = 'achievement-popup';
+        popup.addEventListener('click', () => popup.classList.remove('visible'));
+        document.body.appendChild(popup);
+    }
+    return popup;
+}
+
+function showAchievementPopup(def, isUnlocked) {
+    const popup = getOrCreatePopup();
+    const color = isUnlocked ? RARITY_COLOR[def.rarity] : '#666';
+    const secretLocked = def.secret && !isUnlocked;
+    const displayName = secretLocked ? '???' : def.name;
+    const displayDesc = secretLocked ? 'Unlock to reveal this secret achievement.' : def.description;
+    const rarityLabel = def.rarity.charAt(0).toUpperCase() + def.rarity.slice(1);
+    const statusLabel = isUnlocked ? 'Unlocked' : 'Locked';
+
+    popup.innerHTML = `
+        <div class="achievement-popup-inner">
+            <div class="achievement-popup-name" style="color:${color}">${displayName}</div>
+            <div class="achievement-popup-desc">${displayDesc}</div>
+            <div class="achievement-popup-meta">
+                <span class="achievement-popup-rarity" style="color:${color}">${rarityLabel}</span>
+                <span class="achievement-popup-status">${statusLabel}</span>
+            </div>
+            <div class="achievement-popup-dismiss">Tap to close</div>
+        </div>
+    `;
+    popup.classList.add('visible');
+}
+
+const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
 function renderAchievementGrid(unlockedList) {
     const grid = document.getElementById('achievements-grid');
@@ -169,7 +211,9 @@ function renderAchievementGrid(unlockedList) {
     if (!grid) return;
 
     const unlockedSet = new Set(unlockedList.map(u => u.id));
-    const visibleDefs = ACHIEVEMENT_REGISTRY.filter(def => !def.secret || unlockedSet.has(def.id));
+    const visibleDefs = ACHIEVEMENT_REGISTRY
+        .filter(def => !def.secret || unlockedSet.has(def.id))
+        .sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity));
 
     grid.innerHTML = '';
     visibleDefs.forEach(def => {

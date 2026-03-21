@@ -441,6 +441,9 @@ footer {
     font-family: 'Press Start 2P', monospace;
 }
 
+/* Desktop dashboard hidden on mobile */
+.desktop-dashboard { display: none; }
+
 /* Mobile Dashboard Layout */
 .mobile-dashboard {
     min-height: 100vh;
@@ -2658,6 +2661,73 @@ textarea.validator-input {
 
 .achievement-badge.just-unlocked {
     animation: achievementUnlock 0.5s ease-out forwards;
+}
+
+/* Achievement info popup (tap on mobile) */
+.achievement-popup {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    padding: 0 0 80px; /* above bottom nav */
+}
+
+.achievement-popup.visible { display: block; }
+
+.achievement-popup-inner {
+    background-color: #2a1a0a;
+    border-top: 4px solid #3d2612;
+    border-left: 4px solid #2a1a0a;
+    border-right: 4px solid #0d0702;
+    box-shadow: 0 -4px 0 #0d0702, 0 -8px 16px rgba(0,0,0,0.8);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.achievement-popup-name {
+    font-size: 10px;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.8);
+}
+
+.achievement-popup-desc {
+    font-size: 8px;
+    color: #ccc;
+    line-height: 1.8;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: none;
+}
+
+.achievement-popup-meta {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.achievement-popup-rarity {
+    font-size: 7px;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: none;
+    text-transform: uppercase;
+}
+
+.achievement-popup-status {
+    font-size: 7px;
+    color: #666;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: none;
+}
+
+.achievement-popup-dismiss {
+    font-size: 6px;
+    color: #444;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: none;
+    text-align: right;
 }
 
 /* Desktop: full-height panel with internal scroll */
