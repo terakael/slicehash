@@ -74,6 +74,18 @@ class InvoiceNotification(NotificationBase):
         return f"invoice:{self.invoice_id}"
 
 
+@dataclass
+class AchievementNotification(NotificationBase):
+    """Achievement unlock notification sent to SSE clients."""
+    user_id: int
+    achievement_id: str
+    achievement_name: str
+
+    def get_channel(self) -> str:
+        """Get the routing channel for this notification."""
+        return f"user:{self.user_id}"
+
+
 class SSEManager:
     """Manages SSE connections and dispatches typed notifications.
 

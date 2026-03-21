@@ -52,7 +52,8 @@ from .qr_utils import serve_qr_image
 from .quota import calculate_shares_remaining, get_active_users
 from .redis_consumer import RedisStreamConsumer
 from .share_processor import ShareProcessor
-from .sse_manager import AuthNotification, InvoiceNotification, ShareNotification, SSEManager
+from .achievements import AchievementManager
+from .sse_manager import AchievementNotification, AuthNotification, InvoiceNotification, ShareNotification, SSEManager
 from .sse_utils import create_sse_endpoint, format_sse_event
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ redis_consumer: Optional[RedisStreamConsumer] = None
 difficulty_poller: Optional[DifficultyPoller] = None
 sse_manager: SSEManager
 cln_client: Optional[CLNClient] = None
+achievement_manager: Optional[AchievementManager] = None
 
 
 # Highscores cache
@@ -167,6 +169,7 @@ async def _await_payment_task(
     client: CLNClient,
     db_url: str,
     sse_mgr: SSEManager,
+    ach_mgr: Optional[AchievementManager] = None,
 ) -> None:
     """Background task: wait for a CLN invoice to be paid or expire.
 
@@ -185,12 +188,18 @@ async def _await_payment_task(
                     result.paid_at.replace(tzinfo=None) if result.paid_at else None,
                     invoice_id,
                 )
+                prev_balance = await calculate_shares_remaining(db, user_id)
                 await db.execute(
                     "INSERT INTO transactions (user_id, amount, amount_sats, created_at) VALUES ($1, $2, $3, NOW())",
                     user_id,
                     amount_shares,
                     amount_sats,
                 )
+                if ach_mgr:
+                    try:
+                        await ach_mgr.on_purchase(db, user_id, amount_shares, prev_balance)
+                    except Exception as e:
+                        logger.error(f"Achievement purchase check failed (lightning): {e}", exc_info=True)
             logger.info(
                 f"Invoice {invoice_id} paid — {amount_shares} shares added for user {user_id}"
             )
@@ -285,6 +294,7 @@ async def _recover_pending_invoices(
                             client=client,
                             db_url=config.database_url,
                             sse_mgr=sse_mgr,
+                            ach_mgr=None,  # Not available during recovery startup
                         )
                     )
                     logger.info(f"Recovery: restarted wait task for invoice {invoice_id}")
@@ -323,7 +333,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         difficulty_poller, \
         sse_manager, \
         highscores_cache, \
-        cln_client
+        cln_client, \
+        achievement_manager
     share_queue = asyncio.Queue()
 
     # Initialize SSE manager
@@ -332,8 +343,11 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     # Initialize highscores cache
     highscores_cache = HighscoresCache()
 
+    # Initialize achievement manager
+    achievement_manager = AchievementManager(sse_manager)
+
     # Initialize share processor (will start background task)
-    share_processor = ShareProcessor(config, share_queue, sse_manager, highscores_cache)
+    share_processor = ShareProcessor(config, share_queue, sse_manager, highscores_cache, achievement_manager)
 
     # Initialize Redis stream consumer
     redis_consumer = RedisStreamConsumer(config, share_queue)
@@ -811,18 +825,25 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 while True:
                     try:
                         notification = await asyncio.wait_for(queue.get(), timeout=30.0)
-                        event_data = {
-                            "share_id": notification.share_id,
-                            "submitted_at": notification.submitted_at,
-                            "level": notification.level,
-                            "is_block": notification.is_block,
-                            "share_hash": notification.share_hash,
-                            "billable": notification.billable,
-                            "shares_consumed": notification.shares_consumed,
-                            "block_target_level": notification.block_target_level,
-                            "tag": notification.tag,
-                        }
-                        yield f"id: {notification.share_id}\nevent: share\ndata: {json.dumps(event_data)}\n\n"
+                        if isinstance(notification, AchievementNotification):
+                            event_data = {
+                                "achievement_id": notification.achievement_id,
+                                "achievement_name": notification.achievement_name,
+                            }
+                            yield f"event: achievement\ndata: {json.dumps(event_data)}\n\n"
+                        else:
+                            event_data = {
+                                "share_id": notification.share_id,
+                                "submitted_at": notification.submitted_at,
+                                "level": notification.level,
+                                "is_block": notification.is_block,
+                                "share_hash": notification.share_hash,
+                                "billable": notification.billable,
+                                "shares_consumed": notification.shares_consumed,
+                                "block_target_level": notification.block_target_level,
+                                "tag": notification.tag,
+                            }
+                            yield f"id: {notification.share_id}\nevent: share\ndata: {json.dumps(event_data)}\n\n"
                     except asyncio.TimeoutError:
                         # Heartbeat every 30s with padding to defeat TCP/proxy buffering
                         yield f"event: heartbeat\ndata: {json.dumps({'timestamp': datetime.now().isoformat()})}\n\n"
@@ -1287,6 +1308,54 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             logger.error(f"Failed to fetch purchase history: {e}")
             return jsonify({"error": "Internal error"}), 500
 
+    @app.get("/api/users/me/achievements")
+    @require_auth
+    async def get_achievements():
+        """Return all unlocked achievements for the current user.
+
+        Also triggers account age checks.
+
+        Returns:
+            200: List of unlocked achievements with unlock timestamps
+            500: Internal error
+        """
+        try:
+            user_id = request.user_id
+            async with DatabaseManager(
+                app.config["SLICEHASH_CONFIG"].database_url
+            ) as db:
+                # Trigger age/never-empty checks
+                if achievement_manager:
+                    try:
+                        await achievement_manager.on_achievements_requested(db, user_id)
+                    except Exception as e:
+                        logger.error(f"Achievement age check failed: {e}", exc_info=True)
+
+                rows = await db.fetch(
+                    """
+                    SELECT achievement_id, unlocked_at, share_id
+                    FROM user_achievements
+                    WHERE user_id = $1
+                    ORDER BY unlocked_at ASC
+                    """,
+                    user_id,
+                )
+                unlocked = [
+                    {
+                        "id": row["achievement_id"],
+                        "unlocked_at": int(
+                            row["unlocked_at"].replace(tzinfo=timezone.utc).timestamp()
+                        ) if row["unlocked_at"] else None,
+                        "share_id": row["share_id"],
+                    }
+                    for row in rows
+                ]
+                return jsonify({"achievements": unlocked}), 200
+
+        except Exception as e:
+            logger.error(f"Failed to fetch achievements: {e}")
+            return jsonify({"error": "Internal error"}), 500
+
     @app.post("/api/users/me/purchases")
     @require_auth
     async def create_purchase():
@@ -1334,6 +1403,9 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         }
                     ), 400
 
+                # Read current balance before purchase
+                prev_balance = await calculate_shares_remaining(db, user_id)
+
                 # Create transaction
                 row = await db.fetchrow(
                     """
@@ -1344,6 +1416,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     user_id,
                     amount,
                 )
+
+                # Check purchase achievements
+                if achievement_manager:
+                    try:
+                        await achievement_manager.on_purchase(db, user_id, amount, prev_balance)
+                    except Exception as e:
+                        logger.error(f"Achievement purchase check failed: {e}", exc_info=True)
 
                 return jsonify(
                     {
@@ -1450,6 +1529,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     client=cln_client,
                     db_url=cfg.database_url,
                     sse_mgr=sse_manager,
+                    ach_mgr=achievement_manager,
                 )
             )
 

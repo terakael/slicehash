@@ -65,6 +65,18 @@ CREATE TABLE IF NOT EXISTS share_verification (
 )
 """
 
+# User achievements table - tracks unlocked achievements per user
+USER_ACHIEVEMENTS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS user_achievements (
+    user_id        INTEGER NOT NULL,
+    achievement_id TEXT    NOT NULL,
+    unlocked_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    share_id       INTEGER,
+    PRIMARY KEY (user_id, achievement_id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+)
+"""
+
 # Global state table - stores system-wide configuration
 GLOBAL_STATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS global_state (
@@ -168,11 +180,13 @@ ALL_TABLES = [
     GLOBAL_STATE_TABLE_SQL,
     AUTH_CHALLENGES_TABLE_SQL,
     LIGHTNING_INVOICES_TABLE_SQL,
+    USER_ACHIEVEMENTS_TABLE_SQL,
 ]
 
 # Migrations to run on existing databases (idempotent)
 ALL_MIGRATIONS = [
     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS amount_sats INTEGER",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS never_empty_since TIMESTAMP",
 ]
 
 # All index creation statements

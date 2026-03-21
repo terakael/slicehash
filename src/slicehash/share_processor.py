@@ -48,6 +48,7 @@ class ShareProcessor:
         share_queue: asyncio.Queue,
         sse_manager: SSEManager,
         highscores_cache=None,
+        achievement_manager=None,
     ):
         """Initialize share processor.
 
@@ -56,11 +57,13 @@ class ShareProcessor:
             share_queue: Queue of incoming share events from webhook
             sse_manager: SSE manager for real-time notifications
             highscores_cache: Optional highscores cache to invalidate on new shares
+            achievement_manager: Optional AchievementManager for achievement checks
         """
         self.config = config
         self.share_queue = share_queue
         self.sse_manager = sse_manager
         self.highscores_cache = highscores_cache
+        self.achievement_manager = achievement_manager
         self.rotation_state = RotationState()
         self.current_block_target: Optional[str] = None
         self._task: Optional[asyncio.Task] = None
@@ -271,6 +274,21 @@ class ShareProcessor:
             f"Stored share: share_id={share_id}, user={user_id}, level={level}, "
             f"is_block={is_block_result}, billable={billable}, consumed={shares_consumed}"
         )
+
+        # Check achievements (after commit, non-blocking)
+        if self.achievement_manager:
+            try:
+                await self.achievement_manager.on_share(db, user_id, {
+                    'share_id': share_id,
+                    'level': level,
+                    'share_hash': share_hash,
+                    'is_block': is_block_result,
+                    'ntime': ntime,
+                    'block_target_level': block_target_level,
+                    'block_height': block_height,
+                })
+            except Exception as e:
+                logger.error(f"Achievement check failed: {e}", exc_info=True)
 
         # Notify SSE subscribers
         notification = ShareNotification(

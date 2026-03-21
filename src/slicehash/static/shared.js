@@ -203,13 +203,16 @@ let catchupBuffer = [];
 // Callback for handling new shares (optional, page-specific)
 let onNewShareCallback = null;
 let onPageRefocusCallback = null;
+let onAchievementCallback = null;
 
 // Initialize SSE connection with optional callback
 // callback will be called when a new share arrives (e.g., for dashboard to add card)
 // refocusCallback will be called when page regains focus (optional)
-function initSharedSSE(callback = null, refocusCallback = null) {
+// achievementCallback will be called when an achievement is unlocked (optional)
+function initSharedSSE(callback = null, refocusCallback = null, achievementCallback = null) {
     onNewShareCallback = callback;
     onPageRefocusCallback = refocusCallback;
+    onAchievementCallback = achievementCallback;
 
     if (eventSource) {
         eventSource.close();
@@ -225,6 +228,11 @@ function initSharedSSE(callback = null, refocusCallback = null) {
         const share = JSON.parse(event.data);
         lastEventId = event.lastEventId;
         handleSharedNewShare(share);
+    });
+
+    eventSource.addEventListener('achievement', (event) => {
+        const data = JSON.parse(event.data);
+        if (onAchievementCallback) onAchievementCallback(data);
     });
 
     eventSource.addEventListener('heartbeat', (event) => {
@@ -277,7 +285,7 @@ async function handleSharedSSEDisconnect() {
     console.log(`Reconnecting in ${SSE_RECONNECT_DELAY_MS}ms...`);
     setTimeout(() => {
         if (isPageVisible) {
-            initSharedSSE(onNewShareCallback, onPageRefocusCallback);
+            initSharedSSE(onNewShareCallback, onPageRefocusCallback, onAchievementCallback);
         }
     }, SSE_RECONNECT_DELAY_MS);
 }
@@ -339,7 +347,7 @@ async function handleRefocusCatchup() {
         // Reconnect SSE after refresh if it was closed
         if (sseWasClosed) {
             console.log('Reconnecting SSE after full refresh');
-            initSharedSSE(onNewShareCallback, onPageRefocusCallback);
+            initSharedSSE(onNewShareCallback, onPageRefocusCallback, onAchievementCallback);
         }
         return;
     }
@@ -434,7 +442,7 @@ async function handleRefocusCatchup() {
             // Reconnect SSE after catch-up if it was closed
             if (sseWasClosed) {
                 console.log('Reconnecting SSE after incremental catch-up');
-                initSharedSSE(onNewShareCallback, onPageRefocusCallback);
+                initSharedSSE(onNewShareCallback, onPageRefocusCallback, onAchievementCallback);
             }
         } else {
             // Full refresh
@@ -449,7 +457,7 @@ async function handleRefocusCatchup() {
             // Reconnect SSE after full refresh if it was closed
             if (sseWasClosed) {
                 console.log('Reconnecting SSE after full refresh');
-                initSharedSSE(onNewShareCallback, onPageRefocusCallback);
+                initSharedSSE(onNewShareCallback, onPageRefocusCallback, onAchievementCallback);
             }
         }
     } catch (error) {
@@ -465,7 +473,7 @@ async function handleRefocusCatchup() {
         // Reconnect SSE after error if it was closed
         if (sseWasClosed) {
             console.log('Reconnecting SSE after catch-up error');
-            initSharedSSE(onNewShareCallback, onPageRefocusCallback);
+            initSharedSSE(onNewShareCallback, onPageRefocusCallback, onAchievementCallback);
         }
     }
 }
