@@ -2570,28 +2570,40 @@ textarea.validator-input {
 
 /* ── Achievements page ─────────────────────────────────────────────────────── */
 
-.achievements-container {
-    max-width: 600px;
+/* Mobile-first: normal scrolling page */
+.achievements-wrap {
+    padding: 20px 20px 100px;
+    max-width: 800px;
     margin: 0 auto;
-    padding: 20px 20px 100px 20px;
 }
 
-.achievements-page-header {
+.achievements-panel {
+    background-color: #1a0f05;
+    border: 4px solid #2a1a0a;
+    border-right-color: #0d0702;
+    border-bottom-color: #0d0702;
+    box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+}
+
+.achievements-panel-title {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 20px;
+    align-items: center;
+    padding: 10px 14px;
+    background-color: #3d2612;
+    border-bottom: 4px solid #0d0702;
+    flex-shrink: 0;
 }
 
-.achievements-page-title {
-    font-size: 10px;
-    color: #f7931a;
-    text-shadow: 2px 2px 0px #c46700;
+.achievements-count {
+    font-size: 7px;
+    color: #888;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: none;
 }
 
-.achievements-page-count {
-    font-size: 8px;
-    color: #666;
+.achievements-panel-body {
+    padding: 14px;
 }
 
 .achievements-grid {
@@ -2608,7 +2620,6 @@ textarea.validator-input {
     padding: 10px 6px;
     cursor: default;
     position: relative;
-    background-color: #1a0f05;
     border: 2px solid transparent;
 }
 
@@ -2627,6 +2638,8 @@ textarea.validator-input {
     text-align: center;
     line-height: 1.5;
     word-break: break-word;
+    font-family: 'Press Start 2P', monospace;
+    text-shadow: none;
 }
 
 .achievement-badge.unlocked .achievement-name { color: #e0e0e0; }
@@ -2645,4 +2658,36 @@ textarea.validator-input {
 
 .achievement-badge.just-unlocked {
     animation: achievementUnlock 0.5s ease-out forwards;
+}
+
+/* Desktop: full-height panel with internal scroll */
+@media (min-width: 1024px) {
+    .achievements-wrap {
+        padding: 16px;
+        max-width: 1000px;
+        height: calc(100vh - 100px);
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+    }
+
+    .achievements-panel {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .achievements-panel-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #3d2612 transparent;
+    }
+
+    .achievements-panel-body::-webkit-scrollbar { width: 6px; }
+    .achievements-panel-body::-webkit-scrollbar-track { background: transparent; }
+    .achievements-panel-body::-webkit-scrollbar-thumb { background: #3d2612; }
 }

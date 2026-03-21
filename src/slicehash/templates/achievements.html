@@ -3,12 +3,16 @@
 {% block title %}Achievements - MineShare{% endblock %}
 
 {% block content %}
-<div class="achievements-container">
-    <div class="achievements-page-header">
-        <span class="achievements-page-title">Achievements</span>
-        <span class="achievements-page-count" id="achievements-count">0 / 0</span>
+<div class="achievements-wrap">
+    <div class="achievements-panel">
+        <div class="achievements-panel-title">
+            <span class="panel-title-text">Achievements</span>
+            <span class="achievements-count" id="achievements-count">0 / 0</span>
+        </div>
+        <div class="achievements-panel-body">
+            <div class="achievements-grid" id="achievements-grid"></div>
+        </div>
     </div>
-    <div class="achievements-grid" id="achievements-grid"></div>
 </div>
 {% endblock %}
 
