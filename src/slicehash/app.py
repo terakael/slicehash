@@ -1879,11 +1879,18 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     @require_auth
     async def achievements_page():
         """Render achievements page."""
-        async with DatabaseManager(
-            app.config["SLICEHASH_CONFIG"].database_url
-        ) as db:
-            ctx = await get_template_context(db, request)
-        return await render_template("achievements.html", **ctx)
+        async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
+            shares_remaining = await calculate_shares_remaining(db, request.user_id)
+
+        block_target_level = 0
+        if share_processor and share_processor.current_block_target:
+            block_target_level = calculate_level(share_processor.current_block_target)
+
+        return await render_template(
+            "achievements.html",
+            shares_remaining=shares_remaining,
+            block_target_level=int(block_target_level),
+        )
 
     @app.get("/settings")
     @require_auth
