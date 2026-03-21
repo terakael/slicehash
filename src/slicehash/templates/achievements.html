@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Achievements - MineShare{% endblock %}
+
+{% block content %}
+<div class="achievements-container">
+    <div class="achievements-page-header">
+        <span class="achievements-page-title">Achievements</span>
+        <span class="achievements-page-count" id="achievements-count">0 / 0</span>
+    </div>
+    <div class="achievements-grid" id="achievements-grid"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='shared.js') }}"></script>
+<script src="{{ url_for('static', filename='achievements.js') }}"></script>
+{% endblock %}

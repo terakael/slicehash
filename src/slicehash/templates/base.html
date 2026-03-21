@@ -33,6 +33,7 @@
             <!-- Desktop navigation (shown via CSS on desktop, hidden on mobile) -->
             <nav class="top-nav">
                 <a href="/dashboard" class="top-nav-item {% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+                <a href="/achievements" class="top-nav-item {% if request.path == '/achievements' %}active{% endif %}">Achievements</a>
                 <a href="/settings" class="top-nav-item {% if request.path == '/settings' %}active{% endif %}">Settings</a>
             </nav>
         </div>
@@ -74,6 +75,12 @@
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             <span>Purchases</span>
+        </a>
+        <a href="/achievements" class="nav-item {% if request.path == '/achievements' %}active{% endif %}">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Badges</span>
         </a>
         <a href="/settings" class="nav-item {% if request.path == '/settings' %}active{% endif %}">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

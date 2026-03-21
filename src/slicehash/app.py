@@ -1875,6 +1875,16 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             block_target_level=int(block_target_level),
         )
 
+    @app.get("/achievements")
+    @require_auth
+    async def achievements_page():
+        """Render achievements page."""
+        async with DatabaseManager(
+            app.config["SLICEHASH_CONFIG"].database_url
+        ) as db:
+            ctx = await get_template_context(db, request)
+        return await render_template("achievements.html", **ctx)
+
     @app.get("/settings")
     @require_auth
     async def settings_page():

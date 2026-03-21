@@ -2566,85 +2566,83 @@ textarea.validator-input {
         flex-shrink: 0;
     }
 
-    /* ── Achievements section ── */
-    .achievements-section {
-        border-top: 2px solid #3d2612;
-        padding: 10px 14px;
-        flex-shrink: 0;
-        height: 132px;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-    }
+}
 
-    .achievements-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-        flex-shrink: 0;
-    }
+/* ── Achievements page ─────────────────────────────────────────────────────── */
 
-    .achievements-title { font-size: 8px; color: #f7931a; }
-    .achievements-count { font-size: 7px; color: #666; }
+.achievements-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px 20px 100px 20px;
+}
 
-    .achievements-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
-        gap: 4px;
-        overflow-y: auto;
-        overflow-x: hidden;
-        flex: 1;
-        min-height: 0;
-        scrollbar-width: thin;
-        scrollbar-color: #3d2612 transparent;
-    }
+.achievements-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+}
 
-    .achievements-grid::-webkit-scrollbar { width: 4px; }
-    .achievements-grid::-webkit-scrollbar-track { background: transparent; }
-    .achievements-grid::-webkit-scrollbar-thumb { background: #3d2612; border-radius: 2px; }
+.achievements-page-title {
+    font-size: 10px;
+    color: #f7931a;
+    text-shadow: 2px 2px 0px #c46700;
+}
 
-    .achievement-badge {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 3px;
-        padding: 4px 3px;
-        cursor: default;
-        position: relative;
-    }
+.achievements-page-count {
+    font-size: 8px;
+    color: #666;
+}
 
-    .achievement-badge.locked { opacity: 0.2; filter: grayscale(1); }
-    .achievement-badge.unlocked { opacity: 1; }
-    .achievement-badge.secret.locked { display: none; }
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+}
 
-    .achievement-icon {
-        width: 32px;
-        height: 32px;
-    }
+.achievement-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 6px;
+    cursor: default;
+    position: relative;
+    background-color: #1a0f05;
+    border: 2px solid transparent;
+}
 
-    .achievement-name {
-        font-size: 5px;
-        color: #888;
-        text-align: center;
-        line-height: 1.4;
-        word-break: break-word;
-    }
+.achievement-badge.locked { opacity: 0.25; filter: grayscale(1); }
+.achievement-badge.unlocked { opacity: 1; }
+.achievement-badge.secret.locked { display: none; }
 
-    .achievement-badge.unlocked .achievement-name { color: #e0e0e0; }
+.achievement-icon {
+    width: 40px;
+    height: 40px;
+}
 
-    .achievement-badge.unlocked[data-rarity="common"]    { border: 2px solid #555; }
-    .achievement-badge.unlocked[data-rarity="uncommon"]  { border: 2px solid #56d364; }
-    .achievement-badge.unlocked[data-rarity="rare"]      { border: 2px solid #58a6ff; }
-    .achievement-badge.unlocked[data-rarity="epic"]      { border: 2px solid #bc8cff; }
-    .achievement-badge.unlocked[data-rarity="legendary"] { border: 2px solid #f7931a; box-shadow: 0 0 6px rgba(247,147,26,0.4); }
+.achievement-name {
+    font-size: 6px;
+    color: #888;
+    text-align: center;
+    line-height: 1.5;
+    word-break: break-word;
+}
 
-    @keyframes achievementUnlock {
-        0%   { transform: scale(1);   filter: brightness(1); }
-        40%  { transform: scale(1.4); filter: brightness(2); }
-        100% { transform: scale(1);   filter: brightness(1); }
-    }
-    .achievement-badge.just-unlocked {
-        animation: achievementUnlock 0.5s ease-out forwards;
-    }
+.achievement-badge.unlocked .achievement-name { color: #e0e0e0; }
+
+.achievement-badge.unlocked[data-rarity="common"]    { border-color: #555; }
+.achievement-badge.unlocked[data-rarity="uncommon"]  { border-color: #56d364; }
+.achievement-badge.unlocked[data-rarity="rare"]      { border-color: #58a6ff; }
+.achievement-badge.unlocked[data-rarity="epic"]      { border-color: #bc8cff; }
+.achievement-badge.unlocked[data-rarity="legendary"] { border-color: #f7931a; box-shadow: 0 0 8px rgba(247,147,26,0.35); }
+
+@keyframes achievementUnlock {
+    0%   { transform: scale(1);   filter: brightness(1); }
+    40%  { transform: scale(1.3); filter: brightness(2); }
+    100% { transform: scale(1);   filter: brightness(1); }
+}
+
+.achievement-badge.just-unlocked {
+    animation: achievementUnlock 0.5s ease-out forwards;
 }
