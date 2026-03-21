@@ -91,6 +91,13 @@ function isLightColor(hex) {
     return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 }
 
+function medalClass(rank) {
+    if (rank === 1) return 'medal-gold';
+    if (rank === 2) return 'medal-silver';
+    if (rank === 3) return 'medal-bronze';
+    return '';
+}
+
 // Build a .hs-row element for a highscore entry
 function renderHsRow(share, { rank } = {}) {
     const { color, shape, borderStyle } = getLevelStyle(share.level);
@@ -101,8 +108,12 @@ function renderHsRow(share, { rank } = {}) {
 
     const row = document.createElement('div');
     row.className = 'hs-row';
+    row.dataset.level = share.level;
 
-    const rankHtml = rank !== undefined ? `<span class="hs-rank">#${rank}</span>` : '';
+    const mc = rank !== undefined ? medalClass(rank) : '';
+    const rankHtml = rank !== undefined
+        ? `<span class="hs-rank${mc ? ' ' + mc : ''}">#${rank}</span>`
+        : '';
     const timestamp = formatTimestamp(share.submitted_at);
     const userDisplay = share.tag
         ? truncateUsername(share.tag)
@@ -121,7 +132,7 @@ function renderHsRow(share, { rank } = {}) {
             </div>
             <div class="hs-hash">${hashDisplay}</div>
         </div>
-        <div class="hs-badge shape-${shape}" style="background-color: ${color}; border-color: ${borderColor}; color: ${textColor};">${badgeInner}</div>
+        <div class="hs-badge shape-${shape}${mc ? ' ' + mc : ''}" style="background-color: ${color}; border-color: ${borderColor}; color: ${textColor};">${badgeInner}</div>
     `;
 
     return row;

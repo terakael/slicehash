@@ -8,6 +8,11 @@ let currentMode = localStorage.getItem('dashboardMode') || 'recent';
 const LIMIT = 20;
 let hasLoadedAllShares = false;
 
+// Desktop column state
+let currentMyBestPeriod = 'best-24h';
+let currentHsPeriod = '24h';
+let currentPersonalBestLevel = 0;
+
 const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
 
 // Initialize on page load
@@ -148,6 +153,13 @@ function isLightColor(hex) {
     return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 }
 
+function medalClass(rank) {
+    if (rank === 1) return 'medal-gold';
+    if (rank === 2) return 'medal-silver';
+    if (rank === 3) return 'medal-bronze';
+    return '';
+}
+
 // Build a .hs-row element for a share
 function renderHsRow(share, { rank } = {}) {
     const { color, shape, borderStyle } = getLevelStyle(share.level);
@@ -162,7 +174,10 @@ function renderHsRow(share, { rank } = {}) {
     row.dataset.level = share.level;
     row.dataset.timestamp = share.submitted_at;
 
-    const rankHtml = rank !== undefined ? `<span class="hs-rank">#${rank}</span>` : '';
+    const mc = rank !== undefined ? medalClass(rank) : '';
+    const rankHtml = rank !== undefined
+        ? `<span class="hs-rank${mc ? ' ' + mc : ''}">#${rank}</span>`
+        : '';
     const timestamp = formatTimestamp(share.submitted_at);
     const userDisplay = share.tag
         ? truncateUsername(share.tag)
@@ -181,7 +196,7 @@ function renderHsRow(share, { rank } = {}) {
             </div>
             <div class="hs-hash">${hashDisplay}</div>
         </div>
-        <div class="hs-badge shape-${shape}" style="background-color: ${color}; border-color: ${borderColor}; color: ${textColor};">${badgeInner}</div>
+        <div class="hs-badge shape-${shape}${mc ? ' ' + mc : ''}" style="background-color: ${color}; border-color: ${borderColor}; color: ${textColor};">${badgeInner}</div>
     `;
 
     row.addEventListener('click', () => {
@@ -191,22 +206,24 @@ function renderHsRow(share, { rank } = {}) {
     return row;
 }
 
-// Build a .share-card.block banner for personal best
+// Build a .share-card banner for personal best (block or non-block styled)
 function renderPersonalBest(share) {
     const { color, shape, borderStyle } = getLevelStyle(share.level);
     const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
     const userDisplay = share.tag ? truncateUsername(share.tag) : 'me';
     const timestamp = formatTimestamp(share.submitted_at);
+    const cardClass = share.is_block ? 'share-card block' : 'share-card personal-best';
+    const subtitle = share.is_block ? 'BLOCK FOUND · ALL TIME HIGH' : 'ALL TIME HIGH';
 
     const card = document.createElement('div');
-    card.className = 'share-card block';
+    card.className = cardClass;
     card.dataset.shareId = share.share_id;
     card.innerHTML = `
         <div class="share-card-header">
             <div class="share-header-top">
                 <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
                 <span class="share-user-tag">${userDisplay}</span>
-                <span class="share-user-tag">ALL TIME HIGH</span>
+                <span class="share-user-tag">${subtitle}</span>
             </div>
             <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
                 ${Math.floor(share.level)}
@@ -268,6 +285,76 @@ function showEmptyState(show) {
     }
 }
 
+// ── FLIP animation helper ─────────────────────────────────────────────────────
+// Inserts newRow into container, animating displaced siblings downward
+// and fading the new row in.
+function animateInsert(container, newRow, insertBefore) {
+    const existingRows = [...container.querySelectorAll('.hs-row')];
+    const beforeTop = existingRows.map(el => el.getBoundingClientRect().top);
+
+    // Insert invisibly
+    newRow.style.opacity = '0';
+    if (insertBefore) {
+        container.insertBefore(newRow, insertBefore);
+    } else {
+        container.appendChild(newRow);
+    }
+
+    // Force layout recalc
+    newRow.offsetHeight;
+
+    // FLIP: animate siblings that shifted
+    existingRows.forEach((el, i) => {
+        const delta = beforeTop[i] - el.getBoundingClientRect().top;
+        if (Math.abs(delta) > 0.5) {
+            el.style.transform = `translateY(${delta}px)`;
+            el.style.transition = 'none';
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.style.transition = 'transform 0.22s ease';
+                    el.style.transform = '';
+                    el.addEventListener('transitionend', function h() {
+                        el.style.transform = '';
+                        el.style.transition = '';
+                        el.removeEventListener('transitionend', h);
+                    });
+                });
+            });
+        }
+    });
+
+    // Fade in new row
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            newRow.style.transition = 'opacity 0.25s ease';
+            newRow.style.opacity = '1';
+            newRow.addEventListener('transitionend', function h() {
+                newRow.style.opacity = '';
+                newRow.style.transition = '';
+                newRow.removeEventListener('transitionend', h);
+            });
+        });
+    });
+}
+
+// Re-number rank labels and medal classes after a column changes
+function updateColumnRanks(container) {
+    container.querySelectorAll('.hs-row').forEach((row, index) => {
+        const rank = index + 1;
+        const mc = medalClass(rank);
+        const rankEl = row.querySelector('.hs-rank');
+        if (rankEl) {
+            rankEl.textContent = `#${rank}`;
+            rankEl.className = 'hs-rank' + (mc ? ` ${mc}` : '');
+        }
+        const badgeEl = row.querySelector('.hs-badge');
+        if (badgeEl) {
+            badgeEl.classList.remove('medal-gold', 'medal-silver', 'medal-bronze');
+            if (mc) badgeEl.classList.add(mc);
+        }
+    });
+}
+
 // SSE callback for new shares
 function handleNewShare(share) {
     console.log(`handleNewShare: share ${share.share_id}, level=${share.level}, mode=${currentMode}`);
@@ -324,26 +411,40 @@ function handleNewShare(share) {
         }
     }
 
-    // ── Desktop recent column ────────────────────────────────────────────────
-    if (isDesktop) {
-        const recentCol = document.getElementById('desktop-recent-col');
-        if (recentCol) {
-            let desktopIsDuplicate = false;
-            for (const row of recentCol.querySelectorAll('.hs-row')) {
-                if (row.dataset.shareId === String(share.share_id)) {
-                    desktopIsDuplicate = true;
-                    break;
-                }
-            }
-            if (!desktopIsDuplicate) {
-                const row = renderHsRow(share, {});
-                row.classList.add('share-card-new');
-                recentCol.insertBefore(row, recentCol.firstChild);
-                observeCard(row);
-                setTimeout(() => row.classList.remove('share-card-new'), 400);
-            }
+    // ── Desktop updates ──────────────────────────────────────────────────────
+    if (!isDesktop) return;
+
+    // Recent column
+    const recentCol = document.getElementById('desktop-recent-col');
+    if (recentCol) {
+        let isDup = false;
+        for (const row of recentCol.querySelectorAll('.hs-row')) {
+            if (row.dataset.shareId === String(share.share_id)) { isDup = true; break; }
+        }
+        if (!isDup) {
+            const row = renderHsRow(share, {});
+            animateInsert(recentCol, row, recentCol.firstChild);
+            observeCard(row);
         }
     }
+
+    // My Best column
+    updateDesktopMyBest(share);
+
+    // Personal best banner
+    if (share.level > currentPersonalBestLevel) {
+        currentPersonalBestLevel = share.level;
+        const pbContainer = document.getElementById('desktop-personal-best');
+        if (pbContainer) {
+            pbContainer.innerHTML = '';
+            const card = renderPersonalBest(share);
+            pbContainer.appendChild(card);
+            observeCard(card);
+        }
+    }
+
+    // Global highscores
+    updateDesktopHighscoresIfNeeded(share);
 }
 
 // ── Desktop View ─────────────────────────────────────────────────────────────
@@ -352,8 +453,8 @@ async function initDesktopView() {
     await Promise.all([
         loadDesktopPersonalBest(),
         loadDesktopRecent(),
-        loadDesktopMyBest('best-24h'),
-        loadDesktopHighscores('24h'),
+        loadDesktopMyBest(currentMyBestPeriod),
+        loadDesktopHighscores(currentHsPeriod),
         updateDesktopDifficulty(),
     ]);
     setupDesktopToggles();
@@ -368,6 +469,7 @@ async function loadDesktopPersonalBest() {
         if (!container) return;
         container.innerHTML = '';
         if (data.shares.length > 0) {
+            currentPersonalBestLevel = data.shares[0].level;
             const card = renderPersonalBest(data.shares[0]);
             container.appendChild(card);
             observeCard(card);
@@ -432,12 +534,76 @@ async function loadDesktopHighscores(period) {
     }
 }
 
+// Insert a new share into the my-best column at the right rank position
+function updateDesktopMyBest(share) {
+    const container = document.getElementById('desktop-mybest-col');
+    if (!container) return;
+
+    // For 24h period, check recency
+    if (currentMyBestPeriod === 'best-24h') {
+        const now = Math.floor(Date.now() / 1000);
+        if (share.submitted_at < now - 86400) return;
+    }
+
+    // Dedup
+    for (const row of container.querySelectorAll('.hs-row')) {
+        if (row.dataset.shareId === String(share.share_id)) return;
+    }
+
+    const existingRows = [...container.querySelectorAll('.hs-row')];
+    let insertBefore = null;
+    let insertPosition = 0;
+
+    for (const existing of existingRows) {
+        const existingLevel = parseFloat(existing.dataset.level);
+        const existingTimestamp = existing.dataset.timestamp;
+        if (share.level > existingLevel ||
+            (share.level === existingLevel && share.submitted_at > existingTimestamp)) {
+            insertBefore = existing;
+            break;
+        }
+        insertPosition++;
+    }
+
+    // Don't push beyond the display limit
+    if (insertPosition >= 20) return;
+
+    const row = renderHsRow(share, { rank: insertPosition + 1 });
+    animateInsert(container, row, insertBefore);
+    observeCard(row);
+    updateColumnRanks(container);
+}
+
+// Reload global highscores if the new share might rank
+function updateDesktopHighscoresIfNeeded(share) {
+    const container = document.getElementById('desktop-highscores-col');
+    if (!container) return;
+
+    // For 24h period, check recency
+    if (currentHsPeriod === '24h') {
+        const now = Math.floor(Date.now() / 1000);
+        if (share.submitted_at < now - 86400) return;
+    }
+
+    const existingRows = [...container.querySelectorAll('.hs-row')];
+    let wouldRank = existingRows.length < 5;
+    if (!wouldRank) {
+        const lowestLevel = parseFloat(existingRows[existingRows.length - 1].dataset.level || '0');
+        if (share.level >= lowestLevel) wouldRank = true;
+    }
+
+    if (wouldRank) {
+        loadDesktopHighscores(currentHsPeriod);
+    }
+}
+
 function setupDesktopToggles() {
     document.querySelectorAll('[data-mybest-period]').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-mybest-period]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            loadDesktopMyBest(btn.dataset.mybestPeriod);
+            currentMyBestPeriod = btn.dataset.mybestPeriod;
+            loadDesktopMyBest(currentMyBestPeriod);
         });
     });
 
@@ -445,7 +611,8 @@ function setupDesktopToggles() {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-hs-period]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            loadDesktopHighscores(btn.dataset.hsPeriod);
+            currentHsPeriod = btn.dataset.hsPeriod;
+            loadDesktopHighscores(currentHsPeriod);
         });
     });
 }

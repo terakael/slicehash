@@ -2147,6 +2147,33 @@ textarea.validator-input {
     }
 }
 
+/* ── New hs-row: gentle fade-in (overrides blockCelebration for share cards) */
+@keyframes hsRowFadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: none; }
+}
+.hs-row.share-card-new {
+    animation: hsRowFadeIn 0.28s ease-out forwards;
+}
+
+/* ── Medal ranking styles ────────────────────────────────────────────────── */
+.hs-rank.medal-gold   { color: #ffd700; }
+.hs-rank.medal-silver { color: #c0c0c0; }
+.hs-rank.medal-bronze { color: #cd7f32; }
+
+.hs-badge.medal-gold   { box-shadow: 0 0 0 2px #ffd700, 0 0 8px rgba(255,215,0,0.35), 2px 2px 0 rgba(0,0,0,0.5); }
+.hs-badge.medal-silver { box-shadow: 0 0 0 2px #b8b8b8, 0 0 6px rgba(192,192,192,0.3), 2px 2px 0 rgba(0,0,0,0.5); }
+.hs-badge.medal-bronze { box-shadow: 0 0 0 2px #cd7f32, 0 0 6px rgba(205,127,50,0.3), 2px 2px 0 rgba(0,0,0,0.5); }
+
+/* ── Personal best banner — non-block variant ────────────────────────────── */
+.share-card.personal-best {
+    background: #1a0f2e;
+    border-color: #3d2a6a;
+    border-right-color: #1a0d35;
+    border-bottom-color: #1a0d35;
+    box-shadow: 0 4px 0 #1a0d35, 0 8px 16px rgba(0,0,0,0.8), 0 0 20px rgba(120,60,220,0.12);
+}
+
 /* ============================================================================
    COMPACT ROW STYLES — hs-row and purchase-row (mobile + desktop)
    ============================================================================ */
