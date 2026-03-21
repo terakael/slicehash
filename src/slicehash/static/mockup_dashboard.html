@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SliceHash - Mockup</title>
+    <link rel="stylesheet" href="style.css?v=3">
+    <style>
+        /* ── Dev switcher (mobile only) ─────────────────────────────────── */
+        .dev-switcher {
+            position: fixed;
+            bottom: 90px;
+            right: 8px;
+            z-index: 9999;
+            background: #0d1a0d;
+            border: 2px solid #2a5a2a;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-family: monospace;
+            font-size: 10px;
+        }
+        .dev-switcher-label {
+            color: #4a9a4a;
+            text-align: center;
+            font-size: 9px;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+        .dev-btn {
+            background: #1a2e1a;
+            color: #7aaa7a;
+            border: 1px solid #2a5a2a;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 10px;
+            text-align: left;
+        }
+        .dev-btn:hover  { background: #2a3e2a; color: #aacaaa; }
+        .dev-btn.active { background: #2a5a2a; color: #ccffcc; border-color: #4a9a4a; }
+
+        /* ── Mobile page visibility ──────────────────────────────────────── */
+        .mockup-page { display: none; }
+        .mockup-page.active { display: block; }
+
+        /* ── Header base overrides ───────────────────────────────────────── */
+        .top-header-inner {
+            justify-content: center;
+            position: relative;
+            min-height: 80px;
+        }
+        .header-info    { flex: none; text-align: center; }
+        .top-nav        { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+
+        /* ── Desktop-only elements (hidden on mobile) ────────────────────── */
+        .desktop-dashboard  { display: none; }
+        .desktop-app-title  { display: none; }
+
+        /* ══════════════════════════════════════════════════════════════════
+           DESKTOP LAYOUT  ≥ 1024 px
+           ══════════════════════════════════════════════════════════════════ */
+        @media (min-width: 1024px) {
+
+            body { overflow: hidden; } /* panels handle their own scroll */
+
+            /* Widen header */
+            .top-header-inner { max-width: 1360px; }
+
+            /* App title – absolute left inside header */
+            .desktop-app-title {
+                display: block;
+                position: absolute;
+                left: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 13px;
+                font-family: 'Press Start 2P', monospace;
+                color: #f7931a;
+                text-shadow: 3px 3px 0px #c46700, 4px 4px 0px rgba(0,0,0,0.8);
+                letter-spacing: 3px;
+                white-space: nowrap;
+            }
+
+            /* All-panels-visible: no single "active" nav item */
+            .top-nav-item.active {
+                color: #888888;
+                background-color: #1a0f05;
+                border-color: transparent;
+                text-shadow: none;
+            }
+
+            /* Hide mobile-only elements */
+            .mockup-page  { display: none !important; }
+            .dev-switcher { display: none !important; }
+            /* bottom-nav already hidden by style.css ≥769 px */
+
+            /* ── Main desktop grid ── */
+            .desktop-dashboard {
+                display: grid;
+                grid-template-columns: 1fr 340px;
+                gap: 16px;
+                padding: 16px;
+                max-width: 1360px;
+                margin: 0 auto;
+                height: calc(100vh - 100px);
+                box-sizing: border-box;
+            }
+
+            /* ── Panel base ── */
+            .desktop-panel {
+                background-color: #1a0f05;
+                border: 4px solid #2a1a0a;
+                border-right-color: #0d0702;
+                border-bottom-color: #0d0702;
+                box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                min-height: 0;
+            }
+
+            /* ── Panel title bar ── */
+            .panel-title-bar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 14px;
+                background-color: #3d2612;
+                border-bottom: 4px solid #0d0702;
+                flex-shrink: 0;
+            }
+
+            .panel-title-text {
+                font-size: 9px;
+                font-family: 'Press Start 2P', monospace;
+                color: #f7931a;
+                text-shadow: 2px 2px 0 #c46700;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+            }
+
+            /* ── Toggle inside title bar ── */
+            .panel-title-bar .highscore-toggle {
+                margin: 0;
+                background: transparent;
+                gap: 6px;
+            }
+            .panel-title-bar .highscore-toggle .toggle-btn {
+                flex: none;
+                padding: 4px 8px;
+                font-size: 7px;
+            }
+
+            .panel-content { padding: 14px; }
+
+            /* ── Left: shares panel layout ── */
+            /* Personal best – full-width banner at top */
+            .shares-personal-best {
+                padding: 12px 14px 0;
+                flex-shrink: 0;
+            }
+
+            /* Two-column feed below the personal best */
+            .shares-two-col {
+                flex: 1;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0;
+                overflow: hidden;
+                min-height: 0;
+            }
+
+            .shares-col {
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                min-height: 0;
+                padding: 12px 14px 14px;
+            }
+
+            .shares-col:first-child {
+                border-right: 2px solid #0d0702;
+            }
+
+            .shares-col-header {
+                font-size: 8px;
+                font-family: 'Press Start 2P', monospace;
+                color: #555;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid #0d0702;
+                margin-bottom: 10px;
+                flex-shrink: 0;
+            }
+
+            .shares-col-scroll {
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                min-height: 0;
+            }
+
+            /* hs-rows inside "My Best" column look like mini-cards */
+            .shares-col-scroll .hs-row {
+                background: #2a1a0a;
+                border: 3px solid #1a0f05;
+                border-right-color: #0d0702;
+                border-bottom-color: #0d0702;
+                box-shadow: 0 2px 0 #0d0702;
+            }
+            .shares-col-scroll .hs-row:last-child { border-bottom-color: #0d0702; }
+            .shares-col-scroll .hs-row:hover      { background: #3d2612; }
+
+            /* Compact share cards */
+            .desktop-panel .share-card          { padding: 12px 14px; }
+            .desktop-panel .share-timestamp     { font-size: 10px; }
+            .desktop-panel .share-username      { font-size: 10px; }
+            .desktop-panel .share-hash          { font-size: 7px; }
+            .desktop-panel .share-level-badge   { width: 38px; height: 38px; font-size: 13px; }
+
+            /* ── Right column ── */
+            .desktop-right-col {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                overflow-y: auto;
+                min-height: 0;
+            }
+
+            /* Panels in the right col size to their content */
+            .desktop-panel-highscores,
+            .desktop-panel-purchases,
+            .desktop-panel-settings { flex-shrink: 0; }
+
+            /* ── Highscores compact rows ── */
+            .hs-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 9px 14px;
+                border-bottom: 2px solid #0d0702;
+                background: #1a0f05;
+                cursor: pointer;
+                transition: background-color 0.1s;
+            }
+            .hs-row:last-child  { border-bottom: none; }
+            .hs-row:hover       { background: #2a1a0a; }
+
+            .hs-rank {
+                font-size: 9px;
+                font-family: 'Press Start 2P', monospace;
+                color: #555;
+                width: 20px;
+                flex-shrink: 0;
+                text-shadow: none;
+            }
+
+            .hs-badge {
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+                font-family: 'Press Start 2P', monospace;
+                border: 3px solid;
+                box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+                flex-shrink: 0;
+            }
+            .hs-badge.shape-diamond { transform: rotate(45deg); }
+            .hs-badge.shape-diamond > span { transform: rotate(-45deg); display: block; }
+            .hs-badge.shape-hexagon { clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%); }
+
+            .hs-info   { flex: 1; min-width: 0; }
+            .hs-user {
+                font-size: 9px;
+                font-family: 'Press Start 2P', monospace;
+                color: #f7931a;
+                margin-bottom: 3px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                text-shadow: none;
+            }
+            .hs-hash {
+                font-size: 7px;
+                font-family: 'Press Start 2P', monospace;
+                color: #555;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                text-shadow: none;
+            }
+            .hs-verify {
+                font-size: 7px;
+                font-family: 'Press Start 2P', monospace;
+                color: #f7931a;
+                border: 2px solid rgba(247,147,26,0.3);
+                background: rgba(247,147,26,0.1);
+                padding: 3px 6px;
+                text-decoration: none;
+                flex-shrink: 0;
+                text-shadow: none;
+                white-space: nowrap;
+            }
+            .hs-verify:hover { background: rgba(247,147,26,0.25); }
+
+            /* Tag + time on same line inside hs-info */
+            .hs-top-line {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 6px;
+                margin-bottom: 3px;
+            }
+            .hs-top-line .hs-user { margin-bottom: 0; }
+            .hs-time {
+                font-size: 7px;
+                font-family: 'Press Start 2P', monospace;
+                color: #888;
+                text-shadow: none;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            /* Column header row – label + optional toggle */
+            .shares-col-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-bottom: 8px;
+                border-bottom: 2px solid #0d0702;
+                margin-bottom: 10px;
+                flex-shrink: 0;
+            }
+            .shares-col-top .shares-col-header {
+                border-bottom: none;
+                margin-bottom: 0;
+                padding-bottom: 0;
+            }
+            .shares-col-toggle {
+                margin: 0;
+                background: transparent;
+                gap: 5px;
+            }
+            .shares-col-toggle .toggle-btn {
+                flex: none;
+                padding: 3px 6px;
+                font-size: 7px;
+            }
+
+            /* ── Purchases compact ── */
+            .desktop-panel-purchases .panel-content { padding: 12px 14px; }
+            .desktop-panel .purchase-form           { margin: 0 0 14px 0; }
+            .desktop-panel .purchase-cards-container{ gap: 10px; }
+            .desktop-panel .purchase-card           { padding: 10px 12px; }
+            .desktop-panel .purchase-date           { font-size: 9px; }
+            .desktop-panel .purchase-amount         { font-size: 16px; }
+            .desktop-panel .purchase-amount-label   { font-size: 7px; margin-top: 2px; }
+
+            /* ── Settings compact ── */
+            .desktop-panel-settings .panel-content { padding: 14px; }
+            .desktop-panel .settings-container     { padding: 0; max-width: 100%; }
+            .desktop-panel .settings-form-inner    {
+                background: transparent;
+                border: none;
+                padding: 0;
+                box-shadow: none;
+            }
+            .desktop-panel .form-group             { margin-bottom: 14px; }
+            .desktop-panel .form-group label       { font-size: 8px; margin-bottom: 6px; }
+            .desktop-panel .form-group input       { font-size: 10px; padding: 8px 10px; }
+            .desktop-panel .field-help             { font-size: 7px; line-height: 1.5; }
+            .desktop-panel .btn-primary            { font-size: 9px; padding: 10px; }
+            .desktop-panel .logout-section         { margin-top: 14px; padding-top: 14px; border-top: 2px solid #2a1a0a; }
+            .desktop-panel .btn-logout             { font-size: 9px; padding: 10px 18px; }
+
+            /* ── Difficulty indicator in title bar ── */
+            .panel-difficulty-badge {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 7px;
+                font-family: 'Press Start 2P', monospace;
+                color: #f7931a;
+                text-shadow: none;
+            }
+            .panel-diff-dot {
+                width: 8px;
+                height: 8px;
+                background: #f7931a;
+                border: 2px solid #c46700;
+                box-shadow: 0 0 5px rgba(247,147,26,0.8);
+                animation: pixelBlink 1s steps(2) infinite;
+                flex-shrink: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Top Header ──────────────────────────────────────────────────── -->
+    <div class="top-header">
+        <div class="top-header-inner">
+            <span class="desktop-app-title">SLICEHASH</span>
+            <div class="header-info">
+                <div class="shares-remaining-display">
+                    <div class="shares-label">Shares Remaining</div>
+                    <div class="shares-value">42</div>
+                </div>
+                <div class="target-level-display">
+                    <div class="target-level-value">Block Target: Level 6+</div>
+                </div>
+            </div>
+            <nav class="top-nav">
+                <a href="#" class="top-nav-item active"  id="top-nav-dashboard"  onclick="showPage('dashboard');  return false;">Dashboard</a>
+                <a href="#" class="top-nav-item"         id="top-nav-highscores" onclick="showPage('highscores'); return false;">Highscore</a>
+                <a href="#" class="top-nav-item"         id="top-nav-purchases"  onclick="showPage('purchases');  return false;">Purchases</a>
+                <a href="#" class="top-nav-item"         id="top-nav-settings"   onclick="showPage('settings');   return false;">Settings</a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         MOBILE PAGES  (hidden on desktop)
+         ══════════════════════════════════════════════════════════════════ -->
+
+    <!-- Dashboard (mobile) -->
+    <div class="mockup-page active" id="page-dashboard">
+        <div class="mobile-dashboard">
+            <div class="network-difficulty-dot warning" title="Difficulty elevated"></div>
+            <div class="highscore-toggle">
+                <button class="toggle-btn active">Recent</button>
+                <button class="toggle-btn">Top 24h</button>
+                <button class="toggle-btn">All-time</button>
+            </div>
+            <div class="share-cards-container">
+                <div class="share-card block">
+                    <a href="#" class="share-validator-link">VERIFY</a>
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">just now</div>
+                            <div class="share-username">satoshi</div>
+                            <div class="share-user-tag">BLOCK FOUND</div>
+                        </div>
+                        <div class="share-level-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">00000000000abc123def456789abcdef0123456789abcdef0123456789abcd01</div>
+                    </div>
+                </div>
+                <div class="share-card">
+                    <a href="#" class="share-validator-link">VERIFY</a>
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">3m ago</div>
+                            <div class="share-username">hal_finney</div>
+                        </div>
+                        <div class="share-level-badge shape-diamond" style="background:#f7931a;border-color:#c46700;color:#000;">7</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">000000abc123def456789abcdef0123456789abcdef0123456789abcdef01234</div>
+                    </div>
+                </div>
+                <div class="share-card">
+                    <a href="#" class="share-validator-link">VERIFY</a>
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">11m ago</div>
+                            <div class="share-username">nakamoto</div>
+                        </div>
+                        <div class="share-level-badge shape-hexagon" style="background:#32cd32;border-color:#228b22;color:#fff;">5</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">00000abc123def456789abcdef0123456789abcdef0123456789abcdef012345</div>
+                    </div>
+                </div>
+                <div class="share-card">
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">19m ago</div>
+                            <div class="share-username">lightning_bob</div>
+                        </div>
+                        <div class="share-level-badge shape-circle" style="background:#4a9eff;border-color:#2266cc;color:#fff;">4</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">0000abc123def456789abcdef0123456789abcdef0123456789abcdef0123456</div>
+                    </div>
+                </div>
+                <div class="share-card">
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">34m ago</div>
+                            <div class="share-username">miner_alice</div>
+                        </div>
+                        <div class="share-level-badge shape-square" style="background:#9b59b6;border-color:#6c3483;color:#fff;">3</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">000abc123def456789abcdef0123456789abcdef0123456789abcdef01234567</div>
+                    </div>
+                </div>
+                <div class="share-card">
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">1h ago</div>
+                            <div class="share-username">bitcoin_dan</div>
+                        </div>
+                        <div class="share-level-badge shape-square" style="background:#666;border-color:#444;color:#fff;">2</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">00abc123def456789abcdef0123456789abcdef0123456789abcdef012345678</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Highscores (mobile) -->
+    <div class="mockup-page" id="page-highscores">
+        <div class="mobile-dashboard">
+            <div class="highscore-toggle">
+                <button class="toggle-btn active">Last 24h</button>
+                <button class="toggle-btn">All Time</button>
+            </div>
+            <div class="share-cards-container">
+                <div class="share-card highscore-card">
+                    <a href="#" class="share-validator-link">VERIFY</a>
+                    <div class="share-card-header">
+                        <div class="share-header-top">
+                            <div class="share-timestamp">#1</div>
+                            <div class="share-username">satoshi</div>
+                        </div>
+                        <div class="share-level-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">00000000000abc123def456789abcdef0123456789abcdef0123456789abcd01</div>
+                    </div>
+                </div>
+                <div class="share-card highscore-card">
+                    <a href="#" class="share-validator-link">VERIFY</a>
+                    <div class="share-card-header">
+                        <div class="share-header-top">
+                            <div class="share-timestamp">#2</div>
+                            <div class="share-username">hal_finney</div>
+                        </div>
+                        <div class="share-level-badge shape-diamond" style="background:#f7931a;border-color:#c46700;color:#000;">7</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">000000abc123def456789abcdef0123456789abcdef0123456789abcdef0123</div>
+                    </div>
+                </div>
+                <div class="share-card highscore-card">
+                    <div class="share-card-header">
+                        <div class="share-header-top">
+                            <div class="share-timestamp">#3</div>
+                            <div class="share-username">nakamoto</div>
+                        </div>
+                        <div class="share-level-badge shape-hexagon" style="background:#32cd32;border-color:#228b22;color:#fff;">5</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">00000abc123def456789abcdef0123456789abcdef0123456789abcdef01234</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purchases (mobile) -->
+    <div class="mockup-page" id="page-purchases">
+        <div class="mobile-dashboard purchases">
+            <div class="purchase-form">
+                <input type="number" class="purchase-input" placeholder="Enter share amount" min="1" step="1">
+                <button class="btn-purchase-submit">Purchase</button>
+            </div>
+            <div class="purchase-cards-container">
+                <div class="purchase-card">
+                    <div class="purchase-card-header">
+                        <div class="purchase-date">2 days ago</div>
+                        <div><div class="purchase-amount">25</div><div class="purchase-amount-label">Shares</div></div>
+                    </div>
+                </div>
+                <div class="purchase-card">
+                    <div class="purchase-card-header">
+                        <div class="purchase-date">5 days ago</div>
+                        <div><div class="purchase-amount">100</div><div class="purchase-amount-label">Shares</div></div>
+                    </div>
+                </div>
+                <div class="purchase-card">
+                    <div class="purchase-card-header">
+                        <div class="purchase-date">2 weeks ago</div>
+                        <div><div class="purchase-amount">50</div><div class="purchase-amount-label">Shares</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings (mobile) -->
+    <div class="mockup-page" id="page-settings">
+        <div class="settings-container">
+            <form id="settings-form">
+                <div class="form-group">
+                    <label for="address">Bitcoin Address</label>
+                    <input type="text" id="address" name="address"
+                           value="bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+                           placeholder="bc1... / tb1... / bcrt1...">
+                    <small class="field-help">Mainnet: bc1/1/3 | Testnet: tb1/m/n/2 | Regtest: bcrt1</small>
+                </div>
+                <div class="form-group">
+                    <label for="tag">Custom Tag</label>
+                    <input type="text" id="tag" name="tag" value="satoshi" placeholder="my-miner" maxlength="50">
+                    <small class="field-help">Optional label for your miner (max 50 characters)</small>
+                </div>
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </form>
+            <div class="logout-section">
+                <a href="#" class="btn-logout">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         DESKTOP ALL-IN-ONE DASHBOARD  (hidden on mobile)
+         ══════════════════════════════════════════════════════════════════ -->
+    <div class="desktop-dashboard">
+
+        <!-- ── Left: Shares Panel ────────────────────────────────────────── -->
+        <div class="desktop-panel desktop-panel-shares">
+            <div class="panel-title-bar">
+                <span class="panel-title-text">Dashboard</span>
+                <div class="panel-difficulty-badge">
+                    <div class="panel-diff-dot"></div>
+                    <span>Difficulty Elevated</span>
+                </div>
+            </div>
+
+            <!-- Personal best – prominent full-width banner -->
+            <div class="shares-personal-best">
+                <div class="share-card block">
+                    <a href="#" class="share-validator-link">VERIFY</a>
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">just now</div>
+                            <div class="share-username">satoshi</div>
+                            <div class="share-user-tag">BLOCK FOUND · ALL TIME HIGH</div>
+                        </div>
+                        <div class="share-level-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">00000000000abc123def456789abcdef0123456789abcdef0123456789abcd01</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two-column feed: Recent | My Best -->
+            <div class="shares-two-col">
+
+                <!-- Recent (chronological) -->
+                <div class="shares-col">
+                    <div class="shares-col-top">
+                        <div class="shares-col-header">Recent</div>
+                    </div>
+                    <div class="shares-col-scroll">
+
+                        <div class="hs-row">
+                            <div class="hs-badge shape-square" style="background:#9b59b6;border-color:#6c3483;color:#fff;">3</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">15m ago</span>
+                                </div>
+                                <div class="hs-hash">000abc…01234567</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-badge shape-square" style="background:#666;border-color:#444;color:#fff;">2</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">45m ago</span>
+                                </div>
+                                <div class="hs-hash">00abc…012345678</div>
+                            </div>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-badge shape-circle" style="background:#4a9eff;border-color:#2266cc;color:#fff;">4</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">1h ago</span>
+                                </div>
+                                <div class="hs-hash">0000abc…0123456</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-badge shape-square" style="background:#333;border-color:#222;color:#666;">1</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">3h ago</span>
+                                </div>
+                                <div class="hs-hash">0abc…0123456789</div>
+                            </div>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-badge shape-square" style="background:#666;border-color:#444;color:#fff;">2</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">5h ago</span>
+                                </div>
+                                <div class="hs-hash">00abc…012345999</div>
+                            </div>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-badge shape-square" style="background:#9b59b6;border-color:#6c3483;color:#fff;">3</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">8h ago</span>
+                                </div>
+                                <div class="hs-hash">000bbb…01234bbb</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- My Best (personal highscores, ordered by level) -->
+                <div class="shares-col">
+                    <div class="shares-col-top">
+                        <div class="shares-col-header">My Best</div>
+                        <div class="highscore-toggle shares-col-toggle">
+                            <button class="toggle-btn active">24h</button>
+                            <button class="toggle-btn">All-time</button>
+                        </div>
+                    </div>
+                    <div class="shares-col-scroll">
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#1</span>
+                            <div class="hs-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">just now</span>
+                                </div>
+                                <div class="hs-hash">00000000000abc…abcd01</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#2</span>
+                            <div class="hs-badge shape-hexagon" style="background:#e040fb;border-color:#9c27b0;color:#fff;">6</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">yesterday</span>
+                                </div>
+                                <div class="hs-hash">0000000abc…ef0123</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#3</span>
+                            <div class="hs-badge shape-hexagon" style="background:#32cd32;border-color:#228b22;color:#fff;">5</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">2 days ago</span>
+                                </div>
+                                <div class="hs-hash">00000abc…012345</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#4</span>
+                            <div class="hs-badge shape-circle" style="background:#4a9eff;border-color:#2266cc;color:#fff;">4</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">1h ago</span>
+                                </div>
+                                <div class="hs-hash">0000abc…0123456</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#5</span>
+                            <div class="hs-badge shape-square" style="background:#9b59b6;border-color:#6c3483;color:#fff;">3</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">15m ago</span>
+                                </div>
+                                <div class="hs-hash">000abc…01234567</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#6</span>
+                            <div class="hs-badge shape-square" style="background:#666;border-color:#444;color:#fff;">2</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">45m ago</span>
+                                </div>
+                                <div class="hs-hash">00abc…012345678</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#7</span>
+                            <div class="hs-badge shape-square" style="background:#333;border-color:#222;color:#666;">1</div>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">3h ago</span>
+                                </div>
+                                <div class="hs-hash">0abc…0123456789</div>
+                            </div>
+                            <a href="#" class="hs-verify">VERIFY</a>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div><!-- .shares-two-col -->
+        </div>
+
+        <!-- ── Right Column ───────────────────────────────────────────────── -->
+        <div class="desktop-right-col">
+
+            <!-- Highscores -->
+            <div class="desktop-panel desktop-panel-highscores">
+                <div class="panel-title-bar">
+                    <span class="panel-title-text">Highscores</span>
+                    <div class="highscore-toggle">
+                        <button class="toggle-btn active">24h</button>
+                        <button class="toggle-btn">All-time</button>
+                    </div>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#1</span>
+                    <div class="hs-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">satoshi</span>
+                            <span class="hs-time">just now</span>
+                        </div>
+                        <div class="hs-hash">00000000000abc…abcd01</div>
+                    </div>
+                    <a href="#" class="hs-verify">VERIFY</a>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#2</span>
+                    <div class="hs-badge shape-diamond" style="background:#f7931a;border-color:#c46700;color:#000;"><span>7</span></div>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">hal_finney</span>
+                            <span class="hs-time">3m ago</span>
+                        </div>
+                        <div class="hs-hash">000000abc…ef01234</div>
+                    </div>
+                    <a href="#" class="hs-verify">VERIFY</a>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#3</span>
+                    <div class="hs-badge shape-hexagon" style="background:#e040fb;border-color:#9c27b0;color:#fff;">6</div>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">mystery_miner</span>
+                            <span class="hs-time">7m ago</span>
+                        </div>
+                        <div class="hs-hash">0000000abc…ef0123</div>
+                    </div>
+                    <a href="#" class="hs-verify">VERIFY</a>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#4</span>
+                    <div class="hs-badge shape-hexagon" style="background:#32cd32;border-color:#228b22;color:#fff;">5</div>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">nakamoto</span>
+                            <span class="hs-time">11m ago</span>
+                        </div>
+                        <div class="hs-hash">00000abc…012345</div>
+                    </div>
+                    <a href="#" class="hs-verify">VERIFY</a>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#5</span>
+                    <div class="hs-badge shape-circle" style="background:#4a9eff;border-color:#2266cc;color:#fff;">4</div>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">lightning_bob</span>
+                            <span class="hs-time">19m ago</span>
+                        </div>
+                        <div class="hs-hash">0000abc…0123456</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Purchases -->
+            <div class="desktop-panel desktop-panel-purchases">
+                <div class="panel-title-bar">
+                    <span class="panel-title-text">Purchases</span>
+                </div>
+                <div class="panel-content">
+                    <div class="purchase-form">
+                        <input type="number" class="purchase-input" placeholder="Shares" min="1" step="1">
+                        <button class="btn-purchase-submit">Buy</button>
+                    </div>
+                    <div class="purchase-cards-container">
+                        <div class="purchase-card">
+                            <div class="purchase-card-header">
+                                <div class="purchase-date">2 days ago</div>
+                                <div><div class="purchase-amount">25</div><div class="purchase-amount-label">Shares</div></div>
+                            </div>
+                        </div>
+                        <div class="purchase-card">
+                            <div class="purchase-card-header">
+                                <div class="purchase-date">5 days ago</div>
+                                <div><div class="purchase-amount">100</div><div class="purchase-amount-label">Shares</div></div>
+                            </div>
+                        </div>
+                        <div class="purchase-card">
+                            <div class="purchase-card-header">
+                                <div class="purchase-date">2 weeks ago</div>
+                                <div><div class="purchase-amount">50</div><div class="purchase-amount-label">Shares</div></div>
+                            </div>
+                        </div>
+                        <div class="purchase-card">
+                            <div class="purchase-card-header">
+                                <div class="purchase-date">1 month ago</div>
+                                <div><div class="purchase-amount">200</div><div class="purchase-amount-label">Shares</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="desktop-panel desktop-panel-settings">
+                <div class="panel-title-bar">
+                    <span class="panel-title-text">Settings</span>
+                </div>
+                <div class="panel-content">
+                    <div class="settings-container">
+                        <div class="settings-form-inner">
+                            <div class="form-group">
+                                <label>Bitcoin Address</label>
+                                <input type="text" value="bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" placeholder="bc1...">
+                                <small class="field-help">Mainnet: bc1/1/3 | Testnet: tb1/m/n/2 | Regtest: bcrt1</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Custom Tag</label>
+                                <input type="text" value="satoshi" placeholder="my-miner" maxlength="50">
+                                <small class="field-help">Optional label (max 50 characters)</small>
+                            </div>
+                            <button type="button" class="btn-primary">Save Changes</button>
+                        </div>
+                        <div class="logout-section">
+                            <a href="#" class="btn-logout">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- .desktop-right-col -->
+
+    </div><!-- .desktop-dashboard -->
+
+    <!-- ── Bottom Nav (mobile only via CSS) ─────────────────────────────── -->
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active" id="bottom-nav-dashboard"
+           onclick="showPage('dashboard'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <rect x="3"  y="3"  width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="14" y="3"  width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="3"  y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Dashboard</span>
+        </a>
+        <a href="#" class="nav-item" id="bottom-nav-highscores"
+           onclick="showPage('highscores'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M7 8V5C7 4.45 7.45 4 8 4H16C16.55 4 17 4.45 17 5V8C17 10.76 14.76 13 12 13C9.24 13 7 10.76 7 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7 6H5C4.45 6 4 6.45 4 7V8C4 9.1 4.9 10 6 10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M17 6H19C19.55 6 20 6.45 20 7V8C20 9.1 19.1 10 18 10H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 13V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 20H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 17H15V20H9V17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Highscore</span>
+        </a>
+        <a href="#" class="nav-item" id="bottom-nav-purchases"
+           onclick="showPage('purchases'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <circle cx="9" cy="21" r="1" stroke="currentColor" stroke-width="2"/>
+                <circle cx="20" cy="21" r="1" stroke="currentColor" stroke-width="2"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Purchases</span>
+        </a>
+        <a href="#" class="nav-item" id="bottom-nav-settings"
+           onclick="showPage('settings'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Settings</span>
+        </a>
+    </nav>
+
+    <!-- ── Dev page switcher (mobile only) ───────────────────────────────── -->
+    <div class="dev-switcher">
+        <div class="dev-switcher-label">PAGE</div>
+        <button class="dev-btn active" id="dev-btn-dashboard"  onclick="showPage('dashboard')">Dashboard</button>
+        <button class="dev-btn"        id="dev-btn-highscores" onclick="showPage('highscores')">Highscore</button>
+        <button class="dev-btn"        id="dev-btn-purchases"  onclick="showPage('purchases')">Purchases</button>
+        <button class="dev-btn"        id="dev-btn-settings"   onclick="showPage('settings')">Settings</button>
+    </div>
+
+    <script>
+        function showPage(name) {
+            const pages = ['dashboard', 'highscores', 'purchases', 'settings'];
+            pages.forEach(p => {
+                document.getElementById('page-' + p).classList.toggle('active', p === name);
+                document.getElementById('dev-btn-' + p).classList.toggle('active', p === name);
+                const topItem = document.getElementById('top-nav-' + p);
+                if (topItem) topItem.classList.toggle('active', p === name);
+                const botItem = document.getElementById('bottom-nav-' + p);
+                if (botItem) botItem.classList.toggle('active', p === name);
+            });
+        }
+
+        // Toggle buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('toggle-btn')) {
+                const group = e.target.closest('.highscore-toggle');
+                if (group) {
+                    group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

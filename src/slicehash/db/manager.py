@@ -9,7 +9,7 @@ import asyncpg
 from typing import Optional
 from pathlib import Path
 
-from .schema import ALL_TABLES, ALL_INDEXES
+from .schema import ALL_TABLES, ALL_INDEXES, ALL_MIGRATIONS
 
 
 class DatabaseManager:
@@ -94,6 +94,10 @@ async def init_database(database_url: str) -> None:
         # Create all indexes
         for index_sql in ALL_INDEXES:
             await db.execute(index_sql)
+
+        # Run migrations (idempotent)
+        for migration_sql in ALL_MIGRATIONS:
+            await db.execute(migration_sql)
 
 
 async def get_or_create_user(

@@ -18,12 +18,8 @@ async function loadUserData() {
     try {
         const response = await fetch('/api/users/me');
         if (!response.ok) throw new Error('Failed to fetch user data');
-
         const data = await response.json();
-
-        // Update shares remaining display
         document.getElementById('shares-remaining').textContent = data.shares_remaining;
-
     } catch (error) {
         console.error('Error loading user data:', error);
         document.getElementById('shares-remaining').textContent = 'Error';
@@ -41,7 +37,6 @@ async function loadHighscores(period) {
         const endpoint = period === '24h' ? '/api/highscores/24h' : '/api/highscores/all-time';
         const response = await fetch(endpoint);
         if (!response.ok) throw new Error('Failed to fetch highscores');
-
         const data = await response.json();
 
         if (data.shares.length === 0) {
@@ -50,10 +45,8 @@ async function loadHighscores(period) {
             showEmptyState(false, period);
             renderShareCards(data.shares);
         }
-
     } catch (error) {
         console.error('Error loading highscores:', error);
-        showError('Failed to load highscores');
     } finally {
         isLoading = false;
         showLoading(false);
@@ -63,81 +56,92 @@ async function loadHighscores(period) {
 // Switch between periods
 function switchPeriod(period) {
     if (period === currentPeriod || isLoading) return;
-
     currentPeriod = period;
-
-    // Update button active states
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
-        if (btn.dataset.period === period) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
+    document.querySelectorAll('.toggle-btn[data-period]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.period === period);
     });
-
-    // Load data for new period
     loadHighscores(period);
 }
 
 // Setup toggle button event listeners
 function setupToggleButtons() {
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            switchPeriod(btn.dataset.period);
-        });
+    document.querySelectorAll('.toggle-btn[data-period]').forEach(btn => {
+        btn.addEventListener('click', () => switchPeriod(btn.dataset.period));
     });
 }
 
-// Render shares as cards
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function truncateHash(hash) {
+    if (!hash) return '';
+    return '...' + hash.slice(-10);
+}
+
+function darkenHex(hex, factor) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return '#' + [r, g, b].map(c => Math.round(c * factor).toString(16).padStart(2, '0')).join('');
+}
+
+function isLightColor(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+}
+
+// Build a .hs-row element for a highscore entry
+function renderHsRow(share, { rank } = {}) {
+    const { color, shape, borderStyle } = getLevelStyle(share.level);
+    const borderColor = borderStyle
+        ? borderStyle.split(' ').pop()
+        : darkenHex(color, 0.7);
+    const textColor = isLightColor(color) ? '#000' : '#fff';
+
+    const row = document.createElement('div');
+    row.className = 'hs-row';
+
+    const rankHtml = rank !== undefined ? `<span class="hs-rank">#${rank}</span>` : '';
+    const timestamp = formatTimestamp(share.submitted_at);
+    const userDisplay = share.tag
+        ? truncateUsername(share.tag)
+        : truncateUsername(share.username || share.address || 'Unknown');
+    const hashDisplay = truncateHash(share.share_hash);
+    const badgeInner = shape === 'diamond'
+        ? `<span>${Math.floor(share.level)}</span>`
+        : `${Math.floor(share.level)}`;
+
+    row.innerHTML = `
+        ${rankHtml}
+        <div class="hs-info">
+            <div class="hs-top-line">
+                <span class="hs-user">${userDisplay}</span>
+                <span class="hs-time share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+            </div>
+            <div class="hs-hash">${hashDisplay}</div>
+        </div>
+        <div class="hs-badge shape-${shape}" style="background-color: ${color}; border-color: ${borderColor}; color: ${textColor};">${badgeInner}</div>
+    `;
+
+    return row;
+}
+
+// Render shares as hs-rows (ranked)
 function renderShareCards(shares) {
     const container = document.getElementById('highscore-cards-container');
     container.innerHTML = '';
-
     shares.forEach((share, index) => {
-        const card = document.createElement('div');
-        card.className = `share-card highscore-card${share.is_block ? ' block' : ''}`;
-
-        // Format timestamp with username
-        const { timeStr, username } = formatTimestampWithUsername(share.submitted_at, share.username);
-
-        // Get level styling
-        const { color, shape, borderStyle } = getLevelStyle(share.level);
-
-        const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
-
-        // Display tag if available, otherwise show address
-        const userDisplay = share.tag
-            ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>`
-            : `<span class="share-username">${username}</span>`;
-
-        card.innerHTML = `
-            <div class="share-card-header">
-                <div class="share-timestamp-wrapper" data-timestamp="${share.submitted_at}" data-username="${share.username}" data-tag="${share.tag || ''}" data-address="${share.address || ''}">
-                    <span class="share-timestamp">${timeStr}</span>
-                    ${userDisplay}
-                </div>
-                <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
-                    ${Math.floor(share.level)}
-                </div>
-            </div>
-            <div class="share-card-footer">
-                <span class="share-hash">${share.share_hash}</span>
-            </div>
-        `;
-
-        card.addEventListener('click', () => {
-            window.location.href = `/hash-validator/${share.share_id}`;
-        });
-
-        container.appendChild(card);
-        observeCard(card);
+        const row = renderHsRow(share, { rank: index + 1 });
+        container.appendChild(row);
+        observeCard(row);
     });
 }
 
 // Show/hide loading indicator
 function showLoading(show) {
     const indicator = document.getElementById('loading-indicator');
-    indicator.style.display = show ? 'block' : 'none';
+    if (indicator) indicator.style.display = show ? 'block' : 'none';
 }
 
 // Show/hide empty state
@@ -146,7 +150,6 @@ function showEmptyState(show, period) {
     const container = document.getElementById('highscore-cards-container');
 
     if (show) {
-        // Update message based on period
         const message = period === '24h' ? 'No shares in the last 24 hours' : 'No shares recorded';
         emptyState.querySelector('p').textContent = message;
         emptyState.style.display = 'block';
@@ -157,17 +160,10 @@ function showEmptyState(show, period) {
     }
 }
 
-// Show error message
-function showError(message) {
-    console.error(message);
-    // Could add a toast notification here in the future
-}
-
-// Handle page refocus - check for new highscores if any shares arrived
+// Handle page refocus - reload if new shares arrived while away
 async function handlePageRefocus(missedSharesCount) {
     if (missedSharesCount > 0) {
         console.log(`Checking for new highscores after ${missedSharesCount} shares`);
-        // Reload highscores from server (cache will be fresh if invalidated)
         await loadHighscores(currentPeriod);
     }
 }

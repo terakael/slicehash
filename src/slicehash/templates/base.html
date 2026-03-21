@@ -14,6 +14,7 @@
     <!-- Top header - persistent across all pages -->
     <div class="top-header">
         <div class="top-header-inner">
+            <span class="desktop-app-title">SLICEHASH</span>
             <div class="header-info">
                 {% block header %}
                 <!-- Large shares remaining display -->
@@ -32,8 +33,6 @@
             <!-- Desktop navigation (shown via CSS on desktop, hidden on mobile) -->
             <nav class="top-nav">
                 <a href="/dashboard" class="top-nav-item {% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
-                <a href="/highscores" class="top-nav-item {% if request.path == '/highscores' %}active{% endif %}">Highscore</a>
-                <a href="/purchases" class="top-nav-item {% if request.path == '/purchases' %}active{% endif %}">Purchases</a>
                 <a href="/settings" class="top-nav-item {% if request.path == '/settings' %}active{% endif %}">Settings</a>
             </nav>
         </div>

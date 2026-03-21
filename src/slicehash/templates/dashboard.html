@@ -34,17 +34,106 @@
         <!-- Share cards will be populated by JavaScript -->
     </div>
 
-    <div id="empty-state" class="empty-state" style="display: none;">
+    <div id="shares-empty-state" class="empty-state" style="display: none;">
         <p>No shares yet</p>
     </div>
 
-    <div id="loading-indicator" class="loading-indicator" style="display: none;">
+    <div id="shares-loading-indicator" class="loading-indicator" style="display: none;">
         <p>Loading more shares...</p>
     </div>
 </div>
+
+<!-- Desktop all-in-one dashboard (hidden on mobile, shown ≥1024px) -->
+<div class="desktop-dashboard">
+
+    <!-- Left: Dashboard Panel -->
+    <div class="desktop-panel desktop-panel-shares">
+        <div class="panel-title-bar">
+            <span class="panel-title-text">Dashboard</span>
+            <div class="panel-difficulty-badge" id="desktop-difficulty-badge" style="display: none;">
+                <div class="panel-diff-dot"></div>
+                <span id="desktop-difficulty-text">Difficulty Elevated</span>
+            </div>
+        </div>
+
+        <!-- Personal best banner -->
+        <div class="shares-personal-best" id="desktop-personal-best"></div>
+
+        <!-- Two-column feed: Recent | My Best -->
+        <div class="shares-two-col">
+
+            <!-- Recent -->
+            <div class="shares-col">
+                <div class="shares-col-top">
+                    <div class="shares-col-header">Recent</div>
+                </div>
+                <div class="shares-col-scroll" id="desktop-recent-col"></div>
+            </div>
+
+            <!-- My Best (personal highscores) -->
+            <div class="shares-col">
+                <div class="shares-col-top">
+                    <div class="shares-col-header">My Best</div>
+                    <div class="highscore-toggle shares-col-toggle">
+                        <button class="toggle-btn active" data-mybest-period="best-24h">24h</button>
+                        <button class="toggle-btn" data-mybest-period="best-all-time">All-time</button>
+                    </div>
+                </div>
+                <div class="shares-col-scroll" id="desktop-mybest-col"></div>
+            </div>
+
+        </div><!-- .shares-two-col -->
+    </div>
+
+    <!-- Right Column -->
+    <div class="desktop-right-col">
+
+        <!-- Highscores -->
+        <div class="desktop-panel desktop-panel-highscores">
+            <div class="panel-title-bar">
+                <span class="panel-title-text">Highscores</span>
+                <div class="highscore-toggle">
+                    <button class="toggle-btn active" data-hs-period="24h">24h</button>
+                    <button class="toggle-btn" data-hs-period="all-time">All-time</button>
+                </div>
+            </div>
+            <div id="desktop-highscores-col"></div>
+        </div>
+
+        <!-- Purchases -->
+        <div class="desktop-panel desktop-panel-purchases">
+            <div class="panel-title-bar">
+                <span class="panel-title-text">Purchases</span>
+            </div>
+            <div class="panel-content">
+                <div class="purchase-form">
+                    <input
+                        type="number"
+                        id="purchase-amount"
+                        class="purchase-input"
+                        placeholder="Shares"
+                        min="1"
+                        step="1"
+                    />
+                    <button class="btn-purchase-submit" id="purchase-submit-btn">Buy</button>
+                </div>
+                <div class="purchase-cards-container" id="purchase-cards-container"></div>
+                <div id="loading-indicator" class="loading-indicator" style="display: none;">
+                    <p>Loading purchases...</p>
+                </div>
+                <div id="empty-state" class="empty-state" style="display: none;">
+                    <p>No purchases yet</p>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- .desktop-right-col -->
+
+</div><!-- .desktop-dashboard -->
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='shared.js') }}"></script>
 <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='purchases.js') }}"></script>
 {% endblock %}

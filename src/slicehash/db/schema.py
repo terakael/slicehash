@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     amount INTEGER NOT NULL CHECK(amount > 0),
+    amount_sats INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 )
@@ -167,6 +168,11 @@ ALL_TABLES = [
     GLOBAL_STATE_TABLE_SQL,
     AUTH_CHALLENGES_TABLE_SQL,
     LIGHTNING_INVOICES_TABLE_SQL,
+]
+
+# Migrations to run on existing databases (idempotent)
+ALL_MIGRATIONS = [
+    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS amount_sats INTEGER",
 ]
 
 # All index creation statements

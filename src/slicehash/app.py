@@ -161,6 +161,7 @@ async def _await_payment_task(
     invoice_id: int,
     user_id: int,
     amount_shares: int,
+    amount_sats: int,
     label: str,
     expires_at: datetime,
     client: CLNClient,
@@ -185,9 +186,10 @@ async def _await_payment_task(
                     invoice_id,
                 )
                 await db.execute(
-                    "INSERT INTO transactions (user_id, amount, created_at) VALUES ($1, $2, NOW())",
+                    "INSERT INTO transactions (user_id, amount, amount_sats, created_at) VALUES ($1, $2, $3, NOW())",
                     user_id,
                     amount_shares,
+                    amount_sats,
                 )
             logger.info(
                 f"Invoice {invoice_id} paid — {amount_shares} shares added for user {user_id}"
@@ -231,7 +233,7 @@ async def _recover_pending_invoices(
         async with DatabaseManager(config.database_url) as db:
             rows = await db.fetch(
                 """
-                SELECT id, user_id, amount_shares, label, payment_hash, expires_at
+                SELECT id, user_id, amount_shares, amount_sats, label, payment_hash, expires_at
                 FROM lightning_invoices
                 WHERE status = 'pending'
                 """
@@ -257,9 +259,10 @@ async def _recover_pending_invoices(
                             invoice_id,
                         )
                         await db.execute(
-                            "INSERT INTO transactions (user_id, amount, created_at) VALUES ($1, $2, NOW())",
+                            "INSERT INTO transactions (user_id, amount, amount_sats, created_at) VALUES ($1, $2, $3, NOW())",
                             row["user_id"],
                             row["amount_shares"],
+                            row["amount_sats"],
                         )
                     logger.info(f"Recovery: invoice {invoice_id} was already paid")
                 elif status is None or status.status == "expired" or now >= expires_at:
@@ -276,6 +279,7 @@ async def _recover_pending_invoices(
                             invoice_id=invoice_id,
                             user_id=row["user_id"],
                             amount_shares=row["amount_shares"],
+                            amount_sats=row["amount_sats"],
                             label=row["label"],
                             expires_at=expires_at,
                             client=client,
@@ -1255,7 +1259,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get all transactions for user (newest first)
                 rows = await db.fetch(
                     """
-                    SELECT id as transaction_id, amount, created_at
+                    SELECT id as transaction_id, amount, amount_sats, created_at
                     FROM transactions
                     WHERE user_id = $1
                     ORDER BY created_at DESC
@@ -1267,6 +1271,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     {
                         "transaction_id": row["transaction_id"],
                         "amount": row["amount"],
+                        "amount_sats": row["amount_sats"],
                         "created_at": int(
                             row["created_at"].replace(tzinfo=timezone.utc).timestamp()
                         )
@@ -1439,6 +1444,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     invoice_id=invoice_id,
                     user_id=user_id,
                     amount_shares=amount,
+                    amount_sats=amount_sats,
                     label=label,
                     expires_at=invoice.expires_at,
                     client=cln_client,

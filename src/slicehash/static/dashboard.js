@@ -1,4 +1,4 @@
-// Dashboard JavaScript - Mobile-first share cards with infinite scroll
+// Dashboard JavaScript - hs-row cards with infinite scroll and desktop grid
 
 // State management
 let isLoading = false;
@@ -8,27 +8,27 @@ let currentMode = localStorage.getItem('dashboardMode') || 'recent';
 const LIMIT = 20;
 let hasLoadedAllShares = false;
 
+const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
-    // Restore saved mode and set active button
     restoreSavedMode();
-
     await loadUserData();
     await loadShares();
     setupInfiniteScroll();
     setupToggleButtons();
     initSharedSSE(handleNewShare);
     startTimestampRefresh();
+
+    if (isDesktop) {
+        initDesktopView();
+    }
 });
 
 // Restore saved mode from localStorage
 function restoreSavedMode() {
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
-        if (btn.dataset.mode === currentMode) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
+    document.querySelectorAll('.toggle-btn[data-mode]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === currentMode);
     });
 }
 
@@ -37,33 +37,31 @@ async function loadUserData() {
     try {
         const response = await fetch('/api/users/me');
         if (!response.ok) throw new Error('Failed to fetch user data');
-
         const data = await response.json();
-
-        // Update shares remaining display
         document.getElementById('shares-remaining').textContent = data.shares_remaining;
-
-        // Fetch network difficulty from traffic status
         await loadNetworkDifficulty();
-
     } catch (error) {
         console.error('Error loading user data:', error);
         document.getElementById('shares-remaining').textContent = 'Error';
     }
 }
 
-// Fetch network difficulty (active user count)
+// Fetch network difficulty
 async function loadNetworkDifficulty() {
     try {
         const response = await fetch('/api/traffic/status');
         if (!response.ok) throw new Error('Failed to fetch traffic status');
-
         const data = await response.json();
-        document.getElementById('network-difficulty-value').textContent = data.active_user_count;
-
+        const dot = document.getElementById('network-difficulty-dot');
+        const val = document.getElementById('network-difficulty-value');
+        if (dot) {
+            dot.classList.remove('warning', 'danger');
+            if (data.traffic_level === 'elevated') dot.classList.add('warning');
+            else if (data.traffic_level === 'high') dot.classList.add('danger');
+        }
+        if (val) val.textContent = data.active_user_count;
     } catch (error) {
         console.error('Error loading network difficulty:', error);
-        document.getElementById('network-difficulty-value').textContent = '?';
     }
 }
 
@@ -79,7 +77,6 @@ async function loadShares(append = false) {
         const url = `/api/users/me/shares/load?mode=${currentMode}&limit=${LIMIT}&offset=${currentOffset}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch shares');
-
         const data = await response.json();
 
         if (data.shares.length === 0 && currentOffset === 0) {
@@ -87,118 +84,152 @@ async function loadShares(append = false) {
         } else {
             showEmptyState(false);
             renderShareCards(data.shares, append);
-
-            // Update pagination state
             currentOffset += data.shares.length;
             hasMore = data.has_more;
             hasLoadedAllShares = !data.has_more;
         }
-
     } catch (error) {
         console.error('Error loading shares:', error);
-        showError('Failed to load shares');
     } finally {
         isLoading = false;
         showLoading(false);
     }
 }
 
-// Refresh dashboard - reset state and reload (called by shared.js on refocus)
+// Refresh dashboard (called by shared.js on refocus)
 window.refreshDashboard = async function() {
-    console.log('Refreshing dashboard - resetting state and reloading shares');
     currentOffset = 0;
     hasMore = true;
     hasLoadedAllShares = false;
-
-    // Clear existing shares
     const container = document.getElementById('share-cards-container');
-    if (container) {
-        container.innerHTML = '';
-    }
-
+    if (container) container.innerHTML = '';
     await loadShares(false);
 };
 
 // Switch between view modes
 function switchMode(mode) {
     if (mode === currentMode || isLoading) return;
-
     currentMode = mode;
-
-    // Save preference to localStorage
     localStorage.setItem('dashboardMode', mode);
-
-    // Update button active states
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
-        if (btn.dataset.mode === mode) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
+    document.querySelectorAll('.toggle-btn[data-mode]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
     });
-
-    // Reset pagination state and reload
     currentOffset = 0;
     hasMore = true;
     hasLoadedAllShares = false;
     loadShares(false);
 }
 
-// Setup toggle button event listeners
+// Setup toggle button event listeners (mobile mode buttons only)
 function setupToggleButtons() {
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            switchMode(btn.dataset.mode);
-        });
+    document.querySelectorAll('.toggle-btn[data-mode]').forEach(btn => {
+        btn.addEventListener('click', () => switchMode(btn.dataset.mode));
     });
 }
 
-// Render shares as cards
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function truncateHash(hash) {
+    if (!hash) return '';
+    return '...' + hash.slice(-10);
+}
+
+function darkenHex(hex, factor) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return '#' + [r, g, b].map(c => Math.round(c * factor).toString(16).padStart(2, '0')).join('');
+}
+
+function isLightColor(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+}
+
+// Build a .hs-row element for a share
+function renderHsRow(share, { rank } = {}) {
+    const { color, shape, borderStyle } = getLevelStyle(share.level);
+    const borderColor = borderStyle
+        ? borderStyle.split(' ').pop()
+        : darkenHex(color, 0.7);
+    const textColor = isLightColor(color) ? '#000' : '#fff';
+
+    const row = document.createElement('div');
+    row.className = 'hs-row';
+    row.dataset.shareId = share.share_id;
+    row.dataset.level = share.level;
+    row.dataset.timestamp = share.submitted_at;
+
+    const rankHtml = rank !== undefined ? `<span class="hs-rank">#${rank}</span>` : '';
+    const timestamp = formatTimestamp(share.submitted_at);
+    const userDisplay = share.tag
+        ? truncateUsername(share.tag)
+        : (share.username ? truncateUsername(share.username) : 'me');
+    const hashDisplay = truncateHash(share.share_hash);
+    const badgeInner = shape === 'diamond'
+        ? `<span>${Math.floor(share.level)}</span>`
+        : `${Math.floor(share.level)}`;
+
+    row.innerHTML = `
+        ${rankHtml}
+        <div class="hs-info">
+            <div class="hs-top-line">
+                <span class="hs-user">${userDisplay}</span>
+                <span class="hs-time share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+            </div>
+            <div class="hs-hash">${hashDisplay}</div>
+        </div>
+        <div class="hs-badge shape-${shape}" style="background-color: ${color}; border-color: ${borderColor}; color: ${textColor};">${badgeInner}</div>
+    `;
+
+    row.addEventListener('click', () => {
+        window.location.href = `/hash-validator/${share.share_id}`;
+    });
+
+    return row;
+}
+
+// Build a .share-card.block banner for personal best
+function renderPersonalBest(share) {
+    const { color, shape, borderStyle } = getLevelStyle(share.level);
+    const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
+    const userDisplay = share.tag ? truncateUsername(share.tag) : 'me';
+    const timestamp = formatTimestamp(share.submitted_at);
+
+    const card = document.createElement('div');
+    card.className = 'share-card block';
+    card.dataset.shareId = share.share_id;
+    card.innerHTML = `
+        <div class="share-card-header">
+            <div class="share-header-top">
+                <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
+                <span class="share-user-tag">${userDisplay}</span>
+                <span class="share-user-tag">ALL TIME HIGH</span>
+            </div>
+            <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
+                ${Math.floor(share.level)}
+            </div>
+        </div>
+        <div class="share-card-footer">
+            <span class="share-hash">${truncateHash(share.share_hash)}</span>
+        </div>
+    `;
+    card.addEventListener('click', () => {
+        window.location.href = `/hash-validator/${share.share_id}`;
+    });
+    return card;
+}
+
+// Render shares as hs-rows into mobile feed
 function renderShareCards(shares, append) {
     const container = document.getElementById('share-cards-container');
-
-    if (!append) {
-        container.innerHTML = '';
-    }
-
+    if (!append) container.innerHTML = '';
     shares.forEach(share => {
-        const card = document.createElement('div');
-        card.className = `share-card${share.is_block ? ' block' : ''}`;
-        card.dataset.shareId = share.share_id;
-        card.dataset.level = share.level;
-        card.dataset.timestamp = share.submitted_at;
-
-        // Format timestamp
-        const timestamp = formatTimestamp(share.submitted_at);
-
-        // Get level styling
-        const { color, shape, borderStyle } = getLevelStyle(share.level);
-        const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
-
-        // Display tag if available (use immutable tag from share)
-        const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
-
-        card.innerHTML = `
-            <div class="share-card-header">
-                <div class="share-header-top">
-                    <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
-                    ${tagDisplay}
-                </div>
-                <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
-                    ${Math.floor(share.level)}
-                </div>
-            </div>
-            <div class="share-card-footer">
-                <span class="share-hash">${share.share_hash}</span>
-            </div>
-        `;
-
-        card.addEventListener('click', () => {
-            window.location.href = `/hash-validator/${share.share_id}`;
-        });
-
-        container.appendChild(card);
-        observeCard(card);
+        const row = renderHsRow(share, {});
+        container.appendChild(row);
+        observeCard(row);
     });
 }
 
@@ -208,33 +239,26 @@ function setupInfiniteScroll() {
         const scrollHeight = document.documentElement.scrollHeight;
         const scrollTop = document.documentElement.scrollTop;
         const clientHeight = document.documentElement.clientHeight;
-
-        // Trigger load when within 200px of bottom
-        if (scrollTop + clientHeight >= scrollHeight - 200) {
-            if (!isLoading && hasMore) {
-                loadShares(true);
-            }
+        if (scrollTop + clientHeight >= scrollHeight - 200 && !isLoading && hasMore) {
+            loadShares(true);
         }
     });
 }
 
-// Show/hide loading indicator
+// Show/hide loading indicator (mobile)
 function showLoading(show) {
-    const indicator = document.getElementById('loading-indicator');
-    indicator.style.display = show ? 'block' : 'none';
+    const indicator = document.getElementById('shares-loading-indicator');
+    if (indicator) indicator.style.display = show ? 'block' : 'none';
 }
 
-// Show/hide empty state
+// Show/hide empty state (mobile)
 function showEmptyState(show) {
-    const emptyState = document.getElementById('empty-state');
+    const emptyState = document.getElementById('shares-empty-state');
     const container = document.getElementById('share-cards-container');
-
+    if (!emptyState || !container) return;
     if (show) {
-        // Update message based on mode
         let message = 'No shares yet';
-        if (currentMode === 'best-24h') {
-            message = 'No shares in the last 24 hours';
-        }
+        if (currentMode === 'best-24h') message = 'No shares in the last 24 hours';
         emptyState.querySelector('p').textContent = message;
         emptyState.style.display = 'block';
         container.style.display = 'none';
@@ -244,113 +268,203 @@ function showEmptyState(show) {
     }
 }
 
-// Show error message
-function showError(message) {
-    console.error(message);
-    // Could add a toast notification here in the future
-}
-
-// SSE callback for handling new shares (adds card to dashboard)
+// SSE callback for new shares
 function handleNewShare(share) {
-    console.log(`handleNewShare called for share ${share.share_id}, level=${share.level}, mode=${currentMode}`);
+    console.log(`handleNewShare: share ${share.share_id}, level=${share.level}, mode=${currentMode}`);
 
+    // ── Mobile feed ──────────────────────────────────────────────────────────
     const container = document.getElementById('share-cards-container');
-
-    // Duplicate detection using share_id
-    const existingCards = container.querySelectorAll('.share-card');
-    for (const card of existingCards) {
-        const cardShareId = card.dataset.shareId;
-        if (cardShareId === String(share.share_id)) {
-            console.log(`Duplicate share ${share.share_id} detected, skipping`);
-            return; // Duplicate, skip
-        }
-    }
-
-    showEmptyState(false);
-
-    // Create new card element
-    const card = document.createElement('div');
-    card.className = `share-card${share.is_block ? ' block' : ''}`;
-    card.dataset.shareId = share.share_id;
-    card.dataset.level = share.level;
-    card.dataset.timestamp = share.submitted_at;
-
-    // Format timestamp
-    const timestamp = formatTimestamp(share.submitted_at);
-
-    // Get level styling
-    const { color, shape, borderStyle } = getLevelStyle(share.level);
-    const borderAttr = borderStyle ? `border: ${borderStyle};` : '';
-
-    // Display tag if available (use immutable tag from share)
-    const tagDisplay = share.tag ? `<span class="share-user-tag">${truncateUsername(share.tag)}</span>` : '';
-
-    card.innerHTML = `
-        <div class="share-card-header">
-            <div class="share-header-top">
-                <span class="share-timestamp" data-timestamp="${share.submitted_at}">${timestamp}</span>
-                ${tagDisplay}
-            </div>
-            <div class="share-level-badge shape-${shape}" style="background-color: ${color}; ${borderAttr}">
-                ${Math.floor(share.level)}
-            </div>
-        </div>
-        <div class="share-card-footer">
-            <span class="share-hash">${share.share_hash}</span>
-        </div>
-    `;
-
-    card.addEventListener('click', () => {
-        window.location.href = `/hash-validator/${share.share_id}`;
-    });
-
-    // Determine insertion position based on mode
-    let insertBefore = null;
-    let insertPosition = 0;
-
-    if (currentMode === 'recent') {
-        // Recent mode: always prepend to top (newest first)
-        insertBefore = container.firstChild;
-    } else {
-        // Best modes: insert by level ranking (all your shares, ranked)
-        // Find first card with lower level (or same level but older timestamp)
-        for (const existingCard of existingCards) {
-            const existingLevel = parseFloat(existingCard.dataset.level);
-            const existingTimestamp = existingCard.dataset.timestamp;
-
-            if (share.level > existingLevel) {
-                insertBefore = existingCard;
-                break;
-            } else if (share.level === existingLevel && share.submitted_at > existingTimestamp) {
-                insertBefore = existingCard;
+    if (container) {
+        let mobileIsDuplicate = false;
+        for (const row of container.querySelectorAll('.hs-row')) {
+            if (row.dataset.shareId === String(share.share_id)) {
+                mobileIsDuplicate = true;
                 break;
             }
-            insertPosition++;
+        }
+
+        if (!mobileIsDuplicate) {
+            showEmptyState(false);
+            const row = renderHsRow(share, {});
+            const existingRows = [...container.querySelectorAll('.hs-row')];
+
+            let insertBefore = null;
+            let insertPosition = 0;
+
+            if (currentMode === 'recent') {
+                insertBefore = container.firstChild;
+            } else {
+                for (const existing of existingRows) {
+                    const existingLevel = parseFloat(existing.dataset.level);
+                    const existingTimestamp = existing.dataset.timestamp;
+                    if (share.level > existingLevel ||
+                        (share.level === existingLevel && share.submitted_at > existingTimestamp)) {
+                        insertBefore = existing;
+                        break;
+                    }
+                    insertPosition++;
+                }
+            }
+
+            const shouldInsert = currentMode === 'recent' || hasLoadedAllShares || insertPosition < existingRows.length;
+            if (!shouldInsert) {
+                console.log(`Discarding share ${share.share_id} - ranks below loaded set`);
+                lastEventId = share.share_id;
+            } else {
+                row.classList.add('share-card-new');
+                if (insertBefore) {
+                    container.insertBefore(row, insertBefore);
+                } else {
+                    container.appendChild(row);
+                }
+                observeCard(row);
+                setTimeout(() => row.classList.remove('share-card-new'), 400);
+                currentOffset++;
+            }
         }
     }
 
-    // Discard if would insert beyond loaded shares (unless we have complete dataset)
-    if (!hasLoadedAllShares && insertPosition >= existingCards.length && currentMode !== 'recent') {
-        console.log(`Discarding share ${share.share_id} - ranks below loaded set (hasLoadedAllShares=${hasLoadedAllShares}, insertPosition=${insertPosition}, existingCards.length=${existingCards.length})`);
-        lastEventId = share.share_id;  // Still update for catch-up tracking
-        return;
+    // ── Desktop recent column ────────────────────────────────────────────────
+    if (isDesktop) {
+        const recentCol = document.getElementById('desktop-recent-col');
+        if (recentCol) {
+            let desktopIsDuplicate = false;
+            for (const row of recentCol.querySelectorAll('.hs-row')) {
+                if (row.dataset.shareId === String(share.share_id)) {
+                    desktopIsDuplicate = true;
+                    break;
+                }
+            }
+            if (!desktopIsDuplicate) {
+                const row = renderHsRow(share, {});
+                row.classList.add('share-card-new');
+                recentCol.insertBefore(row, recentCol.firstChild);
+                observeCard(row);
+                setTimeout(() => row.classList.remove('share-card-new'), 400);
+            }
+        }
     }
+}
 
-    console.log(`Inserting share ${share.share_id} at position ${insertPosition} (mode=${currentMode}, hasLoadedAllShares=${hasLoadedAllShares})`);
+// ── Desktop View ─────────────────────────────────────────────────────────────
 
-    // Insert with animation
-    card.classList.add('share-card-new');
-    if (insertBefore) {
-        container.insertBefore(card, insertBefore);
-    } else {
-        container.appendChild(card);
+async function initDesktopView() {
+    await Promise.all([
+        loadDesktopPersonalBest(),
+        loadDesktopRecent(),
+        loadDesktopMyBest('best-24h'),
+        loadDesktopHighscores('24h'),
+        updateDesktopDifficulty(),
+    ]);
+    setupDesktopToggles();
+}
+
+async function loadDesktopPersonalBest() {
+    try {
+        const response = await fetch('/api/users/me/shares/load?mode=best-all-time&limit=1');
+        if (!response.ok) return;
+        const data = await response.json();
+        const container = document.getElementById('desktop-personal-best');
+        if (!container) return;
+        container.innerHTML = '';
+        if (data.shares.length > 0) {
+            const card = renderPersonalBest(data.shares[0]);
+            container.appendChild(card);
+            observeCard(card);
+        }
+    } catch (error) {
+        console.error('Error loading desktop personal best:', error);
     }
-    observeCard(card);
+}
 
-    // Remove animation class after animation completes
-    setTimeout(() => {
-        card.classList.remove('share-card-new');
-    }, 400);
+async function loadDesktopRecent() {
+    try {
+        const response = await fetch('/api/users/me/shares/load?mode=recent&limit=20');
+        if (!response.ok) return;
+        const data = await response.json();
+        const container = document.getElementById('desktop-recent-col');
+        if (!container) return;
+        container.innerHTML = '';
+        data.shares.forEach(share => {
+            const row = renderHsRow(share, {});
+            container.appendChild(row);
+            observeCard(row);
+        });
+    } catch (error) {
+        console.error('Error loading desktop recent:', error);
+    }
+}
 
-    currentOffset++;
+async function loadDesktopMyBest(period) {
+    try {
+        const response = await fetch(`/api/users/me/shares/load?mode=${period}&limit=20`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const container = document.getElementById('desktop-mybest-col');
+        if (!container) return;
+        container.innerHTML = '';
+        data.shares.forEach((share, index) => {
+            const row = renderHsRow(share, { rank: index + 1 });
+            container.appendChild(row);
+            observeCard(row);
+        });
+    } catch (error) {
+        console.error('Error loading desktop my best:', error);
+    }
+}
+
+async function loadDesktopHighscores(period) {
+    try {
+        const endpoint = period === '24h' ? '/api/highscores/24h' : '/api/highscores/all-time';
+        const response = await fetch(endpoint);
+        if (!response.ok) return;
+        const data = await response.json();
+        const container = document.getElementById('desktop-highscores-col');
+        if (!container) return;
+        container.innerHTML = '';
+        data.shares.forEach((share, index) => {
+            const row = renderHsRow(share, { rank: index + 1 });
+            container.appendChild(row);
+            observeCard(row);
+        });
+    } catch (error) {
+        console.error('Error loading desktop highscores:', error);
+    }
+}
+
+function setupDesktopToggles() {
+    document.querySelectorAll('[data-mybest-period]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-mybest-period]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadDesktopMyBest(btn.dataset.mybestPeriod);
+        });
+    });
+
+    document.querySelectorAll('[data-hs-period]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-hs-period]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadDesktopHighscores(btn.dataset.hsPeriod);
+        });
+    });
+}
+
+async function updateDesktopDifficulty() {
+    try {
+        const response = await fetch('/api/traffic/status');
+        if (!response.ok) return;
+        const data = await response.json();
+        const badge = document.getElementById('desktop-difficulty-badge');
+        const text = document.getElementById('desktop-difficulty-text');
+        if (!badge || !text) return;
+        if (!data.traffic_level || data.traffic_level === 'normal' || data.traffic_level === 'low') {
+            badge.style.display = 'none';
+        } else {
+            badge.style.display = 'flex';
+            text.textContent = data.traffic_level === 'elevated' ? 'Difficulty Elevated' : 'Difficulty High';
+        }
+    } catch (error) {
+        console.error('Error loading desktop difficulty:', error);
+    }
 }

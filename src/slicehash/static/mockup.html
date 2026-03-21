@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SliceHash - Mockup</title>
+    <link rel="stylesheet" href="style.css?v=3">
+    <style>
+        /* ── Dev switcher (mobile only) ─────────────────────────────────── */
+        .dev-switcher {
+            position: fixed;
+            bottom: 90px;
+            right: 8px;
+            z-index: 9999;
+            background: #0d1a0d;
+            border: 2px solid #2a5a2a;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-family: monospace;
+            font-size: 10px;
+        }
+        .dev-switcher-label {
+            color: #4a9a4a;
+            text-align: center;
+            font-size: 9px;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+        .dev-btn {
+            background: #1a2e1a;
+            color: #7aaa7a;
+            border: 1px solid #2a5a2a;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 10px;
+            text-align: left;
+        }
+        .dev-btn:hover  { background: #2a3e2a; color: #aacaaa; }
+        .dev-btn.active { background: #2a5a2a; color: #ccffcc; border-color: #4a9a4a; }
+
+        /* ── Mobile page visibility ──────────────────────────────────────── */
+        .mockup-page { display: none; }
+        .mockup-page.active { display: block; }
+
+        /* ── Header base overrides ───────────────────────────────────────── */
+        .top-header-inner {
+            justify-content: center;
+            position: relative;
+            min-height: 80px;
+        }
+        .header-info { flex: none; text-align: center; }
+        .top-nav     { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+
+        /* ── Desktop-only elements (hidden on mobile) ────────────────────── */
+        .desktop-dashboard { display: none; }
+        .desktop-app-title { display: none; }
+
+        /* ══════════════════════════════════════════════════════════════════
+           COMPACT ROW STYLES  – used on mobile and desktop
+           ══════════════════════════════════════════════════════════════════ */
+
+        .hs-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: transform 0.05s, box-shadow 0.05s, background-color 0.1s;
+        }
+
+        /* Card-style rows inside a share feed */
+        .share-cards-container .hs-row {
+            background-color: #2a1a0a;
+            border: 4px solid #1a0f05;
+            border-right-color: #0d0702;
+            border-bottom-color: #0d0702;
+            box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+        }
+        .share-cards-container .hs-row:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #0d0702, 0 12px 16px rgba(0,0,0,0.9);
+            background-color: #3d2612;
+        }
+
+        .hs-rank {
+            font-size: 10px;
+            font-family: 'Press Start 2P', monospace;
+            color: #555;
+            width: 22px;
+            flex-shrink: 0;
+            text-shadow: none;
+        }
+
+        .hs-badge {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-family: 'Press Start 2P', monospace;
+            border: 3px solid;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+            flex-shrink: 0;
+        }
+        .hs-badge.shape-diamond { transform: rotate(45deg); }
+        .hs-badge.shape-diamond > span { transform: rotate(-45deg); display: block; }
+        .hs-badge.shape-hexagon { clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%); }
+
+        .hs-info { flex: 1; min-width: 0; }
+
+        .hs-top-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .hs-top-line .hs-user { margin-bottom: 0; }
+
+        .hs-user {
+            font-size: 11px;
+            font-family: 'Press Start 2P', monospace;
+            color: #f7931a;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: none;
+        }
+
+        .hs-time {
+            font-size: 8px;
+            font-family: 'Press Start 2P', monospace;
+            color: #888;
+            text-shadow: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .hs-hash {
+            font-size: 8px;
+            font-family: 'Press Start 2P', monospace;
+            color: #555;
+            text-shadow: none;
+            white-space: nowrap;
+        }
+
+        /* ══════════════════════════════════════════════════════════════════
+           PURCHASE ROW STYLES  – used on mobile and desktop
+           ══════════════════════════════════════════════════════════════════ */
+
+        .purchase-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+
+        /* Card style on mobile */
+        .purchase-cards-container .purchase-row {
+            background-color: #2a1a0a;
+            border: 4px solid #1a0f05;
+            border-right-color: #0d0702;
+            border-bottom-color: #0d0702;
+            box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+        }
+        .purchase-cards-container .purchase-row:hover {
+            background-color: #3d2612;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #0d0702, 0 12px 16px rgba(0,0,0,0.9);
+        }
+
+        .purchase-row-info { flex: 1; min-width: 0; }
+
+        .purchase-row-top-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .purchase-row-shares {
+            font-size: 11px;
+            font-family: 'Press Start 2P', monospace;
+            color: #f7931a;
+            white-space: nowrap;
+        }
+
+        .purchase-row-unit {
+            font-size: 8px;
+            color: #888;
+        }
+
+        .purchase-row-time {
+            font-size: 8px;
+            font-family: 'Press Start 2P', monospace;
+            color: #888;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .purchase-row-price {
+            font-size: 8px;
+            font-family: 'Press Start 2P', monospace;
+            color: #f7931a;
+        }
+        .purchase-row-price .purchase-row-unit { color: #555; }
+
+        /* ══════════════════════════════════════════════════════════════════
+           DESKTOP LAYOUT  ≥ 1024 px
+           ══════════════════════════════════════════════════════════════════ */
+        @media (min-width: 1024px) {
+
+            body { overflow: hidden; }
+
+            /* Widen header */
+            .top-header-inner { max-width: 1360px; }
+
+            /* App title – absolute left inside header */
+            .desktop-app-title {
+                display: block;
+                position: absolute;
+                left: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 13px;
+                font-family: 'Press Start 2P', monospace;
+                color: #f7931a;
+                text-shadow: 3px 3px 0px #c46700, 4px 4px 0px rgba(0,0,0,0.8);
+                letter-spacing: 3px;
+                white-space: nowrap;
+            }
+
+            /* All-panels-visible: no active nav item */
+            .top-nav-item.active {
+                color: #888888;
+                background-color: #1a0f05;
+                border-color: transparent;
+                text-shadow: none;
+            }
+
+            /* Hide mobile-only elements */
+            .mockup-page  { display: none !important; }
+            .dev-switcher { display: none !important; }
+
+            /* ── Main desktop grid ── */
+            .desktop-dashboard {
+                display: grid;
+                grid-template-columns: 1fr 340px;
+                gap: 16px;
+                padding: 16px;
+                max-width: 1360px;
+                margin: 0 auto;
+                height: calc(100vh - 100px);
+                box-sizing: border-box;
+            }
+
+            /* ── Panel base ── */
+            .desktop-panel {
+                background-color: #1a0f05;
+                border: 4px solid #2a1a0a;
+                border-right-color: #0d0702;
+                border-bottom-color: #0d0702;
+                box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                min-height: 0;
+            }
+
+            /* ── Panel title bar ── */
+            .panel-title-bar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 14px;
+                background-color: #3d2612;
+                border-bottom: 4px solid #0d0702;
+                flex-shrink: 0;
+            }
+
+            .panel-title-text {
+                font-size: 9px;
+                font-family: 'Press Start 2P', monospace;
+                color: #f7931a;
+                text-shadow: 2px 2px 0 #c46700;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+            }
+
+            /* ── Toggle inside title bar ── */
+            .panel-title-bar .highscore-toggle {
+                margin: 0;
+                background: transparent;
+                gap: 6px;
+            }
+            .panel-title-bar .highscore-toggle .toggle-btn {
+                flex: none;
+                padding: 4px 8px;
+                font-size: 7px;
+            }
+
+            .panel-content { padding: 14px; }
+
+            /* ── Left: shares panel layout ── */
+            .shares-personal-best {
+                padding: 12px 14px 0;
+                flex-shrink: 0;
+            }
+
+            .shares-two-col {
+                flex: 1;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0;
+                overflow: hidden;
+                min-height: 0;
+            }
+
+            .shares-col {
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                min-height: 0;
+                padding: 10px 0 0;
+            }
+
+            .shares-col:first-child {
+                border-right: 2px solid #0d0702;
+            }
+
+            /* Column header row: label + optional toggle */
+            .shares-col-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0 14px 8px;
+                border-bottom: 2px solid #0d0702;
+                margin-bottom: 0;
+                flex-shrink: 0;
+            }
+
+            .shares-col-header {
+                font-size: 8px;
+                font-family: 'Press Start 2P', monospace;
+                color: #555;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+
+            .shares-col-toggle {
+                margin: 0;
+                background: transparent;
+                gap: 5px;
+            }
+            .shares-col-toggle .toggle-btn {
+                flex: none;
+                padding: 3px 6px;
+                font-size: 7px;
+            }
+
+            .shares-col-scroll {
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 0;
+                min-height: 0;
+                padding: 8px 0;
+            }
+
+            /* Desktop: hs-rows are flat flush rows by default */
+            .desktop-panel .hs-row {
+                padding: 8px 14px;
+                background: #1a0f05;
+                border: none;
+                border-bottom: 2px solid #0d0702;
+                box-shadow: none;
+                transform: none;
+            }
+            .desktop-panel .hs-row:hover {
+                transform: none;
+                background: #2a1a0a;
+                box-shadow: none;
+            }
+            .desktop-panel .hs-row:last-child { border-bottom: none; }
+
+            /* In columns: card-style rows with gap */
+            .shares-col-scroll .hs-row {
+                margin: 0 8px;
+                width: calc(100% - 16px);
+                background: #2a1a0a;
+                border: 3px solid #1a0f05;
+                border-right-color: #0d0702;
+                border-bottom-color: #0d0702;
+                box-shadow: 0 2px 0 #0d0702;
+                margin-bottom: 7px;
+            }
+            .shares-col-scroll .hs-row:last-child { margin-bottom: 0; border-bottom-color: #0d0702; }
+            .shares-col-scroll .hs-row:hover { background: #3d2612; transform: none; box-shadow: 0 2px 0 #0d0702; }
+
+            /* Desktop sizes */
+            .desktop-panel .hs-badge  { width: 28px; height: 28px; font-size: 10px; }
+            .desktop-panel .hs-user   { font-size: 9px; }
+            .desktop-panel .hs-hash   { font-size: 7px; }
+            .desktop-panel .hs-rank   { font-size: 9px; width: 20px; }
+            .desktop-panel .hs-time   { font-size: 7px; }
+            .desktop-panel .hs-top-line { margin-bottom: 3px; }
+
+            /* ── Right column ── */
+            .desktop-right-col {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                overflow-y: auto;
+                min-height: 0;
+            }
+
+            .desktop-panel-highscores,
+            .desktop-panel-purchases { flex-shrink: 0; }
+
+            /* ── Purchases compact ── */
+            .desktop-panel-purchases .panel-content { padding: 6px 0; }
+            .desktop-panel .purchase-form           { margin: 0 14px 8px; }
+            .desktop-panel .purchase-cards-container{ gap: 0; }
+
+            /* Desktop: flat flush purchase rows */
+            .desktop-panel .purchase-row {
+                padding: 8px 14px;
+                background: #1a0f05;
+                border: none;
+                border-bottom: 2px solid #0d0702;
+                box-shadow: none;
+                transform: none;
+            }
+            .desktop-panel .purchase-row:hover {
+                background: #2a1a0a;
+                transform: none;
+                box-shadow: none;
+            }
+            .desktop-panel .purchase-row:last-child { border-bottom: none; }
+
+            .desktop-panel .purchase-row-shares { font-size: 9px; }
+            .desktop-panel .purchase-row-time   { font-size: 7px; }
+            .desktop-panel .purchase-row-price  { font-size: 7px; }
+
+            /* ── Difficulty indicator ── */
+            .panel-difficulty-badge {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 7px;
+                font-family: 'Press Start 2P', monospace;
+                color: #f7931a;
+                text-shadow: none;
+            }
+            .panel-diff-dot {
+                width: 8px;
+                height: 8px;
+                background: #f7931a;
+                border: 2px solid #c46700;
+                box-shadow: 0 0 5px rgba(247,147,26,0.8);
+                animation: pixelBlink 1s steps(2) infinite;
+                flex-shrink: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Top Header ──────────────────────────────────────────────────── -->
+    <div class="top-header">
+        <div class="top-header-inner">
+            <span class="desktop-app-title">SLICEHASH</span>
+            <div class="header-info">
+                <div class="shares-remaining-display">
+                    <div class="shares-label">Shares Remaining</div>
+                    <div class="shares-value">42</div>
+                </div>
+                <div class="target-level-display">
+                    <div class="target-level-value">Block Target: Level 6+</div>
+                </div>
+            </div>
+            <nav class="top-nav">
+                <a href="#" class="top-nav-item active" id="top-nav-dashboard" onclick="showPage('dashboard'); return false;">Dashboard</a>
+                <a href="#" class="top-nav-item"        id="top-nav-settings"  onclick="showPage('settings');  return false;">Settings</a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         MOBILE PAGES  (hidden on desktop)
+         ══════════════════════════════════════════════════════════════════ -->
+
+    <!-- Dashboard (mobile) -->
+    <div class="mockup-page active" id="page-dashboard">
+        <div class="mobile-dashboard">
+            <div class="network-difficulty-dot warning" title="Difficulty elevated"></div>
+            <div class="highscore-toggle">
+                <button class="toggle-btn active">Recent</button>
+                <button class="toggle-btn">Top 24h</button>
+                <button class="toggle-btn">All-time</button>
+            </div>
+            <div class="share-cards-container">
+
+                <div class="share-card block">
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">just now</div>
+                            <div class="share-username">satoshi</div>
+                            <div class="share-user-tag">BLOCK FOUND · ALL TIME HIGH</div>
+                        </div>
+                        <div class="share-level-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">...789abcd01</div>
+                    </div>
+                </div>
+
+                <div class="hs-row">
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">hal_finney</span>
+                            <span class="hs-time">3m ago</span>
+                        </div>
+                        <div class="hs-hash">...cdef01234</div>
+                    </div>
+                    <div class="hs-badge shape-diamond" style="background:#f7931a;border-color:#c46700;color:#000;"><span>7</span></div>
+                </div>
+
+                <div class="hs-row">
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">nakamoto</span>
+                            <span class="hs-time">11m ago</span>
+                        </div>
+                        <div class="hs-hash">...def012345</div>
+                    </div>
+                    <div class="hs-badge shape-hexagon" style="background:#32cd32;border-color:#228b22;color:#fff;">5</div>
+                </div>
+
+                <div class="hs-row">
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">lightning_bob</span>
+                            <span class="hs-time">19m ago</span>
+                        </div>
+                        <div class="hs-hash">...f01234567</div>
+                    </div>
+                    <div class="hs-badge shape-circle" style="background:#4a9eff;border-color:#2266cc;color:#fff;">4</div>
+                </div>
+
+                <div class="hs-row">
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">miner_alice</span>
+                            <span class="hs-time">34m ago</span>
+                        </div>
+                        <div class="hs-hash">...012345678</div>
+                    </div>
+                    <div class="hs-badge shape-square" style="background:#9b59b6;border-color:#6c3483;color:#fff;">3</div>
+                </div>
+
+                <div class="hs-row">
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">bitcoin_dan</span>
+                            <span class="hs-time">1h ago</span>
+                        </div>
+                        <div class="hs-hash">...123456789</div>
+                    </div>
+                    <div class="hs-badge shape-square" style="background:#666;border-color:#444;color:#fff;">2</div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Highscores (mobile) -->
+    <div class="mockup-page" id="page-highscores">
+        <div class="mobile-dashboard">
+            <div class="highscore-toggle">
+                <button class="toggle-btn active">Last 24h</button>
+                <button class="toggle-btn">All Time</button>
+            </div>
+            <div class="share-cards-container">
+
+                <div class="hs-row">
+                    <span class="hs-rank">#1</span>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">satoshi</span>
+                            <span class="hs-time">just now</span>
+                        </div>
+                        <div class="hs-hash">...789abcd01</div>
+                    </div>
+                    <div class="hs-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#2</span>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">hal_finney</span>
+                            <span class="hs-time">3m ago</span>
+                        </div>
+                        <div class="hs-hash">...cdef01234</div>
+                    </div>
+                    <div class="hs-badge shape-diamond" style="background:#f7931a;border-color:#c46700;color:#000;"><span>7</span></div>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#3</span>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">nakamoto</span>
+                            <span class="hs-time">11m ago</span>
+                        </div>
+                        <div class="hs-hash">...def012345</div>
+                    </div>
+                    <div class="hs-badge shape-hexagon" style="background:#32cd32;border-color:#228b22;color:#fff;">5</div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Purchases (mobile) -->
+    <div class="mockup-page" id="page-purchases">
+        <div class="mobile-dashboard purchases">
+            <div class="purchase-form">
+                <input type="number" class="purchase-input" placeholder="Enter share amount" min="1" step="1">
+                <button class="btn-purchase-submit">Purchase</button>
+            </div>
+            <div class="purchase-cards-container">
+                <div class="purchase-row">
+                    <div class="purchase-row-info">
+                        <div class="purchase-row-top-line">
+                            <span class="purchase-row-shares">25 <span class="purchase-row-unit">shares</span></span>
+                            <span class="purchase-row-time">2 days ago</span>
+                        </div>
+                        <div class="purchase-row-price">1,250 <span class="purchase-row-unit">sats</span></div>
+                    </div>
+                </div>
+                <div class="purchase-row">
+                    <div class="purchase-row-info">
+                        <div class="purchase-row-top-line">
+                            <span class="purchase-row-shares">100 <span class="purchase-row-unit">shares</span></span>
+                            <span class="purchase-row-time">5 days ago</span>
+                        </div>
+                        <div class="purchase-row-price">5,000 <span class="purchase-row-unit">sats</span></div>
+                    </div>
+                </div>
+                <div class="purchase-row">
+                    <div class="purchase-row-info">
+                        <div class="purchase-row-top-line">
+                            <span class="purchase-row-shares">50 <span class="purchase-row-unit">shares</span></span>
+                            <span class="purchase-row-time">2 weeks ago</span>
+                        </div>
+                        <div class="purchase-row-price">2,500 <span class="purchase-row-unit">sats</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings (mobile) -->
+    <div class="mockup-page" id="page-settings">
+        <div class="settings-container">
+            <form id="settings-form">
+                <div class="form-group">
+                    <label for="address">Bitcoin Address</label>
+                    <input type="text" id="address" name="address"
+                           value="bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+                           placeholder="bc1... / tb1... / bcrt1...">
+                    <small class="field-help">Mainnet: bc1/1/3 | Testnet: tb1/m/n/2 | Regtest: bcrt1</small>
+                </div>
+                <div class="form-group">
+                    <label for="tag">Custom Tag</label>
+                    <input type="text" id="tag" name="tag" value="satoshi" placeholder="my-miner" maxlength="50">
+                    <small class="field-help">Optional label for your miner (max 50 characters)</small>
+                </div>
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </form>
+            <div class="logout-section">
+                <a href="#" class="btn-logout">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         DESKTOP ALL-IN-ONE DASHBOARD  (hidden on mobile)
+         ══════════════════════════════════════════════════════════════════ -->
+    <div class="desktop-dashboard">
+
+        <!-- ── Left: Dashboard Panel ─────────────────────────────────────── -->
+        <div class="desktop-panel desktop-panel-shares">
+            <div class="panel-title-bar">
+                <span class="panel-title-text">Dashboard</span>
+                <div class="panel-difficulty-badge">
+                    <div class="panel-diff-dot"></div>
+                    <span>Difficulty Elevated</span>
+                </div>
+            </div>
+
+            <!-- Personal best – full-width banner -->
+            <div class="shares-personal-best">
+                <div class="share-card block">
+                    <div class="share-card-header">
+                        <div class="share-timestamp-wrapper">
+                            <div class="share-timestamp">just now</div>
+                            <div class="share-username">satoshi</div>
+                            <div class="share-user-tag">BLOCK FOUND · ALL TIME HIGH</div>
+                        </div>
+                        <div class="share-level-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                    </div>
+                    <div class="share-card-footer">
+                        <div class="share-hash">...789abcd01</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two-column feed: Recent | My Best -->
+            <div class="shares-two-col">
+
+                <!-- Recent -->
+                <div class="shares-col">
+                    <div class="shares-col-top">
+                        <div class="shares-col-header">Recent</div>
+                    </div>
+                    <div class="shares-col-scroll">
+
+                        <div class="hs-row">
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">15m ago</span>
+                                </div>
+                                <div class="hs-hash">...012345678</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#9b59b6;border-color:#6c3483;color:#fff;">3</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">45m ago</span>
+                                </div>
+                                <div class="hs-hash">...123456789</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#666;border-color:#444;color:#fff;">2</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">1h ago</span>
+                                </div>
+                                <div class="hs-hash">...f01234567</div>
+                            </div>
+                            <div class="hs-badge shape-circle" style="background:#4a9eff;border-color:#2266cc;color:#fff;">4</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">3h ago</span>
+                                </div>
+                                <div class="hs-hash">...23456789a</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#333;border-color:#222;color:#666;">1</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">5h ago</span>
+                                </div>
+                                <div class="hs-hash">...3456789ab</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#666;border-color:#444;color:#fff;">2</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">8h ago</span>
+                                </div>
+                                <div class="hs-hash">...456789abc</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#9b59b6;border-color:#6c3483;color:#fff;">3</div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- My Best (personal highscores) -->
+                <div class="shares-col">
+                    <div class="shares-col-top">
+                        <div class="shares-col-header">My Best</div>
+                        <div class="highscore-toggle shares-col-toggle">
+                            <button class="toggle-btn active">24h</button>
+                            <button class="toggle-btn">All-time</button>
+                        </div>
+                    </div>
+                    <div class="shares-col-scroll">
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#1</span>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">just now</span>
+                                </div>
+                                <div class="hs-hash">...789abcd01</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#2</span>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">yesterday</span>
+                                </div>
+                                <div class="hs-hash">...abcdef012</div>
+                            </div>
+                            <div class="hs-badge shape-hexagon" style="background:#e040fb;border-color:#9c27b0;color:#fff;">6</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#3</span>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">2 days ago</span>
+                                </div>
+                                <div class="hs-hash">...def012345</div>
+                            </div>
+                            <div class="hs-badge shape-hexagon" style="background:#32cd32;border-color:#228b22;color:#fff;">5</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#4</span>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">1h ago</span>
+                                </div>
+                                <div class="hs-hash">...f01234567</div>
+                            </div>
+                            <div class="hs-badge shape-circle" style="background:#4a9eff;border-color:#2266cc;color:#fff;">4</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#5</span>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">15m ago</span>
+                                </div>
+                                <div class="hs-hash">...012345678</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#9b59b6;border-color:#6c3483;color:#fff;">3</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#6</span>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">45m ago</span>
+                                </div>
+                                <div class="hs-hash">...123456789</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#666;border-color:#444;color:#fff;">2</div>
+                        </div>
+
+                        <div class="hs-row">
+                            <span class="hs-rank">#7</span>
+                            <div class="hs-info">
+                                <div class="hs-top-line">
+                                    <span class="hs-user">satoshi</span>
+                                    <span class="hs-time">3h ago</span>
+                                </div>
+                                <div class="hs-hash">...23456789a</div>
+                            </div>
+                            <div class="hs-badge shape-square" style="background:#333;border-color:#222;color:#666;">1</div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div><!-- .shares-two-col -->
+        </div>
+
+        <!-- ── Right Column ───────────────────────────────────────────────── -->
+        <div class="desktop-right-col">
+
+            <!-- Highscores -->
+            <div class="desktop-panel desktop-panel-highscores">
+                <div class="panel-title-bar">
+                    <span class="panel-title-text">Highscores</span>
+                    <div class="highscore-toggle">
+                        <button class="toggle-btn active">24h</button>
+                        <button class="toggle-btn">All-time</button>
+                    </div>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#1</span>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">satoshi</span>
+                            <span class="hs-time">just now</span>
+                        </div>
+                        <div class="hs-hash">...789abcd01</div>
+                    </div>
+                    <div class="hs-badge shape-square" style="background:#fff;border-color:#c46700;color:#000;">9</div>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#2</span>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">hal_finney</span>
+                            <span class="hs-time">3m ago</span>
+                        </div>
+                        <div class="hs-hash">...cdef01234</div>
+                    </div>
+                    <div class="hs-badge shape-diamond" style="background:#f7931a;border-color:#c46700;color:#000;"><span>7</span></div>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#3</span>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">mystery_miner</span>
+                            <span class="hs-time">7m ago</span>
+                        </div>
+                        <div class="hs-hash">...abcdef012</div>
+                    </div>
+                    <div class="hs-badge shape-hexagon" style="background:#e040fb;border-color:#9c27b0;color:#fff;">6</div>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#4</span>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">nakamoto</span>
+                            <span class="hs-time">11m ago</span>
+                        </div>
+                        <div class="hs-hash">...def012345</div>
+                    </div>
+                    <div class="hs-badge shape-hexagon" style="background:#32cd32;border-color:#228b22;color:#fff;">5</div>
+                </div>
+
+                <div class="hs-row">
+                    <span class="hs-rank">#5</span>
+                    <div class="hs-info">
+                        <div class="hs-top-line">
+                            <span class="hs-user">lightning_bob</span>
+                            <span class="hs-time">19m ago</span>
+                        </div>
+                        <div class="hs-hash">...f01234567</div>
+                    </div>
+                    <div class="hs-badge shape-circle" style="background:#4a9eff;border-color:#2266cc;color:#fff;">4</div>
+                </div>
+            </div>
+
+            <!-- Purchases -->
+            <div class="desktop-panel desktop-panel-purchases">
+                <div class="panel-title-bar">
+                    <span class="panel-title-text">Purchases</span>
+                </div>
+                <div class="panel-content">
+                    <div class="purchase-form">
+                        <input type="number" class="purchase-input" placeholder="Shares" min="1" step="1">
+                        <button class="btn-purchase-submit">Buy</button>
+                    </div>
+                    <div class="purchase-cards-container">
+                        <div class="purchase-row">
+                            <div class="purchase-row-info">
+                                <div class="purchase-row-top-line">
+                                    <span class="purchase-row-shares">25 <span class="purchase-row-unit">shares</span></span>
+                                    <span class="purchase-row-time">2 days ago</span>
+                                </div>
+                                <div class="purchase-row-price">1,250 <span class="purchase-row-unit">sats</span></div>
+                            </div>
+                        </div>
+                        <div class="purchase-row">
+                            <div class="purchase-row-info">
+                                <div class="purchase-row-top-line">
+                                    <span class="purchase-row-shares">100 <span class="purchase-row-unit">shares</span></span>
+                                    <span class="purchase-row-time">5 days ago</span>
+                                </div>
+                                <div class="purchase-row-price">5,000 <span class="purchase-row-unit">sats</span></div>
+                            </div>
+                        </div>
+                        <div class="purchase-row">
+                            <div class="purchase-row-info">
+                                <div class="purchase-row-top-line">
+                                    <span class="purchase-row-shares">50 <span class="purchase-row-unit">shares</span></span>
+                                    <span class="purchase-row-time">2 weeks ago</span>
+                                </div>
+                                <div class="purchase-row-price">2,500 <span class="purchase-row-unit">sats</span></div>
+                            </div>
+                        </div>
+                        <div class="purchase-row">
+                            <div class="purchase-row-info">
+                                <div class="purchase-row-top-line">
+                                    <span class="purchase-row-shares">200 <span class="purchase-row-unit">shares</span></span>
+                                    <span class="purchase-row-time">1 month ago</span>
+                                </div>
+                                <div class="purchase-row-price">10,000 <span class="purchase-row-unit">sats</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- .desktop-right-col -->
+
+    </div><!-- .desktop-dashboard -->
+
+    <!-- ── Bottom Nav (mobile only via CSS) ─────────────────────────────── -->
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active" id="bottom-nav-dashboard"
+           onclick="showPage('dashboard'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <rect x="3"  y="3"  width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="14" y="3"  width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="3"  y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Dashboard</span>
+        </a>
+        <a href="#" class="nav-item" id="bottom-nav-highscores"
+           onclick="showPage('highscores'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M7 8V5C7 4.45 7.45 4 8 4H16C16.55 4 17 4.45 17 5V8C17 10.76 14.76 13 12 13C9.24 13 7 10.76 7 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7 6H5C4.45 6 4 6.45 4 7V8C4 9.1 4.9 10 6 10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M17 6H19C19.55 6 20 6.45 20 7V8C20 9.1 19.1 10 18 10H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 13V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 20H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 17H15V20H9V17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Highscore</span>
+        </a>
+        <a href="#" class="nav-item" id="bottom-nav-purchases"
+           onclick="showPage('purchases'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <circle cx="9" cy="21" r="1" stroke="currentColor" stroke-width="2"/>
+                <circle cx="20" cy="21" r="1" stroke="currentColor" stroke-width="2"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Purchases</span>
+        </a>
+        <a href="#" class="nav-item" id="bottom-nav-settings"
+           onclick="showPage('settings'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Settings</span>
+        </a>
+    </nav>
+
+    <!-- ── Dev page switcher (mobile only) ───────────────────────────────── -->
+    <div class="dev-switcher">
+        <div class="dev-switcher-label">PAGE</div>
+        <button class="dev-btn active" id="dev-btn-dashboard"  onclick="showPage('dashboard')">Dashboard</button>
+        <button class="dev-btn"        id="dev-btn-highscores" onclick="showPage('highscores')">Highscore</button>
+        <button class="dev-btn"        id="dev-btn-purchases"  onclick="showPage('purchases')">Purchases</button>
+        <button class="dev-btn"        id="dev-btn-settings"   onclick="showPage('settings')">Settings</button>
+    </div>
+
+    <script>
+        function showPage(name) {
+            const pages = ['dashboard', 'highscores', 'purchases', 'settings'];
+            pages.forEach(p => {
+                document.getElementById('page-' + p).classList.toggle('active', p === name);
+                document.getElementById('dev-btn-' + p).classList.toggle('active', p === name);
+                const botItem = document.getElementById('bottom-nav-' + p);
+                if (botItem) botItem.classList.toggle('active', p === name);
+            });
+            // top-nav only has dashboard + settings
+            ['dashboard', 'settings'].forEach(p => {
+                const topItem = document.getElementById('top-nav-' + p);
+                if (topItem) topItem.classList.toggle('active', p === name);
+            });
+        }
+
+        // Toggle buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('toggle-btn')) {
+                const group = e.target.closest('.highscore-toggle');
+                if (group) {
+                    group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

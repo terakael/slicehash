@@ -17,7 +17,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadUserData();
     await loadPurchases();
     setupPurchaseForm();
-    window.initSharedSSE();
+
+    // Guard: skip if dashboard.js already owns the SSE connection
+    if (!document.querySelector('.desktop-dashboard')) {
+        window.initSharedSSE();
+    }
 
     invoiceModal = new LightningQRModal({
         title: 'Pay with Lightning',
@@ -71,14 +75,16 @@ async function loadUserData() {
         if (!response.ok) throw new Error('Failed to fetch user data');
         const data = await response.json();
 
-        document.getElementById('shares-remaining').textContent = data.shares_remaining;
+        const sharesEl = document.getElementById('shares-remaining');
+        if (sharesEl) sharesEl.textContent = data.shares_remaining;
 
         if (data.address && data.address.startsWith('bc1_update_in_settings_')) {
             showBtcAddressWarning();
         }
     } catch (error) {
         console.error('Error loading user data:', error);
-        document.getElementById('shares-remaining').textContent = 'Error';
+        const sharesEl = document.getElementById('shares-remaining');
+        if (sharesEl) sharesEl.textContent = 'Error';
     }
 }
 
@@ -101,7 +107,6 @@ async function loadPurchases() {
         }
     } catch (error) {
         console.error('Error loading purchases:', error);
-        showError('Failed to load purchases');
         showEmptyState(true);
     } finally {
         isLoading = false;
@@ -109,32 +114,31 @@ async function loadPurchases() {
     }
 }
 
-// Render purchase cards
+// Render purchases as .purchase-row elements
 function renderPurchaseCards(purchases) {
     const container = document.getElementById('purchase-cards-container');
     if (!container) return;
 
     container.innerHTML = '';
     purchases.forEach(purchase => {
-        const card = document.createElement('div');
-        card.className = 'purchase-card';
-        card.innerHTML = `
-            <div class="purchase-card-header">
-                <span class="purchase-date">${formatDate(purchase.created_at)}</span>
-                <span class="purchase-amount">${purchase.amount}</span>
-            </div>
-            <div class="purchase-amount-label">Shares Purchased</div>
-        `;
-        container.appendChild(card);
-    });
-}
+        const row = document.createElement('div');
+        row.className = 'purchase-row';
 
-function formatDate(timestamp) {
-    const ts = typeof timestamp === 'string' ? Number(timestamp) : timestamp;
-    return new Date(ts * 1000).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
+        const timestamp = formatTimestamp(purchase.created_at);
+        const satsDisplay = purchase.amount_sats != null
+            ? `${purchase.amount_sats.toLocaleString()} <span class="purchase-row-unit">sats</span>`
+            : `–`;
+
+        row.innerHTML = `
+            <div class="purchase-row-info">
+                <div class="purchase-row-top-line">
+                    <span class="purchase-row-shares">${purchase.amount} <span class="purchase-row-unit">shares</span></span>
+                    <span class="purchase-row-time">${timestamp}</span>
+                </div>
+                <div class="purchase-row-price">${satsDisplay}</div>
+            </div>
+        `;
+        container.appendChild(row);
     });
 }
 
@@ -142,6 +146,7 @@ function formatDate(timestamp) {
 function setupPurchaseForm() {
     const input = document.getElementById('purchase-amount');
     const button = document.getElementById('purchase-submit-btn');
+    if (!input || !button) return;
 
     button.addEventListener('click', async () => { await handlePurchase(); });
     input.addEventListener('keypress', async (e) => {
@@ -162,6 +167,7 @@ async function handlePurchase() {
         return;
     }
 
+    const originalLabel = button.textContent;
     isPurchasing = true;
     button.disabled = true;
     button.textContent = 'Generating invoice...';
@@ -193,7 +199,7 @@ async function handlePurchase() {
     } finally {
         isPurchasing = false;
         button.disabled = false;
-        button.textContent = 'Purchase';
+        button.textContent = originalLabel;
     }
 }
 
@@ -299,14 +305,15 @@ function cleanupInvoice() {
 
 // UI helpers
 function showLoading(show) {
-    document.getElementById('loading-indicator').style.display = show ? 'block' : 'none';
+    const el = document.getElementById('loading-indicator');
+    if (el) el.style.display = show ? 'block' : 'none';
 }
 
 function showEmptyState(show) {
     const emptyState = document.getElementById('empty-state');
     const container = document.getElementById('purchase-cards-container');
-    emptyState.style.display = show ? 'block' : 'none';
-    container.style.display = show ? 'none' : 'flex';
+    if (emptyState) emptyState.style.display = show ? 'block' : 'none';
+    if (container) container.style.display = show ? 'none' : 'flex';
 }
 
 function showError(message) {
@@ -317,7 +324,7 @@ function showError(message) {
         errorAlert.className = 'alert alert-danger';
         errorAlert.style.marginTop = '1rem';
         const form = document.querySelector('.purchase-form');
-        form.parentNode.insertBefore(errorAlert, form.nextSibling);
+        if (form) form.parentNode.insertBefore(errorAlert, form.nextSibling);
     }
 
     errorAlert.innerHTML = message;
