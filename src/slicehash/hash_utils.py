@@ -125,7 +125,11 @@ def calculate_level(hash_str: str) -> float:
     # frac = 1 - 16^(log_frac - 1)
     frac = 1 - (16 ** (log_frac - 1))
 
-    effective = leading_zeros_int + frac - BASE_ZEROS
-    if effective < 0:
+    # Hashes below the proxy's minimum leading-zero count score 0.
+    # BASE_ZEROS calibrates level magnitude within accepted shares and may
+    # differ from this integer boundary.
+    if leading_zeros_int < 11:
         return 0.0
+
+    effective = max(0.0, leading_zeros_int + frac - BASE_ZEROS)
     return 1.0 + SCALE * math.log2(1 + effective)

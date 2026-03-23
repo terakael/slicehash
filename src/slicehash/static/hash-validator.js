@@ -505,8 +505,8 @@ function calculateLevel(hashHex) {
     const mantissa = topInt / Math.pow(16, TOP);
     const frac = 1 - mantissa;
 
-    const effective = leadingZeroHex + frac - BASE_ZEROS;
-    if (effective < 0) return 0;
+    if (leadingZeroHex < 11) return 0;
+    const effective = Math.max(0.0, leadingZeroHex + frac - BASE_ZEROS);
     return 1.0 + SCALE * Math.log2(1 + effective);
 }
 
