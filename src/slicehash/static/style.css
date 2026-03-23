@@ -2327,6 +2327,8 @@ textarea.validator-input {
 }
 .purchase-row-price .purchase-row-unit { color: #555; }
 
+.desktop-app-title { display: none; }
+
 /* ============================================================================
    DESKTOP LAYOUT  ≥ 1024px
    ============================================================================ */

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS share_events (
     block_height INTEGER NOT NULL,
     billable INTEGER NOT NULL CHECK(billable IN (0, 1)),
     shares_consumed INTEGER NOT NULL CHECK(shares_consumed >= 1 AND shares_consumed <= 5),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 )
 """
@@ -187,6 +188,10 @@ ALL_TABLES = [
 ALL_MIGRATIONS = [
     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS amount_sats INTEGER",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS never_empty_since TIMESTAMP",
+    "ALTER TABLE share_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMP",
+    "UPDATE share_events SET created_at = to_timestamp(ntime) WHERE created_at IS NULL",
+    "ALTER TABLE share_events ALTER COLUMN created_at SET NOT NULL",
+    "ALTER TABLE share_events ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP",
 ]
 
 # All index creation statements

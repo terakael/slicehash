@@ -6,6 +6,7 @@ let hasMore = true;
 let currentOffset = 0;
 let currentMode = localStorage.getItem('dashboardMode') || 'recent';
 const LIMIT = 20;
+const MAX_CARDS = 100;
 let hasLoadedAllShares = false;
 
 // Desktop column state
@@ -214,6 +215,8 @@ function renderShareCards(shares, append) {
         container.appendChild(row);
         observeCard(row);
     });
+    // On infinite scroll, trim items already scrolled past from the top
+    if (append) trimContainerTop(container);
 }
 
 // Setup infinite scroll listener
@@ -321,6 +324,22 @@ function updateColumnRanks(container) {
     });
 }
 
+// Remove excess rows from the bottom (oldest/lowest-ranked)
+function trimContainerBottom(container) {
+    const rows = [...container.querySelectorAll('.hs-row')];
+    while (rows.length > MAX_CARDS) {
+        rows.pop().remove();
+    }
+}
+
+// Remove excess rows from the top (already-scrolled-past items)
+function trimContainerTop(container) {
+    const rows = [...container.querySelectorAll('.hs-row')];
+    while (rows.length > MAX_CARDS) {
+        rows.shift().remove();
+    }
+}
+
 // SSE callback for new shares
 function handleNewShare(share) {
     console.log(`handleNewShare: share ${share.share_id}, level=${share.level}, mode=${currentMode}`);
@@ -373,6 +392,7 @@ function handleNewShare(share) {
                 observeCard(row);
                 setTimeout(() => row.classList.remove('share-card-new'), 400);
                 currentOffset++;
+                trimContainerBottom(container);
             }
         }
     }
@@ -391,6 +411,7 @@ function handleNewShare(share) {
             const row = renderHsRow(share, {});
             animateInsert(recentCol, row, recentCol.firstChild);
             observeCard(row);
+            trimContainerBottom(recentCol);
         }
     }
 
@@ -500,11 +521,12 @@ function updateDesktopMyBest(share) {
     }
 
     // Don't push beyond the display limit
-    if (insertPosition >= 20) return;
+    if (insertPosition >= MAX_CARDS) return;
 
     const row = renderHsRow(share, { rank: insertPosition + 1 });
     animateInsert(container, row, insertBefore);
     observeCard(row);
+    trimContainerBottom(container);
     updateColumnRanks(container);
 }
 
