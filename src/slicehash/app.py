@@ -764,7 +764,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     SELECT id as share_id, created_at, level, is_block, share_hash, billable, shares_consumed, miner_tag
                     FROM share_events
                     WHERE user_id = $1
-                    ORDER BY ntime DESC
+                    ORDER BY created_at DESC
                     LIMIT $2 OFFSET $3
                     """,
                     user_id,
@@ -992,13 +992,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         # Configure query based on mode
         if mode == "recent":
             where_clause = "WHERE user_id = $1"
-            order_by = "ORDER BY ntime DESC"
+            order_by = "ORDER BY created_at DESC"
         elif mode == "best-24h":
-            where_clause = "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
-            order_by = "ORDER BY level DESC, ntime DESC"
+            where_clause = "WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '24 hours'"
+            order_by = "ORDER BY level DESC, created_at DESC"
         elif mode == "best-all-time":
             where_clause = "WHERE user_id = $1"
-            order_by = "ORDER BY level DESC, ntime DESC"
+            order_by = "ORDER BY level DESC, created_at DESC"
         else:
             return jsonify({"error": "Invalid mode"}), 400
 
@@ -1080,7 +1080,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                        billable, shares_consumed, miner_tag
                 FROM share_events
                 WHERE user_id = $1
-                ORDER BY ntime DESC
+                ORDER BY created_at DESC
                 LIMIT $2
             """
             rows = await db.fetch(check_query, user_id, limit)
@@ -1169,7 +1169,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         f"Refresh shares: FULL REFRESH (best mode={mode}) - fetching by level"
                     )
                     if mode == "best-24h":
-                        where_clause = "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
+                        where_clause = "WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '24 hours'"
                     else:  # best-all-time
                         where_clause = "WHERE user_id = $1"
 
@@ -1183,7 +1183,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                                billable, shares_consumed, miner_tag
                         FROM share_events
                         {where_clause}
-                        ORDER BY level DESC, ntime DESC
+                        ORDER BY level DESC, created_at DESC
                         LIMIT $2
                     """
                     rows = await db.fetch(best_query, user_id, limit)
@@ -1668,8 +1668,8 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         COALESCE(se.miner_tag, u.address) as username
                     FROM share_events se
                     LEFT JOIN users u ON se.user_id = u.id
-                    WHERE se.ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER
-                    ORDER BY se.level DESC, se.ntime DESC
+                    WHERE se.created_at >= NOW() - INTERVAL '24 hours'
+                    ORDER BY se.level DESC, se.created_at DESC
                     LIMIT 5
                     """
                 )
@@ -1730,7 +1730,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                         COALESCE(se.miner_tag, u.address) as username
                     FROM share_events se
                     LEFT JOIN users u ON se.user_id = u.id
-                    ORDER BY se.level DESC, se.ntime DESC
+                    ORDER BY se.level DESC, se.created_at DESC
                     LIMIT 5
                     """
                 )
@@ -1790,13 +1790,13 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             # Configure query based on mode
             if mode == "recent":
                 where_clause = "WHERE user_id = $1"
-                order_by = "ORDER BY ntime DESC"
+                order_by = "ORDER BY created_at DESC"
             elif mode == "best-24h":
-                where_clause = "WHERE user_id = $1 AND ntime >= EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')::INTEGER"
-                order_by = "ORDER BY level DESC, ntime DESC"
+                where_clause = "WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '24 hours'"
+                order_by = "ORDER BY level DESC, created_at DESC"
             elif mode == "best-all-time":
                 where_clause = "WHERE user_id = $1"
-                order_by = "ORDER BY level DESC, ntime DESC"
+                order_by = "ORDER BY level DESC, created_at DESC"
             else:
                 return jsonify(
                     {
