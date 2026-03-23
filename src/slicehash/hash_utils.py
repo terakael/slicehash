@@ -96,7 +96,7 @@ def calculate_level(hash_str: str) -> float:
         hash_str: Hexadecimal hash string (64 characters)
 
     Returns:
-        Level value with fractional precision, minimum 0.0
+        Level value with fractional precision, minimum 1.0
     """
     # Tuned to align effective=0 with the actual proxy threshold hash.
     # Increase if minimum observed shares are too high; decrease if too low.
@@ -109,7 +109,7 @@ def calculate_level(hash_str: str) -> float:
     # Convert hash to integer
     hash_int = int(hash_str, 16)
     if hash_int == 0:
-        return SCALE * math.log2(1 + 64 - BASE_ZEROS)  # All zeros: maximum possible
+        return 1.0 + SCALE * math.log2(1 + 64 - BASE_ZEROS)  # All zeros: maximum possible
 
     # Calculate logarithm base 16
     log_val = math.log(hash_int, 16)
@@ -125,5 +125,7 @@ def calculate_level(hash_str: str) -> float:
     # frac = 1 - 16^(log_frac - 1)
     frac = 1 - (16 ** (log_frac - 1))
 
-    effective = max(0.0, leading_zeros_int + frac - BASE_ZEROS)
-    return SCALE * math.log2(1 + effective)
+    effective = leading_zeros_int + frac - BASE_ZEROS
+    if effective < 0:
+        return 0.0
+    return 1.0 + SCALE * math.log2(1 + effective)
