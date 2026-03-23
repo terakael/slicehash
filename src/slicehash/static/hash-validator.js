@@ -477,16 +477,15 @@ function bitsToTarget(bits) {
 // ============================================================================
 
 function calculateLevel(hashHex) {
-    // Proxy threshold: minimum leading zeros accepted by the translator.
-    // Must match BASE_ZEROS in Python hash_utils.calculate_level.
-    const BASE_ZEROS = 11;
-    const SCALE = 60.0;
+    // Must match BASE_ZEROS / SCALE in Python hash_utils.calculate_level.
+    const BASE_ZEROS = 11.7;
+    const SCALE = 30.0;
 
     // Normalize to 64 hex chars (display/reversed format with leading zeros)
     const hex = hashHex.toLowerCase().padStart(64, '0');
     const hashInt = BigInt('0x' + hex);
 
-    if (hashInt === 0n) return SCALE * Math.sqrt(64 - BASE_ZEROS);
+    if (hashInt === 0n) return SCALE * Math.log2(1 + 64 - BASE_ZEROS);
 
     // Count leading zero hex digits
     let leadingZeroHex = 0;
@@ -496,7 +495,7 @@ function calculateLevel(hashHex) {
     }
 
     const sigHexLen = 64 - leadingZeroHex;
-    if (sigHexLen === 0) return SCALE * Math.sqrt(64 - BASE_ZEROS);
+    if (sigHexLen === 0) return SCALE * Math.log2(1 + 64 - BASE_ZEROS);
 
     // frac = 1 - hash_int / 16^sigHexLen
     // Approximate with top 13 significant hex digits (52 bits, safe for double)
@@ -507,7 +506,7 @@ function calculateLevel(hashHex) {
     const frac = 1 - mantissa;
 
     const effective = Math.max(0.0, leadingZeroHex + frac - BASE_ZEROS);
-    return SCALE * Math.sqrt(effective);
+    return SCALE * Math.log2(1 + effective);
 }
 
 // ============================================================================

@@ -66,26 +66,31 @@ def is_valid_block(share_hash: str, bits: str) -> bool:
 def calculate_level(hash_str: str) -> float:
     """Calculate the level of a hash with fractional precision.
 
-    Uses a square-root mapping over the hash's leading-zero count so that
-    shares at the proxy threshold (11 leading hex zeros) spread across levels
-    0-60, with rarer shares continuing to climb but with diminishing returns.
+    Levels reflect rarity relative to the proxy's minimum accepted hash.
+    Shares barely above the threshold score near 0; the level rises steeply
+    for moderately rare shares and flattens progressively for the very rare.
 
-    The effective score is the continuous leading-zero count above the proxy
-    threshold (BASE_ZEROS = 11). Applying sqrt produces unbounded but
-    decelerating growth: each extra leading zero adds progressively fewer
-    levels.
+    The effective score is the continuous leading-zero count above BASE_ZEROS,
+    which is tuned to the actual proxy threshold (not just an integer boundary).
+    Applying log2(1 + effective) gives the desired curve shape: steep initial
+    climb that decelerates as rarity increases.
 
     Formula:
         leading_zeros = 63 - floor(log16(hash_int))
         frac          = 1 - 16^(log_frac - 1)   (smaller first digit = higher)
         effective     = max(0, leading_zeros + frac - BASE_ZEROS)
-        level         = SCALE * sqrt(effective)
+        level         = SCALE * log2(1 + effective)
 
-    Reference points (BASE_ZEROS=11, SCALE=60):
-        11 leading zeros, best  fraction -> ~60
-        12 leading zeros, best  fraction -> ~85
-        13 leading zeros, best  fraction -> ~104
-        14 leading zeros, best  fraction -> ~120
+    Reference points (BASE_ZEROS=11.7, SCALE=30):
+        at proxy threshold              ->  ~0
+        11 leading zeros, best fraction ->  ~9
+        12 leading zeros, avg fraction  ->  ~24
+        13 leading zeros, avg fraction  ->  ~39
+        14 leading zeros, avg fraction  ->  ~50
+        16 leading zeros, avg fraction  ->  ~65
+
+    BASE_ZEROS tuning: set to the effective score of the minimum proxy hash.
+    Adjust if observed minimum shares drift significantly from level ~0.
 
     Args:
         hash_str: Hexadecimal hash string (64 characters)
@@ -93,9 +98,10 @@ def calculate_level(hash_str: str) -> float:
     Returns:
         Level value with fractional precision, minimum 0.0
     """
-    # Proxy threshold: minimum leading zeros accepted by the translator
-    BASE_ZEROS = 11
-    SCALE = 60.0
+    # Tuned to align effective=0 with the actual proxy threshold hash.
+    # Increase if minimum observed shares are too high; decrease if too low.
+    BASE_ZEROS = 11.7
+    SCALE = 30.0
 
     if not hash_str:
         return 0.0
@@ -103,7 +109,7 @@ def calculate_level(hash_str: str) -> float:
     # Convert hash to integer
     hash_int = int(hash_str, 16)
     if hash_int == 0:
-        return SCALE * math.sqrt(64 - BASE_ZEROS)  # All zeros: maximum possible
+        return SCALE * math.log2(1 + 64 - BASE_ZEROS)  # All zeros: maximum possible
 
     # Calculate logarithm base 16
     log_val = math.log(hash_int, 16)
@@ -120,4 +126,4 @@ def calculate_level(hash_str: str) -> float:
     frac = 1 - (16 ** (log_frac - 1))
 
     effective = max(0.0, leading_zeros_int + frac - BASE_ZEROS)
-    return SCALE * math.sqrt(effective)
+    return SCALE * math.log2(1 + effective)
