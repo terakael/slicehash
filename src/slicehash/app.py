@@ -775,7 +775,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["share_id"],
-                        "submitted_at": row["ntime"],
+                        "submitted_at": int(row["created_at"].timestamp()),
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
@@ -943,7 +943,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["share_id"],
-                        "submitted_at": row["ntime"],
+                        "submitted_at": int(row["created_at"].timestamp()),
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
@@ -1021,7 +1021,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             shares = [
                 {
                     "share_id": row["share_id"],
-                    "submitted_at": row["ntime"],
+                    "submitted_at": int(row["created_at"].timestamp()),
                     "level": row["level"],
                     "is_block": bool(row["is_block"]),
                     "share_hash": row["share_hash"],
@@ -1110,7 +1110,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["share_id"],
-                        "submitted_at": row["ntime"],
+                        "submitted_at": int(row["created_at"].timestamp()),
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
@@ -1136,7 +1136,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     shares = [
                         {
                             "share_id": row["share_id"],
-                            "submitted_at": row["ntime"],
+                            "submitted_at": int(row["created_at"].timestamp()),
                             "level": row["level"],
                             "is_block": bool(row["is_block"]),
                             "share_hash": row["share_hash"],
@@ -1191,7 +1191,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     shares = [
                         {
                             "share_id": row["share_id"],
-                            "submitted_at": row["ntime"],
+                            "submitted_at": int(row["created_at"].timestamp()),
                             "level": row["level"],
                             "is_block": bool(row["is_block"]),
                             "share_hash": row["share_hash"],
@@ -1676,7 +1676,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": row["ntime"],
+                        "submitted_at": int(row["created_at"].timestamp()),
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
@@ -1737,7 +1737,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                 shares = [
                     {
-                        "submitted_at": row["ntime"],
+                        "submitted_at": int(row["created_at"].timestamp()),
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],
@@ -1826,7 +1826,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 shares = [
                     {
                         "share_id": row["share_id"],
-                        "submitted_at": row["ntime"],
+                        "submitted_at": int(row["created_at"].timestamp()),
                         "level": row["level"],
                         "is_block": bool(row["is_block"]),
                         "share_hash": row["share_hash"],

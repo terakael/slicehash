@@ -234,13 +234,13 @@ class ShareProcessor:
         # Use a transaction to insert into both tables atomically
         async with db.transaction():
             # Insert into share_events (list view data)
-            share_id = await db.fetchval(
+            row = await db.fetchrow(
                 """
                 INSERT INTO share_events
                 (user_id, share_hash, ntime, level, is_block, miner_tag, block_height,
                  billable, shares_consumed)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                RETURNING id
+                RETURNING id, created_at
                 """,
                 user_id,
                 share_hash,
@@ -252,6 +252,8 @@ class ShareProcessor:
                 1 if billable else 0,
                 shares_consumed,
             )
+            share_id = row["id"]
+            created_at = int(row["created_at"].timestamp())
 
             # Insert into share_verification (verification data)
             import json
@@ -294,7 +296,7 @@ class ShareProcessor:
         notification = ShareNotification(
             share_id=share_id,
             user_id=user_id,
-            submitted_at=ntime,
+            submitted_at=created_at,
             level=level,
             is_block=is_block_result,
             share_hash=share_hash,
