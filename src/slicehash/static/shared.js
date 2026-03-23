@@ -72,8 +72,8 @@ function getLevelStyle(level) {
     ];
 
     // Shape tiers (every 80 levels)
-    const tier = Math.floor((levelInt - 10) / 80);
-    const colorIndex = Math.floor((levelInt - 10) / 10) % 8;
+    const tier = Math.floor(levelInt / 80);
+    const colorIndex = Math.floor(levelInt / 10) % 8;
     const color = colorPalette[colorIndex];
 
     let shape, borderStyle = '';
