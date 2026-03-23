@@ -761,7 +761,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get paginated results (newest first)
                 rows = await db.fetch(
                     """
-                    SELECT id as share_id, ntime, level, is_block, share_hash, billable, shares_consumed, miner_tag
+                    SELECT id as share_id, created_at, level, is_block, share_hash, billable, shares_consumed, miner_tag
                     FROM share_events
                     WHERE user_id = $1
                     ORDER BY ntime DESC
@@ -923,7 +923,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             ) as db:
                 if since_id:
                     query = """
-                        SELECT id as share_id, ntime, level, is_block, share_hash, billable, shares_consumed, miner_tag
+                        SELECT id as share_id, created_at, level, is_block, share_hash, billable, shares_consumed, miner_tag
                         FROM share_events
                         WHERE user_id = $1 AND id > $2
                         ORDER BY id ASC
@@ -932,7 +932,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                     rows = await db.fetch(query, user_id, since_id, limit)
                 else:
                     query = """
-                        SELECT id as share_id, ntime, level, is_block, share_hash, billable, shares_consumed, miner_tag
+                        SELECT id as share_id, created_at, level, is_block, share_hash, billable, shares_consumed, miner_tag
                         FROM share_events
                         WHERE user_id = $1 AND ntime > $2
                         ORDER BY id ASC
@@ -1009,7 +1009,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
             # Get paginated results
             query = f"""
-                SELECT id as share_id, ntime, level, is_block, share_hash,
+                SELECT id as share_id, created_at, level, is_block, share_hash,
                        billable, shares_consumed, miner_tag
                 FROM share_events
                 {where_clause}
@@ -1076,7 +1076,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
         async with DatabaseManager(app.config["SLICEHASH_CONFIG"].database_url) as db:
             # Single query: fetch latest N by time
             check_query = """
-                SELECT id as share_id, ntime, level, is_block, share_hash,
+                SELECT id as share_id, created_at, level, is_block, share_hash,
                        billable, shares_consumed, miner_tag
                 FROM share_events
                 WHERE user_id = $1
@@ -1179,7 +1179,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
                     # Get by level
                     best_query = f"""
-                        SELECT id as share_id, ntime, level, is_block, share_hash,
+                        SELECT id as share_id, created_at, level, is_block, share_hash,
                                billable, shares_consumed, miner_tag
                         FROM share_events
                         {where_clause}
@@ -1661,7 +1661,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 rows = await db.fetch(
                     """
                     SELECT
-                        se.ntime, se.level, se.is_block, se.share_hash,
+                        se.created_at, se.level, se.is_block, se.share_hash,
                         se.billable, se.shares_consumed, se.user_id,
                         se.miner_tag,
                         u.address as coinbase_address,
@@ -1723,7 +1723,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 rows = await db.fetch(
                     """
                     SELECT
-                        se.ntime, se.level, se.is_block, se.share_hash,
+                        se.created_at, se.level, se.is_block, se.share_hash,
                         se.billable, se.shares_consumed, se.user_id,
                         se.miner_tag,
                         u.address as coinbase_address,
