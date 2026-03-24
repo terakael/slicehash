@@ -59,16 +59,16 @@ function getLevelStyle(level) {
     // Level can now be a float, but styling is based on integer part
     const levelInt = Math.floor(level);
 
-    // Color palette cycling every 8 levels
+    // Color palette — ordered calm→warm→intense so higher levels feel more exciting
     const colorPalette = [
-        '#58a6ff', // Blue
+        '#58a6ff', // Blue      (calm start)
         '#56d364', // Green
-        '#f78166', // Orange
         '#d29922', // Gold
-        '#bc8cff', // Purple
-        '#ff7b72', // Red
-        '#79c0ff', // Light Blue
-        '#ffa657', // Bright Orange
+        '#ffa657', // Amber
+        '#f78166', // Orange
+        '#39d3f5', // Cyan      (vivid)
+        '#ff79c6', // Hot Pink
+        '#bc8cff', // Purple    (prestige finish)
     ];
 
     // Shape tiers (every 80 levels)
