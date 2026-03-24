@@ -59,16 +59,17 @@ function getLevelStyle(level) {
     // Level can now be a float, but styling is based on integer part
     const levelInt = Math.floor(level);
 
-    // Color palette — ordered calm→warm→intense so higher levels feel more exciting
+    // Color palette — ordered calm→warm→intense so higher levels feel more exciting.
+    // Colours are spaced across the wheel to maximise visual distinctness.
     const colorPalette = [
-        '#58a6ff', // Blue      (calm start)
+        '#1558c7', // Deep Blue  (calm start — much darker than cyan to avoid similarity)
         '#56d364', // Green
         '#d29922', // Gold
-        '#ffa657', // Amber
         '#f78166', // Orange
-        '#39d3f5', // Cyan      (vivid)
+        '#f85149', // Red        (replaces Amber — was too similar to Gold and Orange)
+        '#39d3f5', // Cyan       (neon)
         '#ff79c6', // Hot Pink
-        '#bc8cff', // Purple    (prestige finish)
+        '#8957e5', // Deep Purple (prestige finish — more saturated than before)
     ];
 
     // Shape tiers (every 80 levels)
