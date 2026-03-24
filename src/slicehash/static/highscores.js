@@ -104,7 +104,7 @@ function renderHsRow(share, { rank } = {}) {
     const borderColor = borderStyle
         ? borderStyle.split(' ').pop()
         : darkenHex(color, 0.7);
-    const textColor = isLightColor(color) ? '#000' : '#fff';
+    const textColor = '#fff';
 
     const row = document.createElement('div');
     row.className = 'hs-row';

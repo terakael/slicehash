@@ -22,6 +22,7 @@ function updateFloatingPanel(level, hash, isValid) {
         const { color, shape, borderStyle } = getLevelStyle(level);
         levelBadge.textContent = Math.floor(level);
         levelBadge.style.backgroundColor = color;
+        levelBadge.style.color = '#fff';
 
         // Apply shape class
         levelBadge.className = 'floating-level-badge shape-' + shape;
