@@ -479,7 +479,7 @@ function bitsToTarget(bits) {
 
 function calculateLevel(hashHex) {
     // Must match BASE_ZEROS / SCALE in Python hash_utils.calculate_level.
-    const BASE_ZEROS = 11.7;
+    const BASE_ZEROS = 11.45;
     const SCALE = 30.0;
 
     // Normalize to 64 hex chars (display/reversed format with leading zeros)
@@ -488,26 +488,25 @@ function calculateLevel(hashHex) {
 
     if (hashInt === 0n) return 1.0 + SCALE * Math.log2(1 + 64 - BASE_ZEROS);
 
-    // Count leading zero hex digits
+    // The mathematically pure, continuous leading zero count:
+    //   exact_zeros = 64 - log16(hash_int)
+    // Approximate log16(hash_int) using top 13 significant hex digits (52 bits, safe for double):
+    //   log16(hash_int) ≈ log16(topInt) + (sigHexLen - TOP)
+    //                   = log16(topInt) + (64 - leadingZeroHex - TOP)
+    // So: exact_zeros = leadingZeroHex + TOP - log16(topInt)
     let leadingZeroHex = 0;
     for (let i = 0; i < 64; i++) {
         if (hex[i] === '0') leadingZeroHex++;
         else break;
     }
 
-    const sigHexLen = 64 - leadingZeroHex;
-    if (sigHexLen === 0) return 1.0 + SCALE * Math.log2(1 + 64 - BASE_ZEROS);
-
-    // frac = 1 - hash_int / 16^sigHexLen
-    // Approximate with top 13 significant hex digits (52 bits, safe for double)
     const TOP = 13;
     const topHex = hex.slice(leadingZeroHex, leadingZeroHex + TOP).padEnd(TOP, '0');
     const topInt = Number(BigInt('0x' + topHex)); // safe: max 2^52 - 1 < 2^53
-    const mantissa = topInt / Math.pow(16, TOP);
-    const frac = 1 - mantissa;
+    const exact_zeros = leadingZeroHex + TOP - Math.log(topInt) / Math.log(16);
 
-    if (leadingZeroHex < 11) return 0;
-    const effective = Math.max(0.0, leadingZeroHex + frac - BASE_ZEROS);
+    if (exact_zeros < 11.0) return 0.0;
+    const effective = Math.max(0.0, exact_zeros - BASE_ZEROS);
     return 1.0 + SCALE * Math.log2(1 + effective);
 }
 
