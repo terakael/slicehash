@@ -109,27 +109,16 @@ def calculate_level(hash_str: str) -> float:
     # Convert hash to integer
     hash_int = int(hash_str, 16)
     if hash_int == 0:
-        return 1.0 + SCALE * math.log2(1 + 64 - BASE_ZEROS)  # All zeros: maximum possible
+        return 1.0 + SCALE * math.log2(1 + 64 - BASE_ZEROS)
 
-    # Calculate logarithm base 16
+    # The mathematically pure, continuous leading zero count
     log_val = math.log(hash_int, 16)
-    log_floor = math.floor(log_val)
-    log_frac = log_val - log_floor
-
-    # Continuous leading-zero count
-    # Number of significant hex digits = floor(log16(n)) + 1
-    # Leading zeros = 64 - significant_digits = 63 - floor(log16(n))
-    leading_zeros_int = 63 - log_floor
-
-    # Fractional part: smaller first non-zero digit = higher fractional value
-    # frac = 1 - 16^(log_frac - 1)
-    frac = 1 - (16 ** (log_frac - 1))
+    exact_zeros = 64.0 - log_val
 
     # Hashes below the proxy's minimum leading-zero count score 0.
-    # BASE_ZEROS calibrates level magnitude within accepted shares and may
-    # differ from this integer boundary.
-    if leading_zeros_int < 11:
+    if exact_zeros < 11.0:
         return 0.0
 
-    effective = max(0.0, leading_zeros_int + frac - BASE_ZEROS)
+    # Calculate final level
+    effective = max(0.0, exact_zeros - BASE_ZEROS)
     return 1.0 + SCALE * math.log2(1 + effective)
