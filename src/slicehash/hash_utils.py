@@ -100,7 +100,7 @@ def calculate_level(hash_str: str) -> float:
     """
     # Tuned to align effective=0 with the actual proxy threshold hash.
     # Increase if minimum observed shares are too high; decrease if too low.
-    BASE_ZEROS = 11.7
+    BASE_ZEROS = 11.45
     SCALE = 30.0
 
     if not hash_str:
