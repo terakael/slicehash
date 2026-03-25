@@ -2013,6 +2013,23 @@ textarea.validator-input {
     color: #f48771;
 }
 
+/* Mempool.space link in form labels */
+.mempool-link {
+    color: #f7931a;
+    font-size: 7px;
+    font-family: 'Press Start 2P', monospace;
+    text-decoration: none;
+    margin-left: 8px;
+    opacity: 0.7;
+    white-space: nowrap;
+    text-shadow: none;
+}
+
+.mempool-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
 /* Validator link on share cards */
 .share-validator-link {
     position: absolute;
@@ -2558,6 +2575,132 @@ textarea.validator-input {
         box-shadow: 0 0 5px rgba(247,147,26,0.8);
         animation: pixelBlink 1s steps(2) infinite;
         flex-shrink: 0;
+    }
+
+
+    /* ── Hash Validator desktop layout ── */
+
+    .hash-validator-container {
+        padding: 16px;
+        padding-bottom: 16px;
+        max-width: 1360px;
+        height: calc(100vh - 100px);
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    #validator-form {
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .validator-layout {
+        display: grid;
+        grid-template-columns: 1fr 460px;
+        gap: 16px;
+        height: 100%;
+    }
+
+    /* Left panel: scrollable form inputs */
+    .validator-col-left {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+        background-color: #1a0f05;
+        border: 4px solid #2a1a0a;
+        border-right-color: #0d0702;
+        border-bottom-color: #0d0702;
+        box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+    }
+
+    .validator-col-left .validator-header {
+        text-align: left;
+        margin-bottom: 0;
+        padding: 10px 14px;
+        background-color: #3d2612;
+        border-bottom: 4px solid #0d0702;
+        flex-shrink: 0;
+    }
+
+    .validator-col-left .validator-header h1 {
+        font-size: 9px;
+        margin-bottom: 0;
+        letter-spacing: 2px;
+    }
+
+    .validator-col-left .validator-subtitle {
+        display: none;
+    }
+
+    .validator-form-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .validator-form-scroll .validator-section {
+        margin-bottom: 0;
+    }
+
+    /* Right column: result + output */
+    .validator-col-right {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    /* Override fixed positioning — become a static panel in the right column */
+    .floating-result-panel {
+        position: static;
+        bottom: auto;
+        left: auto;
+        right: auto;
+        padding: 0;
+        z-index: auto;
+        border: 4px solid #2a1a0a;
+        border-right-color: #0d0702;
+        border-bottom-color: #0d0702;
+        border-top: 4px solid #f7931a;
+        box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+        flex-shrink: 0;
+    }
+
+    .floating-result-content {
+        max-width: none;
+        margin: 0;
+        padding: 14px 16px;
+    }
+
+    /* Detailed output panel */
+    #results {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+        background-color: #1a0f05;
+        border: 4px solid #2a1a0a;
+        border-right-color: #0d0702;
+        border-bottom-color: #0d0702;
+        border-top: 4px solid #f7931a;
+        box-shadow: 0 4px 0 #0d0702, 0 8px 8px rgba(0,0,0,0.8);
+    }
+
+    #results .validator-summary {
+        margin-bottom: 0;
+        border: none;
+        border-bottom: 4px solid #0d0702;
+        box-shadow: none;
+        background-color: transparent;
+    }
+
+    #results .validator-output {
+        margin-top: 0;
+        border: none;
     }
 
 }

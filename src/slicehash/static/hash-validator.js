@@ -119,6 +119,11 @@ async function loadShareData() {
         // Populate form fields
         document.getElementById('version').value = data.version;
         document.getElementById('prevBlockHash').value = data.prev_block_hash;
+        const mempoolLink = document.getElementById('prevblock-mempool-link');
+        if (mempoolLink && data.prev_block_hash) {
+            mempoolLink.href = `https://mempool.space/block/${data.prev_block_hash}`;
+            mempoolLink.style.display = '';
+        }
         document.getElementById('timestamp').value = data.timestamp;
         document.getElementById('bits').value = data.bits;
         document.getElementById('nonce').value = data.nonce;

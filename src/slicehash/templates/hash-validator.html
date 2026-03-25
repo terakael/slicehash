@@ -17,106 +17,116 @@
 
 {% block content %}
 <div class="hash-validator-container">
-    <div class="validator-header">
-        <h1>⛏️ Hash Validator</h1>
-        <p class="validator-subtitle">Verify your mining share by reconstructing the block hash</p>
-    </div>
-
     <div id="loading-state" class="loading-state">
         <p>Loading share data...</p>
     </div>
 
-    <!-- Floating result panel -->
-    <div id="floating-result" class="floating-result-panel" style="display: none;">
-        <div class="floating-result-content">
-            <div class="floating-level-badge" id="floating-level-badge">-</div>
-            <div class="floating-right-col">
-                <div class="floating-hash-value" id="floating-hash-value">Calculating...</div>
-                <div class="floating-odds-value" id="floating-odds-value"></div>
-            </div>
-        </div>
-    </div>
-
     <div id="validator-form" style="display: none;">
-        <div class="validator-section">
-            <h2>Block Header Fields</h2>
-            <div class="validator-grid">
-                <div class="form-group">
-                    <label for="version">Version (hex)</label>
-                    <input type="text" id="version" class="validator-input">
-                </div>
-                <div class="form-group">
-                    <label for="timestamp">Timestamp (Unix)</label>
-                    <input type="number" id="timestamp" class="validator-input">
-                </div>
-                <div class="form-group">
-                    <label for="bits">Bits (hex)</label>
-                    <input type="text" id="bits" class="validator-input">
-                </div>
-                <div class="form-group">
-                    <label for="nonce">Nonce</label>
-                    <input type="number" id="nonce" class="validator-input">
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="prevBlockHash">Previous Block Hash (64 hex chars)</label>
-                <input type="text" id="prevBlockHash" class="validator-input">
-            </div>
-        </div>
+        <div class="validator-layout">
 
-        <div class="validator-section">
-            <h2>Coinbase Transaction Data</h2>
-            <div class="validator-grid">
-                <div class="form-group">
-                    <label for="blockHeight">Block Height</label>
-                    <input type="number" id="blockHeight" class="validator-input">
+            <!-- Left column: form inputs -->
+            <div class="validator-col-left">
+                <div class="validator-header">
+                    <h1>⛏️ Hash Validator</h1>
+                    <p class="validator-subtitle">Verify your mining share by reconstructing the block hash</p>
                 </div>
-                <div class="form-group">
-                    <label for="poolTag">Pool Tag</label>
-                    <input type="text" id="poolTag" class="validator-input">
-                </div>
-                <div class="form-group">
-                    <label for="minerTag">Miner Tag</label>
-                    <input type="text" id="minerTag" class="validator-input">
-                </div>
-                <div class="form-group">
-                    <label for="extranonce">Extranonce (hex)</label>
-                    <input type="text" id="extranonce" class="validator-input">
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="coinbaseAddress">Coinbase Address (bc1/tb1/bcrt1/3/1)</label>
-                <input type="text" id="coinbaseAddress" class="validator-input">
-            </div>
-            <div class="form-group">
-                <label for="coinbaseValue">Coinbase Value (satoshis)</label>
-                <input type="number" id="coinbaseValue" class="validator-input">
-            </div>
-            <div class="validator-grid">
-                <div class="form-group">
-                    <label for="sequence">Sequence</label>
-                    <input type="number" id="sequence" class="validator-input">
-                </div>
-                <div class="form-group">
-                    <label for="locktime">Locktime</label>
-                    <input type="number" id="locktime" class="validator-input">
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="witnessCommitment">Witness Commitment (hex)</label>
-                <input type="text" id="witnessCommitment" class="validator-input">
-            </div>
-        </div>
+                <div class="validator-form-scroll">
+                    <div class="validator-section">
+                        <h2>Block Header Fields</h2>
+                        <div class="validator-grid">
+                            <div class="form-group">
+                                <label for="version">Version (hex)</label>
+                                <input type="text" id="version" class="validator-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="timestamp">Timestamp (Unix)</label>
+                                <input type="number" id="timestamp" class="validator-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="bits">Bits (hex)</label>
+                                <input type="text" id="bits" class="validator-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="nonce">Nonce</label>
+                                <input type="number" id="nonce" class="validator-input">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="prevBlockHash">Previous Block Hash (64 hex chars) <a id="prevblock-mempool-link" class="mempool-link" href="#" target="_blank" rel="noopener noreferrer" style="display: none;">↗ mempool.space</a></label>
+                            <input type="text" id="prevBlockHash" class="validator-input">
+                        </div>
+                    </div>
 
-        <div class="validator-section">
-            <h2>Merkle Path</h2>
-            <div class="form-group">
-                <label for="merklePath">Sibling Hashes (one per line, empty if coinbase only)</label>
-                <textarea id="merklePath" class="validator-input" placeholder="abcd1234567890...&#10;efgh5678901234..."></textarea>
-            </div>
-        </div>
+                    <div class="validator-section">
+                        <h2>Coinbase Transaction Data</h2>
+                        <div class="validator-grid">
+                            <div class="form-group">
+                                <label for="blockHeight">Block Height</label>
+                                <input type="number" id="blockHeight" class="validator-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="poolTag">Pool Tag</label>
+                                <input type="text" id="poolTag" class="validator-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="minerTag">Miner Tag</label>
+                                <input type="text" id="minerTag" class="validator-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="extranonce">Extranonce (hex)</label>
+                                <input type="text" id="extranonce" class="validator-input">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="coinbaseAddress">Coinbase Address (bc1/tb1/bcrt1/3/1)</label>
+                            <input type="text" id="coinbaseAddress" class="validator-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="coinbaseValue">Coinbase Value (satoshis)</label>
+                            <input type="number" id="coinbaseValue" class="validator-input">
+                        </div>
+                        <div class="validator-grid">
+                            <div class="form-group">
+                                <label for="sequence">Sequence</label>
+                                <input type="number" id="sequence" class="validator-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="locktime">Locktime</label>
+                                <input type="number" id="locktime" class="validator-input">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="witnessCommitment">Witness Commitment (hex)</label>
+                            <input type="text" id="witnessCommitment" class="validator-input">
+                        </div>
+                    </div>
 
-        <div id="results"></div>
+                    <div class="validator-section">
+                        <h2>Merkle Path</h2>
+                        <div class="form-group">
+                            <label for="merklePath">Sibling Hashes (one per line, empty if coinbase only)</label>
+                            <textarea id="merklePath" class="validator-input" placeholder="abcd1234567890...&#10;efgh5678901234..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right column: result panel + detailed output -->
+            <div class="validator-col-right">
+                <!-- Floating result panel (fixed on mobile, static on desktop) -->
+                <div id="floating-result" class="floating-result-panel" style="display: none;">
+                    <div class="floating-result-content">
+                        <div class="floating-level-badge" id="floating-level-badge">-</div>
+                        <div class="floating-right-col">
+                            <div class="floating-hash-value" id="floating-hash-value">Calculating...</div>
+                            <div class="floating-odds-value" id="floating-odds-value"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="results"></div>
+            </div>
+
+        </div>
     </div>
 </div>
 {% endblock %}
