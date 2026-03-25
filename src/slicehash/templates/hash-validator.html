@@ -30,8 +30,10 @@
     <div id="floating-result" class="floating-result-panel" style="display: none;">
         <div class="floating-result-content">
             <div class="floating-level-badge" id="floating-level-badge">-</div>
-            <div class="floating-hash-value" id="floating-hash-value">Calculating...</div>
-            <button class="floating-calculate-btn" id="floating-calculate-btn">🔨 Calculate</button>
+            <div class="floating-right-col">
+                <div class="floating-hash-value" id="floating-hash-value">Calculating...</div>
+                <div class="floating-odds-value" id="floating-odds-value"></div>
+            </div>
         </div>
     </div>
 
@@ -114,8 +116,6 @@
             </div>
         </div>
 
-        <button class="validator-btn" id="calculate-btn">🔨 Calculate Hash</button>
-
         <div id="results"></div>
     </div>
 </div>
@@ -126,5 +126,6 @@
 <script src="{{ url_for('static', filename='hash-validator.js') }}"></script>
 <script>
     window.shareId = {{ share_id }};
+    window.hashrateThsPerSec = {{ hashrate_ths }};
 </script>
 {% endblock %}

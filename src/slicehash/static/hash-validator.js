@@ -6,10 +6,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
 });
 
+// ── Level odds ────────────────────────────────────────────────────────────────
+
+function levelExpectedSeconds(level, hashrateThsPerSec) {
+    const BASE_ZEROS = 11.45, SCALE = 30.0;
+    if (level <= 0) return 0;
+    const effective = Math.pow(2, (level - 1) / SCALE) - 1;
+    const requiredZeros = effective + BASE_ZEROS;
+    const p = Math.pow(2, -4 * requiredZeros);
+    return 1 / (hashrateThsPerSec * 1e12 * p);
+}
+
+function formatExpectedTime(seconds) {
+    if (seconds < 90) return `every ~${Math.round(seconds)}s`;
+    if (seconds < 5400) {
+        const m = seconds / 60;
+        return `every ~${m < 10 ? m.toFixed(1) : Math.round(m)} min`;
+    }
+    if (seconds < 2 * 86400) {
+        const h = seconds / 3600;
+        return `every ~${h < 10 ? h.toFixed(1) : Math.round(h)} hr`;
+    }
+    if (seconds < 60 * 86400) {
+        const d = seconds / 86400;
+        return `every ~${d < 10 ? d.toFixed(1) : Math.round(d)} days`;
+    }
+    if (seconds < 730 * 86400) {
+        const mo = seconds / (30.44 * 86400);
+        return `every ~${mo < 10 ? mo.toFixed(1) : Math.round(mo)} months`;
+    }
+    const y = seconds / (365.25 * 86400);
+    return `every ~${y < 100 ? y.toFixed(1) : Math.round(y)} years`;
+}
+
 // Update floating result panel
 function updateFloatingPanel(level, hash, isValid) {
     const levelBadge = document.getElementById('floating-level-badge');
     const hashValue = document.getElementById('floating-hash-value');
+    const oddsValue = document.getElementById('floating-odds-value');
     const floatingPanel = document.getElementById('floating-result');
 
     // Show panel if hidden
@@ -34,10 +68,16 @@ function updateFloatingPanel(level, hash, isValid) {
             levelBadge.style.borderRightColor = adjustBrightness(color, -30);
             levelBadge.style.borderBottomColor = adjustBrightness(color, -30);
         }
+
+        // Update odds
+        const hashrate = window.hashrateThsPerSec || 6.45;
+        const expectedSecs = levelExpectedSeconds(level, hashrate);
+        oddsValue.textContent = formatExpectedTime(expectedSecs);
     } else {
         levelBadge.textContent = '-';
         levelBadge.style.backgroundColor = '#f7931a';
         levelBadge.style.border = '3px solid #c46700';
+        oddsValue.textContent = '';
     }
 
     // Update hash
@@ -115,19 +155,17 @@ async function loadShareData() {
     }
 }
 
+// Debounced recalculation — fires 150ms after the last input event
+let _recalcTimer = null;
+function scheduleRecalc() {
+    clearTimeout(_recalcTimer);
+    _recalcTimer = setTimeout(calculateHash, 150);
+}
+
 // Setup event listeners
 function setupEventListeners() {
-    document.getElementById('calculate-btn').addEventListener('click', calculateHash);
-    document.getElementById('floating-calculate-btn').addEventListener('click', calculateHash);
-
-    // Optional: Auto-recalculate on input change
     document.querySelectorAll('.validator-input').forEach(input => {
-        input.addEventListener('change', () => {
-            // Clear results when inputs change
-            document.getElementById('results').innerHTML = '';
-            // Update floating panel to show pending state
-            updateFloatingPanel(null, 'Pending...', null);
-        });
+        input.addEventListener('input', scheduleRecalc);
     });
 }
 
@@ -555,7 +593,9 @@ function stripWitnessForTxid(txBytes) {
 // MAIN HASH CALCULATION
 // ============================================================================
 
+let _calcSeq = 0;
 async function calculateHash() {
+    const mySeq = ++_calcSeq;
     try {
         // Read inputs
         const inputs = {
@@ -739,6 +779,8 @@ async function calculateHash() {
             </div>
         `;
 
+        if (mySeq !== _calcSeq) return;
+
         document.getElementById('results').innerHTML = summary + output;
 
         // Update floating panel with results
@@ -746,6 +788,8 @@ async function calculateHash() {
         updateFloatingPanel(calculatedLevel, blockHashDisplay, hashMatches && isValid);
 
     } catch (error) {
+        if (mySeq !== _calcSeq) return;
+
         document.getElementById('results').innerHTML = `
             <div class="validator-summary invalid">
                 <h3>❌ Error</h3>

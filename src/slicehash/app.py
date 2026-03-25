@@ -1982,6 +1982,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
             shares_remaining=shares_remaining,
             block_target_level=int(block_target_level),
             share_id=share_id,
+            hashrate_ths=app.config["SLICEHASH_CONFIG"].hashrate_ths,
         )
 
     @app.get("/api/shares/<int:share_id>/validator-data")

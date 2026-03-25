@@ -17,6 +17,9 @@
 # Default: 1000000.0 (1M difficulty)
 billable_difficulty_threshold: 1000000.0
 
+# Miner hashrate in TH/s — used to estimate how often a given level is expected.
+hashrate_ths: 6.45
+
 # URL of the SV2 pool for coinbase address updates.
 # This endpoint receives rotation updates when the active miner changes.
 pool_url: "http://localhost:8080"

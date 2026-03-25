@@ -1717,9 +1717,23 @@ footer {
     max-width: 1000px;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr;
     gap: 16px;
     align-items: center;
+}
+
+.floating-right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.floating-odds-value {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #f7931a;
+    opacity: 0.75;
+    padding: 0 2px;
 }
 
 .floating-level-badge {
@@ -1766,31 +1780,6 @@ footer {
     transition: border-color 0.2s;
 }
 
-.floating-calculate-btn {
-    background-color: #f7931a;
-    color: #000000;
-    border: 4px solid #c46700;
-    border-right-color: #8b4700;
-    border-bottom-color: #8b4700;
-    padding: 12px 24px;
-    font-size: 10px;
-    font-family: 'Press Start 2P', monospace;
-    cursor: pointer;
-    text-align: center;
-    box-shadow: 0 4px 0 #8b4700;
-    transition: transform 0.05s;
-    white-space: nowrap;
-    min-width: 140px;
-}
-
-.floating-calculate-btn:hover {
-    background-color: #ffaa3a;
-}
-
-.floating-calculate-btn:active {
-    transform: translateY(4px);
-    box-shadow: 0 0 0 #8b4700;
-}
 
 .validator-header {
     text-align: center;
@@ -2125,6 +2114,10 @@ textarea.validator-input {
         gap: 10px;
     }
 
+    .floating-right-col {
+        order: 1;
+    }
+
     .floating-level-badge {
         font-size: 18px;
         padding: 8px 16px;
@@ -2135,18 +2128,14 @@ textarea.validator-input {
     .floating-hash-value {
         font-size: 10px;
         padding: 10px 12px;
-        order: 1;
     }
 
-    .floating-calculate-btn {
-        grid-column: 1 / -1;
-        font-size: 9px;
-        padding: 10px 20px;
-        order: 3;
+    .floating-odds-value {
+        font-size: 7px;
     }
 
     .hash-validator-container {
-        padding-bottom: 220px; /* More space on mobile */
+        padding-bottom: 180px;
     }
 }
 

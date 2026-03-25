@@ -122,6 +122,9 @@ class Config(BaseModel):
     invoice_expiry_seconds: int = Field(
         default=600, gt=0, description="Lightning invoice expiry in seconds"
     )
+    hashrate_ths: float = Field(
+        default=6.45, gt=0, description="Miner hashrate in TH/s, used for level probability estimates"
+    )
 
     @property
     def database_url(self) -> str:
