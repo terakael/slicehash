@@ -55,7 +55,6 @@ class ShareNotification(NotificationBase):
 @dataclass
 class AuthNotification(NotificationBase):
     """Authentication success notification sent to SSE clients."""
-    token: str
     k1: str
 
     def get_channel(self) -> str:

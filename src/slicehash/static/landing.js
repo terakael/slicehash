@@ -47,7 +47,7 @@ async function handleLoginClick() {
 
         // Start SSE monitoring BEFORE opening wallet/showing QR
         sseClient = new LightningSSEClient(`/api/auth/stream/${currentK1}`, {
-            onSuccess: (data) => handleAuthSuccess(data.token)
+            onSuccess: (data) => handleAuthSuccess(data.k1)
         });
         sseClient.connect();
 
@@ -74,19 +74,30 @@ async function handleLoginClick() {
     }
 }
 
-function handleAuthSuccess(token) {
-    // Set cookie
-    document.cookie = `auth_token=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+async function handleAuthSuccess(k1) {
+    try {
+        const resp = await fetch('/api/auth/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ k1 }),
+        });
 
-    // Show success message
-    if (qrModal) {
-        qrModal.showSuccess('Authentication successful! Redirecting...');
+        if (!resp.ok) {
+            showError('Authentication failed. Please try again.');
+            return;
+        }
+
+        if (qrModal) {
+            qrModal.showSuccess('Authentication successful! Redirecting...');
+        }
+
+        setTimeout(() => {
+            window.location.href = '/dashboard';
+        }, 1500);
+    } catch (error) {
+        console.error('Error completing auth:', error);
+        showError('Authentication failed. Please try again.');
     }
-
-    // Redirect to dashboard
-    setTimeout(() => {
-        window.location.href = '/dashboard';
-    }, 1500);
 }
 
 function showError(message) {

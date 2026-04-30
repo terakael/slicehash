@@ -73,7 +73,10 @@ class Config(BaseModel):
         description="Secret key for JWT token signing (generate with: openssl rand -hex 32)"
     )
     jwt_expiration_seconds: int = Field(
-        default=2592000, gt=0, description="JWT token expiration in seconds"
+        default=900, gt=0, description="Access token (JWT) expiration in seconds"
+    )
+    refresh_token_expiration_seconds: int = Field(
+        default=7776000, gt=0, description="Refresh token expiration in seconds (default: 90 days)"
     )
     lnurl_callback_url: str = Field(
         description="Public callback URL for LNURL-auth (must be HTTPS in production)"

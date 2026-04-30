@@ -8,9 +8,9 @@ import secrets
 import time
 import jwt
 from functools import wraps
+from hashlib import sha256
 from typing import Optional
 from quart import request, jsonify, redirect
-from hashlib import sha256
 from lnurl import encode as lnurl_encode_lib
 from lnurl.helpers import lnurlauth_verify
 
@@ -126,7 +126,7 @@ def require_auth(f):
     async def decorated_function(*args, **kwargs):
         from quart import current_app
 
-        token = request.cookies.get('auth_token')
+        token = request.cookies.get('access_token')
 
         if not token:
             if request.path.startswith('/api/'):
@@ -176,6 +176,109 @@ async def get_or_create_user_by_pubkey(db, pubkey: str) -> int:
     )
 
     return user_id
+
+
+async def store_refresh_token(db, user_id: int, config) -> str:
+    """Create and store a new refresh token for a user.
+
+    Args:
+        db: Database manager instance
+        user_id: User ID
+        config: Application configuration
+
+    Returns:
+        Raw (unhashed) refresh token string
+    """
+    raw = secrets.token_hex(32)
+    token_hash = sha256(raw.encode()).hexdigest()
+    now = int(time.time())
+    expires_at = now + config.refresh_token_expiration_seconds
+
+    await db.execute(
+        "INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at) VALUES ($1, $2, $3, $4)",
+        user_id, token_hash, now, expires_at
+    )
+    return raw
+
+
+async def validate_and_rotate_refresh_token(db, raw_token: str, config) -> Optional[dict]:
+    """Validate refresh token and issue a rotated replacement.
+
+    Detects reuse of revoked tokens (theft signal) and nukes all sessions for
+    that user if detected.
+
+    Args:
+        db: Database manager instance
+        raw_token: Raw (unhashed) refresh token from cookie
+        config: Application configuration
+
+    Returns:
+        Dict with user_id, pubkey, new_refresh_token if valid; None otherwise
+    """
+    token_hash = sha256(raw_token.encode()).hexdigest()
+    row = await db.fetchrow(
+        "SELECT id, user_id, revoked_at, expires_at FROM refresh_tokens WHERE token_hash = $1",
+        token_hash
+    )
+
+    if not row:
+        return None
+
+    now = int(time.time())
+
+    if row["revoked_at"] is not None:
+        # Revoked token reuse = likely theft — invalidate all sessions for this user
+        await db.execute(
+            "UPDATE refresh_tokens SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL",
+            now, row["user_id"]
+        )
+        return None
+
+    if now > row["expires_at"]:
+        return None
+
+    user_row = await db.fetchrow(
+        "SELECT id, lightning_pubkey FROM users WHERE id = $1",
+        row["user_id"]
+    )
+    if not user_row:
+        return None
+
+    # Issue new refresh token
+    new_raw = secrets.token_hex(32)
+    new_hash = sha256(new_raw.encode()).hexdigest()
+    new_expires = now + config.refresh_token_expiration_seconds
+    new_id = await db.fetchval(
+        "INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at) VALUES ($1, $2, $3, $4) RETURNING id",
+        row["user_id"], new_hash, now, new_expires
+    )
+
+    # Revoke old token, link to replacement
+    await db.execute(
+        "UPDATE refresh_tokens SET revoked_at = $1, replaced_by = $2 WHERE id = $3",
+        now, new_id, row["id"]
+    )
+
+    return {
+        "user_id": row["user_id"],
+        "pubkey": user_row["lightning_pubkey"],
+        "new_refresh_token": new_raw,
+    }
+
+
+async def revoke_refresh_token(db, raw_token: str) -> None:
+    """Revoke a single refresh token (logout).
+
+    Args:
+        db: Database manager instance
+        raw_token: Raw (unhashed) refresh token from cookie
+    """
+    token_hash = sha256(raw_token.encode()).hexdigest()
+    now = int(time.time())
+    await db.execute(
+        "UPDATE refresh_tokens SET revoked_at = $1 WHERE token_hash = $2 AND revoked_at IS NULL",
+        now, token_hash
+    )
 
 
 async def cleanup_expired_challenges(db) -> int:

@@ -39,6 +39,9 @@ from .auth import (
     lnurl_encode,
     mark_challenge_used,
     require_auth,
+    revoke_refresh_token,
+    store_refresh_token,
+    validate_and_rotate_refresh_token,
     verify_lnurl_signature,
 )
 from .cln_client import CLNClient
@@ -416,7 +419,7 @@ def create_app(config_path: str = "config.yaml") -> Quart:
     async def landing_page():
         """Landing page with LNURL-auth QR code."""
         # Check if already authenticated
-        token = request.cookies.get("auth_token")
+        token = request.cookies.get("access_token")
         if token:
             config_obj = app.config["SLICEHASH_CONFIG"]
             payload = decode_jwt_token(token, config_obj)
@@ -520,11 +523,14 @@ def create_app(config_path: str = "config.yaml") -> Quart:
                 # Get or create user
                 user_id = await get_or_create_user_by_pubkey(db, key)
 
-                # Generate JWT token
-                token = create_jwt_token(user_id, key, config_obj)
+                # Store authed identity on challenge for browser to exchange
+                await db.execute(
+                    "UPDATE auth_challenges SET authed_user_id = $1, authed_pubkey = $2 WHERE k1 = $3",
+                    user_id, key, k1
+                )
 
-            # Notify via SSE (instant push to waiting browsers)
-            notification = AuthNotification(token=token, k1=k1)
+            # Notify via SSE — browser will call /api/auth/complete to get HttpOnly cookies
+            notification = AuthNotification(k1=k1)
             await sse_manager.notify(notification)
 
             return jsonify({"status": "OK"}), 200
@@ -567,11 +573,92 @@ def create_app(config_path: str = "config.yaml") -> Quart:
 
         return await create_sse_endpoint(event_stream())
 
+    @app.post("/api/auth/complete")
+    async def complete_auth():
+        """Exchange authenticated k1 challenge for HttpOnly access + refresh cookies."""
+        data = await request.get_json()
+        k1 = data.get("k1") if data else None
+        if not k1:
+            return jsonify({"error": "Missing k1"}), 400
+
+        config_obj = app.config["SLICEHASH_CONFIG"]
+
+        async with DatabaseManager(config_obj.database_url) as db:
+            row = await db.fetchrow(
+                """SELECT authed_user_id, authed_pubkey, exchanged
+                   FROM auth_challenges
+                   WHERE k1 = $1 AND used = 1""",
+                k1
+            )
+
+            if not row or not row["authed_user_id"] or row["exchanged"]:
+                return jsonify({"error": "Invalid or already exchanged"}), 400
+
+            await db.execute(
+                "UPDATE auth_challenges SET exchanged = 1 WHERE k1 = $1",
+                k1
+            )
+
+            access_token = create_jwt_token(row["authed_user_id"], row["authed_pubkey"], config_obj)
+            refresh_token_raw = await store_refresh_token(db, row["authed_user_id"], config_obj)
+
+        response = jsonify({"status": "OK"})
+        response.set_cookie(
+            "access_token", access_token,
+            httponly=True, secure=True, samesite="Lax",
+            max_age=config_obj.jwt_expiration_seconds
+        )
+        response.set_cookie(
+            "refresh_token", refresh_token_raw,
+            httponly=True, secure=True, samesite="Lax",
+            max_age=config_obj.refresh_token_expiration_seconds
+        )
+        return response
+
+    @app.post("/api/auth/refresh")
+    async def refresh_auth():
+        """Rotate refresh token and issue new access token."""
+        raw_token = request.cookies.get("refresh_token")
+        if not raw_token:
+            return jsonify({"error": "No refresh token"}), 401
+
+        config_obj = app.config["SLICEHASH_CONFIG"]
+
+        async with DatabaseManager(config_obj.database_url) as db:
+            result = await validate_and_rotate_refresh_token(db, raw_token, config_obj)
+
+        if not result:
+            response = jsonify({"error": "Invalid or expired refresh token"})
+            response.delete_cookie("access_token")
+            response.delete_cookie("refresh_token")
+            return response, 401
+
+        new_access = create_jwt_token(result["user_id"], result["pubkey"], config_obj)
+        response = jsonify({"status": "OK"})
+        response.set_cookie(
+            "access_token", new_access,
+            httponly=True, secure=True, samesite="Lax",
+            max_age=config_obj.jwt_expiration_seconds
+        )
+        response.set_cookie(
+            "refresh_token", result["new_refresh_token"],
+            httponly=True, secure=True, samesite="Lax",
+            max_age=config_obj.refresh_token_expiration_seconds
+        )
+        return response
+
     @app.get("/api/auth/logout")
     async def logout():
         """Log out current user."""
+        raw_token = request.cookies.get("refresh_token")
+        if raw_token:
+            config_obj = app.config["SLICEHASH_CONFIG"]
+            async with DatabaseManager(config_obj.database_url) as db:
+                await revoke_refresh_token(db, raw_token)
+
         response = redirect("/")
-        response.delete_cookie("auth_token")
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
         return response
 
     @app.get("/api/users/me")

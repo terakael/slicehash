@@ -129,13 +129,39 @@ CREATE TABLE IF NOT EXISTS auth_challenges (
     k1 TEXT PRIMARY KEY,
     created_at BIGINT NOT NULL,
     expires_at BIGINT NOT NULL,
-    used INTEGER DEFAULT 0 CHECK(used IN (0, 1))
+    used INTEGER DEFAULT 0 CHECK(used IN (0, 1)),
+    authed_user_id INTEGER,
+    authed_pubkey TEXT,
+    exchanged INTEGER DEFAULT 0 CHECK(exchanged IN (0, 1))
 )
 """
 
 AUTH_CHALLENGES_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires
 ON auth_challenges(expires_at)
+"""
+
+# Refresh tokens table - long-lived tokens for session renewal
+REFRESH_TOKENS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    revoked_at BIGINT,
+    replaced_by INTEGER REFERENCES refresh_tokens(id)
+)
+"""
+
+REFRESH_TOKENS_HASH_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash
+ON refresh_tokens(token_hash)
+"""
+
+REFRESH_TOKENS_USER_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id
+ON refresh_tokens(user_id)
 """
 
 # Lightning invoices table - tracks payment requests for share purchases
@@ -182,6 +208,7 @@ ALL_TABLES = [
     AUTH_CHALLENGES_TABLE_SQL,
     LIGHTNING_INVOICES_TABLE_SQL,
     USER_ACHIEVEMENTS_TABLE_SQL,
+    REFRESH_TOKENS_TABLE_SQL,
 ]
 
 # Migrations to run on existing databases (idempotent)
@@ -192,6 +219,10 @@ ALL_MIGRATIONS = [
     "UPDATE share_events SET created_at = to_timestamp(ntime) WHERE created_at IS NULL",
     "ALTER TABLE share_events ALTER COLUMN created_at SET NOT NULL",
     "ALTER TABLE share_events ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP",
+    # Access/refresh token session management
+    "ALTER TABLE auth_challenges ADD COLUMN IF NOT EXISTS authed_user_id INTEGER",
+    "ALTER TABLE auth_challenges ADD COLUMN IF NOT EXISTS authed_pubkey TEXT",
+    "ALTER TABLE auth_challenges ADD COLUMN IF NOT EXISTS exchanged INTEGER DEFAULT 0",
 ]
 
 # All index creation statements
@@ -206,4 +237,6 @@ ALL_INDEXES = [
     USERS_LIGHTNING_PUBKEY_INDEX_SQL,
     LIGHTNING_INVOICES_USER_INDEX_SQL,
     LIGHTNING_INVOICES_STATUS_INDEX_SQL,
+    REFRESH_TOKENS_HASH_INDEX_SQL,
+    REFRESH_TOKENS_USER_INDEX_SQL,
 ]
