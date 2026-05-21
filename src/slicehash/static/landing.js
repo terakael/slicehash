@@ -45,32 +45,33 @@ async function handleLoginClick() {
         currentK1 = data.k1;
         currentLnurl = data.lnurl;
 
-        // Start SSE monitoring BEFORE opening wallet/showing QR
+        // Connect SSE first; only show QR/open wallet once the server confirms the
+        // subscription is active — guarantees the wallet callback can never arrive
+        // before we're listening.
         sseClient = new LightningSSEClient(`/api/auth/stream/${currentK1}`, {
+            onConnected: () => showQROrDeepLink(),
             onSuccess: (data) => handleAuthSuccess(data.k1)
         });
         sseClient.connect();
-
-        // Device-aware wallet interaction
-        if (isMobileDevice() && currentLnurl) {
-            // Mobile: Try to open lightning wallet
-            const deepLink = buildLightningDeepLink(currentLnurl);
-            const opened = await openLightningWallet(deepLink);
-
-            if (!opened) {
-                // Wallet didn't open - show fallback prompt
-                showMobileWalletPrompt(
-                    'Would you like to see the QR code instead?',
-                    () => qrModal.show(`/api/auth/qr/${currentK1}`)
-                );
-            }
-        } else {
-            // Desktop: Show QR overlay
-            qrModal.show(`/api/auth/qr/${currentK1}`);
-        }
     } catch (error) {
         console.error('Error during login:', error);
         showError('Failed to initiate login');
+    }
+}
+
+async function showQROrDeepLink() {
+    if (isMobileDevice() && currentLnurl) {
+        const deepLink = buildLightningDeepLink(currentLnurl);
+        const opened = await openLightningWallet(deepLink);
+
+        if (!opened) {
+            showMobileWalletPrompt(
+                'Would you like to see the QR code instead?',
+                () => qrModal.show(`/api/auth/qr/${currentK1}`)
+            );
+        }
+    } else {
+        qrModal.show(`/api/auth/qr/${currentK1}`);
     }
 }
 
